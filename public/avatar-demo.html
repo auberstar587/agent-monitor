@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Avatar Demo</title>
+  <link rel="stylesheet" href="./css/avatar.css">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f0f1a;
+      color: #fff;
+      padding: 40px;
+      min-height: 100vh;
+    }
+    h1 { font-size: 1.5rem; margin-bottom: 8px; color: #e0e0e0; }
+    p { color: #888; margin-bottom: 32px; font-size: 0.9rem; }
+    
+    .section { margin-bottom: 48px; }
+    .section-title {
+      font-size: 0.85rem;
+      color: #666;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #222;
+      padding-bottom: 8px;
+    }
+
+    /* 状态展示区 */
+    .state-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+    }
+    
+    .avatar-card {
+      background: #1a1a2e;
+      border-radius: 12px;
+      padding: 24px;
+      text-align: center;
+      border: 1px solid #2a2a3e;
+    }
+    
+    .avatar-card h3 {
+      font-size: 0.9rem;
+      margin-top: 12px;
+      color: #aaa;
+    }
+    
+    .avatar-card .state-label {
+      font-size: 0.75rem;
+      color: #555;
+      margin-top: 4px;
+    }
+
+    /* 单个Agent完整展示 */
+    .agent-showcase {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    
+    .agent-panel {
+      background: #1a1a2e;
+      border-radius: 16px;
+      padding: 32px;
+      min-width: 280px;
+    }
+    
+    .agent-panel h2 {
+      font-size: 1.1rem;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #2a2a3e;
+    }
+    
+    .state-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 16px;
+    }
+    
+    .state-btn {
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid #333;
+      background: #222;
+      color: #aaa;
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .state-btn:hover {
+      background: #333;
+      color: #fff;
+    }
+    
+    .state-btn.active {
+      background: var(--btn-color, #4A9EFF);
+      border-color: var(--btn-color, #4A9EFF);
+      color: #fff;
+    }
+
+    /* 控制器样式 */
+    .agent-controls {
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid #2a2a3e;
+    }
+    
+    .agent-controls label {
+      display: block;
+      font-size: 0.75rem;
+      color: #666;
+      margin-bottom: 8px;
+    }
+    
+    .agent-controls input[type="range"] {
+      width: 100%;
+      accent-color: var(--agent-color, #4A9EFF);
+    }
+  </style>
+</head>
+<body>
+  <h1>🤖 Agent Avatar System</h1>
+  <p>人形形象 × 5种状态动画 · CSS性能优化版</p>
+
+  <!-- 各Agent完整展示 + 状态切换 -->
+  <div class="section">
+    <div class="section-title">Agent 状态演示</div>
+    <div class="agent-showcase" id="showcase">
+      <!-- canmou -->
+      <div class="agent-panel" style="--agent-color: #00D9A5">
+        <h2>🟢 canmou <small style="font-weight:normal;color:#666">监听者</small></h2>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" width="100" height="120" id="canmou-demo" data-agent="canmou">
+          <defs>
+            <radialGradient id="canmou-eye-glow" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stop-color="#00FFB3" stop-opacity="0.8"/>
+              <stop offset="100%" stop-color="#00D9A5" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="canmou-glow"><feGaussianBlur stdDeviation="2" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <g class="antenna" filter="url(#canmou-glow)">
+            <line x1="50" y1="22" x2="50" y2="8" stroke="#00D9A5" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="50" cy="6" r="4" fill="#00FFB3" class="antenna-tip"/>
+          </g>
+          <circle cx="50" cy="35" r="22" fill="#1A1A2E" stroke="#00D9A5" stroke-width="2.5"/>
+          <g class="eye-group">
+            <circle cx="50" cy="35" r="10" fill="#0a0a14"/>
+            <circle cx="50" cy="35" r="6" fill="#00D9A5" class="eye-core"/>
+            <g class="scan-arc">
+              <circle cx="50" cy="35" r="10" fill="none" stroke="#00FFB3" stroke-width="1.5" stroke-dasharray="8 6" stroke-dashoffset="0" class="scan-ring"/>
+              <line x1="50" y1="35" x2="50" y2="25" stroke="#00FFB3" stroke-width="1.5" stroke-linecap="round" class="scan-line"/>
+            </g>
+          </g>
+          <polygon points="50,60 28,105 72,105" fill="#1A1A2E" stroke="#00D9A5" stroke-width="2.5" stroke-linejoin="round"/>
+          <line x1="50" y1="68" x2="50" y2="88" stroke="#00D9A5" stroke-width="2" stroke-linecap="round" opacity="0.6"/>
+          <circle cx="50" cy="92" r="3" fill="#00FFB3" opacity="0.8"/>
+          <g class="radar-waves" opacity="0.5">
+            <circle cx="20" cy="45" r="5" fill="none" stroke="#00D9A5" stroke-width="1" class="wave wave-1"/>
+            <circle cx="80" cy="45" r="5" fill="none" stroke="#00D9A5" stroke-width="1" class="wave wave-2"/>
+          </g>
+        </svg>
+        <div class="state-buttons">
+          <button class="state-btn" data-state="idle">idle</button>
+          <button class="state-btn" data-state="working">working</button>
+          <button class="state-btn" data-state="speaking">speaking</button>
+          <button class="state-btn" data-state="moving">moving</button>
+          <button class="state-btn" data-state="in-meeting">in-meeting</button>
+        </div>
+      </div>
+
+      <!-- creator -->
+      <div class="agent-panel" style="--agent-color: #4A9EFF">
+        <h2>🔵 creator <small style="font-weight:normal;color:#666">创作者</small></h2>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" width="100" height="120" id="creator-demo" data-agent="creator">
+          <defs>
+            <radialGradient id="creator-bulb-glow" cx="50%" cy="40%" r="60%">
+              <stop offset="0%" stop-color="#FFD700" stop-opacity="0.9"/>
+              <stop offset="60%" stop-color="#4A9EFF" stop-opacity="0.4"/>
+              <stop offset="100%" stop-color="#4A9EFF" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="creator-glow"><feGaussianBlur stdDeviation="2.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <g class="halo-particles">
+            <circle cx="50" cy="12" r="3" fill="#FFD700" opacity="0.7" class="particle p1"/>
+            <circle cx="30" cy="20" r="2" fill="#FFD700" opacity="0.5" class="particle p2"/>
+            <circle cx="70" cy="18" r="2.5" fill="#FFD700" opacity="0.6" class="particle p3"/>
+            <circle cx="25" cy="32" r="1.5" fill="#4A9EFF" opacity="0.4" class="particle p4"/>
+            <circle cx="75" cy="30" r="1.5" fill="#4A9EFF" opacity="0.4" class="particle p5"/>
+          </g>
+          <rect x="28" y="20" width="44" height="40" rx="8" fill="#F5F5F5" stroke="#4A9EFF" stroke-width="2.5"/>
+          <g class="bulb-eyes" filter="url(#creator-glow)">
+            <ellipse cx="40" cy="36" rx="6" ry="7" fill="#4A9EFF"/>
+            <ellipse cx="40" cy="34" rx="4" ry="4" fill="#FFD700" opacity="0.8" class="bulb-glow"/>
+            <rect x="37" y="42" width="6" height="4" rx="1" fill="#4A9EFF"/>
+            <ellipse cx="60" cy="36" rx="6" ry="7" fill="#4A9EFF"/>
+            <ellipse cx="60" cy="34" rx="4" ry="4" fill="#FFD700" opacity="0.8" class="bulb-glow"/>
+            <rect x="57" y="42" width="6" height="4" rx="1" fill="#4A9EFF"/>
+          </g>
+          <rect x="30" y="62" width="40" height="40" rx="4" fill="#F5F5F5" stroke="#4A9EFF" stroke-width="2.5"/>
+          <path d="M42 62 L50 72 L58 62" fill="none" stroke="#4A9EFF" stroke-width="2" stroke-linejoin="round"/>
+          <g class="paint-brush">
+            <line x1="70" y1="75" x2="82" y2="65" stroke="#4A9EFF" stroke-width="2.5" stroke-linecap="round"/>
+            <circle cx="83" cy="64" r="3" fill="#FFD700"/>
+          </g>
+          <rect x="44" y="76" width="12" height="18" rx="2" fill="#4A9EFF" opacity="0.3"/>
+          <line x1="47" y1="80" x2="53" y2="80" stroke="#4A9EFF" stroke-width="1.5" opacity="0.7"/>
+          <line x1="47" y1="84" x2="53" y2="84" stroke="#4A9EFF" stroke-width="1.5" opacity="0.7"/>
+          <line x1="47" y1="88" x2="51" y2="88" stroke="#4A9EFF" stroke-width="1.5" opacity="0.7"/>
+        </svg>
+        <div class="state-buttons">
+          <button class="state-btn" data-state="idle">idle</button>
+          <button class="state-btn" data-state="working">working</button>
+          <button class="state-btn" data-state="speaking">speaking</button>
+          <button class="state-btn" data-state="moving">moving</button>
+          <button class="state-btn" data-state="in-meeting">in-meeting</button>
+        </div>
+      </div>
+
+      <!-- yunying -->
+      <div class="agent-panel" style="--agent-color: #FF9F43">
+        <h2>🟠 yunying <small style="font-weight:normal;color:#666">运营者</small></h2>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" width="100" height="120" id="yunying-demo" data-agent="yunying">
+          <defs>
+            <filter id="yunying-glow"><feGaussianBlur stdDeviation="1.5" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <ellipse cx="50" cy="32" rx="22" ry="20" fill="#2D3436" stroke="#FF9F43" stroke-width="2.5"/>
+          <g class="dashboard-eyes">
+            <rect x="35" y="26" width="10" height="10" rx="2" fill="#FF9F43"/>
+            <line x1="40" y1="31" x2="43" y2="29" stroke="#2D3436" stroke-width="1.5" stroke-linecap="round" class="needle needle-l"/>
+            <circle cx="40" cy="31" r="1.5" fill="#FFD700"/>
+            <rect x="55" y="26" width="10" height="10" rx="2" fill="#FF9F43"/>
+            <line x1="60" y1="31" x2="57" y2="29" stroke="#2D3436" stroke-width="1.5" stroke-linecap="round" class="needle needle-r"/>
+            <circle cx="60" cy="31" r="1.5" fill="#FFD700"/>
+          </g>
+          <path d="M44 42 Q50 46 56 42" fill="none" stroke="#FF9F43" stroke-width="2" stroke-linecap="round" class="mouth"/>
+          <path d="M32 55 L68 55 L72 105 L28 105 Z" fill="#2D3436" stroke="#FF9F43" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M46 55 L50 60 L54 55 L50 52 Z" fill="#FF6B6B"/>
+          <circle cx="50" cy="56" r="2" fill="#FFD700"/>
+          <g class="notepad">
+            <rect x="18" y="72" width="16" height="22" rx="2" fill="#F5F5F5" stroke="#FF9F43" stroke-width="1.5"/>
+            <line x1="21" y1="77" x2="31" y2="77" stroke="#FF9F43" stroke-width="1" opacity="0.6"/>
+            <line x1="21" y1="81" x2="31" y2="81" stroke="#FF9F43" stroke-width="1" opacity="0.6"/>
+            <line x1="21" y1="85" x2="28" y2="85" stroke="#FF9F43" stroke-width="1" opacity="0.6"/>
+          </g>
+          <g class="data-bars" opacity="0.6">
+            <rect x="56" y="70" width="6" height="20" rx="1" fill="#FF9F43" opacity="0.3"/>
+            <rect x="56" y="70" width="6" height="8" rx="1" fill="#FF9F43" class="bar bar-1"/>
+            <rect x="64" y="70" width="6" height="20" rx="1" fill="#FF9F43" opacity="0.3"/>
+            <rect x="64" y="76" width="6" height="14" rx="1" fill="#FF9F43" class="bar bar-2"/>
+          </g>
+        </svg>
+        <div class="state-buttons">
+          <button class="state-btn" data-state="idle">idle</button>
+          <button class="state-btn" data-state="working">working</button>
+          <button class="state-btn" data-state="speaking">speaking</button>
+          <button class="state-btn" data-state="moving">moving</button>
+          <button class="state-btn" data-state="in-meeting">in-meeting</button>
+        </div>
+      </div>
+
+      <!-- evolver -->
+      <div class="agent-panel" style="--agent-color: #A855F7">
+        <h2>🟣 evolver <small style="font-weight:normal;color:#666">进化者</small></h2>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120" width="100" height="120" id="evolver-demo" data-agent="evolver">
+          <defs>
+            <linearGradient id="evolver-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#A855F7"/>
+              <stop offset="100%" stop-color="#7C3AED"/>
+            </linearGradient>
+            <radialGradient id="evolver-core-glow" cx="50%" cy="40%" r="50%">
+              <stop offset="0%" stop-color="#EC4899" stop-opacity="0.6"/>
+              <stop offset="100%" stop-color="#A855F7" stop-opacity="0"/>
+            </radialGradient>
+            <filter id="evolver-glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+          </defs>
+          <g class="evolution-halo" filter="url(#evolver-glow)">
+            <ellipse cx="50" cy="18" rx="28" ry="6" fill="none" stroke="#A855F7" stroke-width="2" opacity="0.4" class="halo-ring ring-1"/>
+            <ellipse cx="50" cy="18" rx="22" ry="5" fill="none" stroke="#EC4899" stroke-width="1.5" opacity="0.5" class="halo-ring ring-2"/>
+            <ellipse cx="50" cy="18" rx="16" ry="4" fill="none" stroke="#A855F7" stroke-width="1" opacity="0.6" class="halo-ring ring-3"/>
+          </g>
+          <path d="M50 10 C65 10 72 25 72 38 C72 52 62 58 50 58 C38 58 28 52 28 38 C28 25 35 10 50 10 Z" fill="#7C3AED" stroke="#A855F7" stroke-width="2.5"/>
+          <ellipse cx="50" cy="34" rx="12" ry="10" fill="url(#evolver-core-glow)"/>
+          <g class="evo-eye">
+            <ellipse cx="50" cy="34" rx="8" ry="7" fill="#1A1A2E"/>
+            <ellipse cx="50" cy="34" rx="5" ry="4" fill="#A855F7" class="evo-pupil"/>
+            <ellipse cx="50" cy="33" rx="2" ry="1.5" fill="#EC4899"/>
+          </g>
+          <path d="M35 60 Q25 75 30 105 L70 105 Q75 75 65 60 Q58 56 50 58 Q42 56 35 60 Z" fill="#7C3AED" stroke="#A855F7" stroke-width="2.5" class="evo-body"/>
+          <g class="code-stream" opacity="0.6">
+            <line x1="32" y1="68" x2="32" y2="95" stroke="#A855F7" stroke-width="1.5" stroke-dasharray="4 4" class="stream-line sl-1"/>
+            <line x1="68" y1="68" x2="68" y2="95" stroke="#A855F7" stroke-width="1.5" stroke-dasharray="4 4" class="stream-line sl-2"/>
+            <line x1="50" y1="65" x2="50" y2="100" stroke="#EC4899" stroke-width="1" stroke-dasharray="3 5" class="stream-line sl-3"/>
+          </g>
+          <path d="M35 105 Q50 110 65 105" fill="none" stroke="#EC4899" stroke-width="2" opacity="0.5" class="energy-wave"/>
+        </svg>
+        <div class="state-buttons">
+          <button class="state-btn" data-state="idle">idle</button>
+          <button class="state-btn" data-state="working">working</button>
+          <button class="state-btn" data-state="speaking">speaking</button>
+          <button class="state-btn" data-state="moving">moving</button>
+          <button class="state-btn" data-state="in-meeting">in-meeting</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { AvatarController, AvatarManager, autoRegisterAvatars } from '../src/avatar.js';
+
+    // 初始化所有 Agent
+    const manager = autoRegisterAvatars();
+    
+    // 设置所有默认 idle
+    manager.list().forEach(id => manager.get(id).idle());
+
+    // 按钮交互
+    document.querySelectorAll('.agent-panel').forEach(panel => {
+      const svg = panel.querySelector('svg');
+      const agentType = svg.getAttribute('data-agent');
+      const buttons = panel.querySelectorAll('.state-btn');
+      
+      // 找到对应的 controller
+      const ctrl = manager.list()
+        .map(id => manager.get(id))
+        .find(c => c.agentType === agentType);
+      
+      if (!ctrl) return;
+      
+      buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const state = btn.getAttribute('data-state');
+          
+          // 更新按钮高亮
+          buttons.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          
+          // 设置状态
+          if (state === 'moving') {
+            ctrl.moveTo(50, 30, 600);
+          } else if (state === 'in-meeting') {
+            ctrl.enterMeeting(0, 0);
+          } else {
+            ctrl.setState(state);
+          }
+        });
+      });
+      
+      // 默认 idle 按钮高亮
+      panel.querySelector('[data-state="idle"]').classList.add('active');
+    });
+
+    console.log('[Avatar Demo] Initialized. Avatars:', manager.list());
+  </script>
+</body>
+</html>

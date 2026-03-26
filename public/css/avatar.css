@@ -1,0 +1,7 @@
+/**
+ * Avatar CSS Bundle
+ * 引入顺序：base → animations → states
+ */
+@import './avatar-base.css';
+@import './animations.css';
+@import './states.css';

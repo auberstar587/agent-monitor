@@ -1,80 +1,372 @@
 import { EventEmitter } from 'events';
+import redis from './redis.js';
+
+/**
+ * Agent Registry - Manages agent states with heartbeat detection
+ * 
+ * Features:
+ * - In-memory state cache for fast access
+ * - Redis persistence for cross-process sharing
+ * - 30-second heartbeat timeout detection
+ * - Automatic status transitions (idle -> away on timeout)
+ * 
+ * Status types: idle | working | meeting | away
+ */
+
+// Valid status types
+const VALID_STATUSES = ['idle', 'working', 'meeting', 'away'];
+
+// Default heartbeat timeout (30 seconds)
+const DEFAULT_HEARTBEAT_TIMEOUT = 30000;
+
+// Heartbeat check interval (10 seconds)
+const HEARTBEAT_CHECK_INTERVAL = 10000;
+
+// Redis state TTL (30 seconds, synced with heartbeat timeout)
+const STATE_TTL = 30;
 
 export class AgentRegistry extends EventEmitter {
-  constructor() {
+  constructor(options = {}) {
     super();
+    this.heartbeatTimeout = options.heartbeatTimeout || DEFAULT_HEARTBEAT_TIMEOUT;
+    this.checkInterval = options.checkInterval || HEARTBEAT_CHECK_INTERVAL;
+    
+    // In-memory state cache: Map<agentId, AgentState>
     this.agents = new Map();
-    this.pollingInterval = null;
-    this.heartbeatTimeout = 30000; // 30 seconds
+    
+    // Heartbeat check timer
+    this._checkTimer = null;
+    
+    // Redis-enabled flag
+    this._redisEnabled = false;
+    
+    // Track which agents were previously away (for state change events)
+    this._wasAway = new Set();
+  }
+
+  /**
+   * Initialize and start the registry
+   * @param {object} redisConfig - Optional Redis config to enable persistence
+   */
+  async start(redisConfig = null) {
+    console.log('[AgentRegistry] Starting...');
+    
+    // Try to connect to Redis if config provided
+    if (redisConfig) {
+      try {
+        await redis.connect(redisConfig);
+        this._redisEnabled = true;
+        console.log('[AgentRegistry] Redis enabled for state persistence');
+        
+        // Load existing states from Redis
+        await this._loadFromRedis();
+      } catch (err) {
+        console.warn('[AgentRegistry] Redis connection failed, using in-memory only:', err.message);
+        this._redisEnabled = false;
+      }
+    }
+    
+    // Initialize default agents
+    this._initializeDefaultAgents();
+    
+    // Start heartbeat check loop
+    this._startHeartbeatCheck();
+    
+    console.log(`[AgentRegistry] Started with ${this.agents.size} agents`);
+  }
+
+  /**
+   * Initialize default agents from design spec
+   */
+  _initializeDefaultAgents() {
+    const defaults = [
+      { agentId: 'canmou', name: 'canmou', role: '参谋', location: 'workspace' },
+      { agentId: 'creator', name: 'creator', role: '笔杆子', location: 'workspace' },
+      { agentId: 'yunying', name: 'yunying', role: '运营官', location: 'workspace' },
+      { agentId: 'evolver', name: 'evolver', role: '进化官', location: 'workspace' },
+    ];
+
+    for (const agent of defaults) {
+      // Only set if not already in cache (from Redis)
+      if (!this.agents.has(agent.agentId)) {
+        this.updateState(agent.agentId, {
+          ...agent,
+          status: 'idle',
+          currentTask: null,
+          sessionId: null,
+          startTime: Date.now(),
+          lastHeartbeat: Date.now(),
+        });
+      }
+    }
+  }
+
+  /**
+   * Load existing agent states from Redis
+   */
+  async _loadFromRedis() {
+    if (!this._redisEnabled) return;
+    
+    try {
+      const states = await redis.getAllAgentStates();
+      for (const state of states) {
+        if (state && state.agentId) {
+          this.agents.set(state.agentId, state);
+        }
+      }
+      console.log(`[AgentRegistry] Loaded ${states.length} states from Redis`);
+    } catch (err) {
+      console.error('[AgentRegistry] Failed to load from Redis:', err.message);
+    }
   }
 
   /**
    * Update or create agent state
-   * @param {string} agentId 
-   * @param {object} state 
+   * @param {string} agentId
+   * @param {object} state - Partial state to merge
+   * @returns {object} The new state
    */
-  updateState(agentId, state) {
+  async updateState(agentId, state = {}) {
     const existing = this.agents.get(agentId);
+    const prevState = existing ? { ...existing } : null;
+    
+    // Validate status
+    if (state.status && !VALID_STATUSES.includes(state.status)) {
+      console.warn(`[AgentRegistry] Invalid status "${state.status}" for ${agentId}, ignoring`);
+      delete state.status;
+    }
+    
+    // Build new state
+    const now = Date.now();
     const newState = {
-      ...existing,
       agentId,
-      lastHeartbeat: Date.now(),
-      ...state
+      name: state.name || existing?.name || agentId,
+      role: state.role || existing?.role || 'unknown',
+      location: state.location || existing?.location || 'workspace',
+      status: state.status || existing?.status || 'idle',
+      currentTask: state.currentTask !== undefined ? state.currentTask : existing?.currentTask,
+      sessionId: state.sessionId !== undefined ? state.sessionId : existing?.sessionId,
+      startTime: state.startTime || existing?.startTime || now,
+      lastHeartbeat: now,
+      metadata: state.metadata || existing?.metadata || {},
+      ...state,
     };
+    
+    // Check if status changed
+    const statusChanged = !prevState || prevState.status !== newState.status;
+    
+    // Update memory cache
     this.agents.set(agentId, newState);
-    this.emit('stateChange', newState);
+    
+    // Persist to Redis
+    if (this._redisEnabled) {
+      try {
+        await redis.setAgentState(agentId, newState, STATE_TTL);
+      } catch (err) {
+        console.error('[AgentRegistry] Redis set failed:', err.message);
+      }
+    }
+    
+    // Emit state change event
+    if (statusChanged) {
+      const event = {
+        type: 'state_changed',
+        agentId,
+        prevState: prevState || null,
+        nextState: newState,
+        timestamp: now,
+      };
+      this.emit('stateChange', newState, prevState);
+      this.emit('stateChangeEvent', event);
+      
+      // Publish to Redis pub/sub if enabled
+      if (this._redisEnabled) {
+        await redis.publishStateChange(event).catch(() => {});
+      }
+    }
+    
     return newState;
   }
 
   /**
    * Get state for a specific agent
+   * @param {string} agentId
+   * @returns {object|null}
    */
   getState(agentId) {
-    return this.agents.get(agentId);
+    return this.agents.get(agentId) || null;
   }
 
   /**
    * Get all agent states
+   * @returns {object[]}
    */
   getAllStates() {
     return Array.from(this.agents.values());
   }
 
   /**
-   * Start monitoring - placeholder for OpenClaw API integration
+   * Get agents filtered by status
+   * @param {string} status
+   * @returns {object[]}
    */
-  start() {
-    console.log('[AgentRegistry] Starting...');
-    
-    // TODO: Integrate with OpenClaw sessions_list API
-    // This would poll sessions_list or connect to Gateway WebSocket
-    
-    // For now, simulate some agents
-    this.updateState('canmou', { name: 'canmou', role: '参谋', state: 'idle', location: 'workspace' });
-    this.updateState('creator', { name: 'creator', role: '笔杆子', state: 'idle', location: 'workspace' });
-    this.updateState('yunying', { name: 'yunying', role: '运营官', state: 'idle', location: 'workspace' });
-    this.updateState('evolver', { name: 'evolver', role: '进化官', state: 'idle', location: 'workspace' });
-
-    // Poll every 10 seconds
-    this.pollingInterval = setInterval(() => this.poll(), 10000);
+  getAgentsByStatus(status) {
+    return this.getAllStates().filter((a) => a.status === status);
   }
 
   /**
-   * Poll OpenClaw for agent states
+   * Get agents filtered by location
+   * @param {string} location
+   * @returns {object[]}
    */
-  async poll() {
-    // TODO: Call OpenClaw sessions_list API
-    // const sessions = await sessions_list();
-    // Update states based on session data
+  getAgentsByLocation(location) {
+    return this.getAllStates().filter((a) => a.location === location);
   }
 
   /**
-   * Stop monitoring
+   * Start heartbeat check loop
    */
-  stop() {
-    if (this.pollingInterval) {
-      clearInterval(this.pollingInterval);
-      this.pollingInterval = null;
+  _startHeartbeatCheck() {
+    this._stopHeartbeatCheck();
+    
+    this._checkTimer = setInterval(() => {
+      this._checkHeartbeats();
+    }, this.checkInterval);
+    
+    console.log(`[AgentRegistry] Heartbeat check started (interval: ${this.checkInterval}ms, timeout: ${this.heartbeatTimeout}ms)`);
+  }
+
+  /**
+   * Stop heartbeat check loop
+   */
+  _stopHeartbeatCheck() {
+    if (this._checkTimer) {
+      clearInterval(this._checkTimer);
+      this._checkTimer = null;
     }
   }
+
+  /**
+   * Check heartbeats and mark agents as away if timed out
+   */
+  _checkHeartbeats() {
+    const now = Date.now();
+    const timeout = this.heartbeatTimeout;
+    
+    for (const [agentId, state] of this.agents) {
+      const elapsed = now - state.lastHeartbeat;
+      
+      // Skip if already away
+      if (state.status === 'away') continue;
+      
+      // Check if heartbeat timed out
+      if (elapsed > timeout) {
+        const prevState = { ...state };
+        
+        console.log(`[AgentRegistry] Agent ${agentId} heartbeat timeout (${elapsed}ms), marking as away`);
+        
+        // Update state to away
+        this.agents.set(agentId, {
+          ...state,
+          status: 'away',
+          lastHeartbeat: state.lastHeartbeat, // Keep original heartbeat time
+        });
+        
+        // Persist to Redis
+        if (this._redisEnabled) {
+          redis.setAgentState(agentId, { ...state, status: 'away' }, STATE_TTL).catch(() => {});
+        }
+        
+        // Emit away event
+        const event = {
+          type: 'agent_timeout',
+          agentId,
+          prevState,
+          nextState: { ...state, status: 'away' },
+          elapsed,
+          timestamp: now,
+        };
+        this.emit('stateChange', { ...state, status: 'away' }, prevState);
+        this.emit('stateChangeEvent', event);
+        this.emit('agentTimeout', agentId, elapsed);
+        
+        // Publish to Redis
+        if (this._redisEnabled) {
+          redis.publishStateChange(event).catch(() => {});
+        }
+      }
+    }
+  }
+
+  /**
+   * Refresh agent heartbeat (call periodically to keep agent alive)
+   * @param {string} agentId
+   * @returns {object} Updated state
+   */
+  async refreshHeartbeat(agentId) {
+    const state = this.agents.get(agentId);
+    if (!state) {
+      console.warn(`[AgentRegistry] Heartbeat refresh for unknown agent: ${agentId}`);
+      return null;
+    }
+    
+    // If agent was away, restore to idle
+    const prevStatus = state.status;
+    const newStatus = state.status === 'away' ? 'idle' : state.status;
+    
+    return this.updateState(agentId, {
+      status: newStatus,
+      lastHeartbeat: Date.now(),
+    });
+  }
+
+  /**
+   * Set agent status explicitly
+   * @param {string} agentId
+   * @param {string} status
+   * @param {object} [extra]
+   */
+  async setStatus(agentId, status, extra = {}) {
+    if (!VALID_STATUSES.includes(status)) {
+      throw new Error(`Invalid status: ${status}. Must be one of: ${VALID_STATUSES.join(', ')}`);
+    }
+    return this.updateState(agentId, { status, ...extra });
+  }
+
+  /**
+   * Remove an agent from registry
+   * @param {string} agentId
+   */
+  async removeAgent(agentId) {
+    const state = this.agents.get(agentId);
+    if (state) {
+      this.agents.delete(agentId);
+      
+      if (this._redisEnabled) {
+        await redis.deleteAgentState(agentId).catch(() => {});
+      }
+      
+      this.emit('agentRemoved', agentId, state);
+    }
+  }
+
+  /**
+   * Stop the registry
+   */
+  stop() {
+    console.log('[AgentRegistry] Stopping...');
+    this._stopHeartbeatCheck();
+    
+    if (this._redisEnabled) {
+      redis.disconnect().catch(() => {});
+    }
+    
+    this.emit('stopped');
+    console.log('[AgentRegistry] Stopped');
+  }
 }
+
+// Export singleton for convenience
+const agentRegistry = new AgentRegistry();
+export default agentRegistry;
+export { VALID_STATUSES, DEFAULT_HEARTBEAT_TIMEOUT };

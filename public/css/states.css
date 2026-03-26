@@ -1,0 +1,114 @@
+/**
+ * Avatar States - 各状态样式变体
+ * 5种状态: idle / working / speaking / moving / in-meeting
+ */
+
+/* ==================== idle 状态 ==================== */
+.state-idle {
+  filter: brightness(1);
+}
+
+.state-idle .eye-group,
+.state-idle .bulb-eyes,
+.state-idle .dashboard-eyes,
+.state-idle .evo-eye {
+  animation: breathe 3s ease-in-out infinite;
+}
+
+.state-idle .antenna-tip,
+.state-idle .particle,
+.state-idle .halo-ring {
+  animation-play-state: running;
+}
+
+/* ==================== working 状态 ==================== */
+.state-working {
+  filter: brightness(1.1) saturate(1.2);
+}
+
+.state-working::after {
+  content: '';
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  width: 12px;
+  height: 12px;
+  background: #10B981;
+  border-radius: 50%;
+  animation: blink-dot 1s ease-in-out infinite;
+}
+
+@keyframes blink-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* ==================== speaking 状态 ==================== */
+.state-speaking {
+  filter: brightness(1.15) saturate(1.3);
+  /* 发言时轻微放大 */
+  transform: scale(1.05);
+}
+
+.state-speaking::before {
+  content: '';
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 8px solid var(--agent-primary, #4A9EFF);
+  animation: speak-arrow 0.3s ease-out infinite alternate;
+}
+
+@keyframes speak-arrow {
+  0% { opacity: 0.5; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 1; transform: translateX(-50%) translateY(3px); }
+}
+
+/* ==================== moving 状态 ==================== */
+.state-moving {
+  transition: transform 0.5s ease-out;
+}
+
+.state-moving .eye-group,
+.state-moving .bulb-eyes {
+  animation: look-around 1s ease-in-out infinite;
+}
+
+@keyframes look-around {
+  0%, 100% { transform: translateX(-3px); }
+  50% { transform: translateX(3px); }
+}
+
+/* ==================== in-meeting 状态 ==================== */
+.state-in-meeting {
+  filter: brightness(0.9) saturate(0.85);
+  /* 缩小 + 居中 */
+  transform: scale(0.8);
+}
+
+.state-in-meeting .particle,
+.state-in-meeting .radar-waves,
+.state-in-meeting .stream-line {
+  animation-play-state: paused !important;
+}
+
+/* 会议中额外遮罩表示在场 */
+.state-in-meeting::after {
+  content: '';
+  position: absolute;
+  inset: -3px;
+  border-radius: inherit;
+  border: 2px solid var(--agent-primary, #4A9EFF);
+  opacity: 0.3;
+  animation: meeting-ring 2s ease-in-out infinite;
+}
+
+@keyframes meeting-ring {
+  0%, 100% { opacity: 0.2; transform: scale(1); }
+  50% { opacity: 0.4; transform: scale(1.02); }
+}
