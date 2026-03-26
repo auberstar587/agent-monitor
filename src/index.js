@@ -10,7 +10,7 @@ import { MessageCapture } from './services/message-capture.js';
 import redis from './services/redis.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 3001;
 
 // Redis configuration
 const REDIS_CONFIG = {
