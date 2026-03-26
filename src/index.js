@@ -215,6 +215,28 @@ fastify.post('/api/agents/:id/heartbeat', async (req) => {
   return { success: true, state };
 });
 
+// Meeting API endpoints
+fastify.post('/api/meeting/start', async (req) => {
+  const { topic, participants } = req.body || {};
+  const result = await meetingSM.emitEvent('meeting:start', { topic, participants });
+  return { success: result.success, state: meetingSM.getState() };
+});
+
+fastify.post('/api/meeting/join', async (req) => {
+  const { agentId } = req.body || {};
+  const result = await meetingSM.emitEvent('meeting:join', { agentId });
+  return { success: result.success, state: meetingSM.getState() };
+});
+
+fastify.post('/api/meeting/end', async () => {
+  const result = await meetingSM.emitEvent('meeting:end');
+  return { success: result.success, state: meetingSM.getState() };
+});
+
+fastify.get('/api/meeting/state', async () => {
+  return meetingSM.getState();
+});
+
 // Graceful shutdown
 const shutdown = async () => {
   console.log('[Server] Shutting down...');
