@@ -7,6 +7,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { AgentRegistry } from './services/agent-registry.js';
 import { MessageCapture } from './services/message-capture.js';
+import { MeetingStateMachine } from './meeting-state.js';
 import redis from './services/redis.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -50,6 +51,14 @@ const messageCapture = new MessageCapture({
   gateway: GATEWAY_CONFIG,
 });
 
+// Initialize Meeting State Machine
+const meetingSM = new MeetingStateMachine();
+
+// Meeting state change events
+meetingSM.on('stateChange', ({ state, prevState }) => {
+  io.emit('meeting:state', { state, prevState });
+});
+
 // Initialize Socket.io
 const io = new Server(fastify.server, {
   cors: {
@@ -68,30 +77,12 @@ io.on('connection', (socket) => {
   // Handle meeting events
   socket.on('meeting:start', (data) => {
     console.log('[Meeting] Started:', data);
-    
-    // Update all agents to meeting status
-    for (const agent of agentRegistry.getAllStates()) {
-      agentRegistry.setStatus(agent.agentId, 'meeting', {
-        currentTask: data.topic || 'Meeting',
-        sessionId: data.sessionId,
-      });
-    }
-    
-    io.emit('scene:change', { scene: 'meeting', data });
+    meetingSM.start(data);
   });
 
   socket.on('meeting:end', () => {
     console.log('[Meeting] Ended');
-    
-    // Reset all meeting agents to idle
-    for (const agent of agentRegistry.getAgentsByStatus('meeting')) {
-      agentRegistry.setStatus(agent.agentId, 'idle', {
-        currentTask: null,
-        sessionId: null,
-      });
-    }
-    
-    io.emit('scene:change', { scene: 'workspace' });
+    meetingSM.end();
   });
 
   // Handle agent status update requests
