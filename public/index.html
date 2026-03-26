@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Monitor</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      min-height: 100vh;
+    }
+    .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+    h1 { text-align: center; margin-bottom: 30px; color: #58a6ff; }
+    .status { text-align: center; margin-bottom: 20px; }
+    .status-dot {
+      display: inline-block;
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: #3fb950;
+      margin-right: 8px;
+    }
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 20px;
+      margin-bottom: 40px;
+    }
+    .agent-card {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 20px;
+      text-align: center;
+    }
+    .agent-card.idle { border-color: #3fb950; }
+    .agent-card.working { border-color: #f59e0b; }
+    .agent-card.meeting { border-color: #a371f7; }
+    .agent-avatar {
+      width: 80px; height: 80px;
+      margin: 0 auto 15px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 32px;
+    }
+    .agent-name { font-size: 18px; font-weight: 600; margin-bottom: 5px; }
+    .agent-role { font-size: 14px; color: #8b949e; margin-bottom: 10px; }
+    .agent-state {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      background: rgba(63, 185, 80, 0.2);
+      color: #3fb950;
+    }
+    .messages-panel {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 12px;
+      padding: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    .message {
+      padding: 10px 15px;
+      margin-bottom: 10px;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+    }
+    .message.canmou { border-left: 3px solid #3fb950; }
+    .message.creator { border-left: 3px solid #58a6ff; }
+    .message.yunying { border-left: 3px solid #f59e0b; }
+    .message.evolver { border-left: 3px solid #a371f7; }
+    .message-meta { font-size: 12px; color: #8b949e; margin-bottom: 5px; }
+    .message-content { font-size: 14px; line-height: 1.5; }
+    .placeholder {
+      text-align: center;
+      padding: 40px;
+      color: #8b949e;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🤖 Agent Monitor</h1>
+    
+    <div class="status">
+      <span class="status-dot"></span>
+      <span>Connected to Monitor Backend</span>
+    </div>
+
+    <h2 style="margin-bottom: 15px; font-size: 16px; color: #8b949e;">AGENTS</h2>
+    <div class="agents-grid" id="agents">
+      <div class="placeholder">Loading agent states...</div>
+    </div>
+
+    <h2 style="margin-bottom: 15px; font-size: 16px; color: #8b949e;">MESSAGES</h2>
+    <div class="messages-panel" id="messages">
+      <div class="placeholder">No messages yet</div>
+    </div>
+  </div>
+
+  <script src="https://cdn.socket.io/4.7.0/socket.io.min.js"></script>
+  <script>
+    // Connect to backend
+    const socket = io('http://localhost:3000');
+
+    socket.on('connect', () => {
+      console.log('Connected to server');
+    });
+
+    socket.on('state:init', (agents) => {
+      renderAgents(agents);
+    });
+
+    socket.on('state:update', (agent) => {
+      updateAgent(agent);
+    });
+
+    socket.on('message:new', (msg) => {
+      addMessage(msg);
+    });
+
+    function renderAgents(agents) {
+      const container = document.getElementById('agents');
+      if (!agents.length) {
+        container.innerHTML = '<div class="placeholder">No agents found</div>';
+        return;
+      }
+      container.innerHTML = agents.map(agent => `
+        <div class="agent-card ${agent.state}" id="agent-${agent.agentId}">
+          <div class="agent-avatar" style="background: ${getAgentColor(agent.agentId)}20;">
+            ${agent.name.charAt(0).toUpperCase()}
+          </div>
+          <div class="agent-name">${agent.name}</div>
+          <div class="agent-role">${agent.role}</div>
+          <span class="agent-state">${agent.state}</span>
+        </div>
+      `).join('');
+    }
+
+    function updateAgent(agent) {
+      const card = document.getElementById(`agent-${agent.agentId}`);
+      if (card) {
+        card.className = `agent-card ${agent.state}`;
+        card.querySelector('.agent-state').textContent = agent.state;
+      }
+    }
+
+    function addMessage(msg) {
+      const container = document.getElementById('messages');
+      const placeholder = container.querySelector('.placeholder');
+      if (placeholder) placeholder.remove();
+
+      const div = document.createElement('div');
+      div.className = `message ${msg.agentId}`;
+      div.innerHTML = `
+        <div class="message-meta">${msg.agentId} · ${new Date(msg.timestamp).toLocaleTimeString()}</div>
+        <div class="message-content">${escapeHtml(msg.content)}</div>
+      `;
+      container.appendChild(div);
+      container.scrollTop = container.scrollHeight;
+    }
+
+    function getAgentColor(agentId) {
+      const colors = {
+        canmou: '#3fb950',
+        creator: '#58a6ff',
+        yunying: '#f59e0b',
+        evolver: '#a371f7'
+      };
+      return colors[agentId] || '#8b949e';
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+  </script>
+</body>
+</html>
