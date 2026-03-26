@@ -1,0 +1,30 @@
+{
+  "$schema": "./agents.schema.json",
+  "version": "1.0",
+  "agents": {
+    "canmou": {
+      "name": "canmou",
+      "role": "参谋",
+      "description": "调研分析Agent",
+      "color": "#3fb950"
+    },
+    "creator": {
+      "name": "creator",
+      "role": "笔杆子",
+      "description": "内容生成Agent",
+      "color": "#58a6ff"
+    },
+    "yunying": {
+      "name": "yunying",
+      "role": "运营官",
+      "description": "执行监控Agent",
+      "color": "#f59e0b"
+    },
+    "evolver": {
+      "name": "evolver",
+      "role": "进化官",
+      "description": "技能优化Agent",
+      "color": "#a371f7"
+    }
+  }
+}

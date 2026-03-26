@@ -180,7 +180,7 @@
     });
 
     // ---- Socket.IO Connection ----
-    const socket = io('http://localhost:3000');
+    const socket = io(); // 自动检测当前域名
 
     socket.on('connect', () => {
       document.getElementById('conn-dot').classList.remove('offline');

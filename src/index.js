@@ -25,6 +25,10 @@ const GATEWAY_CONFIG = {
   port: parseInt(process.env.OPENCLAW_GATEWAY_PORT || '18789', 10),
 };
 
+// Agent discovery configuration
+const GATEWAY_URL = `http://${GATEWAY_CONFIG.host}:${GATEWAY_CONFIG.port}`;
+const CONFIG_PATH = process.env.AGENTS_CONFIG || path.join(__dirname, '..', 'agents.json');
+
 // Initialize Fastify
 const fastify = Fastify({ logger: true });
 
@@ -241,8 +245,12 @@ const start = async () => {
     await fastify.listen({ port: PORT, host: '0.0.0.0' });
     console.log(`[Server] Running on http://localhost:${PORT}`);
     
-    // Start services
-    await agentRegistry.start(REDIS_CONFIG);
+    // Start services with dynamic agent discovery
+    await agentRegistry.start({
+      redisConfig: REDIS_CONFIG,
+      gatewayUrl: GATEWAY_URL,
+      configPath: CONFIG_PATH,
+    });
     await messageCapture.start(GATEWAY_CONFIG);
     
     console.log('[Server] All services started successfully');
