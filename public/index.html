@@ -165,7 +165,7 @@
   </div>
 
   <script src="https://cdn.socket.io/4.7.0/socket.io.min.js"></script>
-  <script src="../src/bubble.js"></script>
+  <script src="/bubble.js"></script>
   <script>
     // ---- Bubble Renderer Init ----
     const bubbleRenderer = new BubbleRenderer('#bubble-container', {
@@ -338,5 +338,12 @@
       card.querySelector('.agent-card-state span:last-child').textContent = agent.state || 'idle';
     }
   </script>
+</body>
+</html>
+
+<script>
+// Debug: show connection status
+const statusDiv = document.createElement('div');
+statusDiv.style.cssText = 'position:fixed;top:10px;right:10px;background:#333;padding:10px;border-radius:5px;z-index:9999;font-size:12px;';
 </body>
 </html>

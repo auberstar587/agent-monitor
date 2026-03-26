@@ -2,6 +2,12 @@
   "$schema": "./agents.schema.json",
   "version": "1.0",
   "agents": {
+    "tim": {
+      "name": "Tim",
+      "role": "主控",
+      "description": "AI助手 - 负责协调和汇报",
+      "color": "#f97316"
+    },
     "canmou": {
       "name": "canmou",
       "role": "参谋",
