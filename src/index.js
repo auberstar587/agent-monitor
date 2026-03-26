@@ -218,7 +218,7 @@ fastify.post('/api/agents/:id/heartbeat', async (req) => {
 // Meeting API endpoints
 fastify.post('/api/meeting/start', async (req) => {
   const { topic, participants } = req.body || {};
-  const result = await meetingSM.emitEvent('meeting:start', { topic, participants });
+  const result = await meetingSM.emitEvent('meeting:start', { title: topic, participants });
   return { success: result.success, state: meetingSM.getState() };
 });
 
