@@ -205,6 +205,27 @@
       updateAgentCard(agent);
     });
 
+    // ---- Scene Manager Events ----
+    const sceneManager = new SceneManager();
+
+    socket.on('meeting:state', ({ state }) => {
+      console.log('[Frontend] Meeting state:', state.state);
+      if (state.state === 'meeting') {
+        sceneManager.moveToMeeting();
+      } else if (state.state === 'idle') {
+        sceneManager.moveToWorkspace();
+      }
+    });
+
+    socket.on('scene:change', ({ scene }) => {
+      console.log('[Frontend] Scene change:', scene);
+      if (scene === 'meeting') {
+        sceneManager.moveToMeeting();
+      } else {
+        sceneManager.moveToWorkspace();
+      }
+    });
+
     // ---- Message Events ----
     socket.on('message:new', (msg) => {
       bubbleRenderer.pushMessage(normalizeMessage(msg));
