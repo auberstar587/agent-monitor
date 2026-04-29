@@ -2,3 +2,21 @@ node_modules/
 dist/
 .env
 *.log
+.gstack/
+
+# Runtime state files
+state.json
+agents-state.json
+join-keys.json
+data/*.json
+src/data/*.json
+tests/.test-tasks.json
+
+# Tool directories
+.claude/
+.playwright-mcp/
+.spec-workflow/
+.workbuddy/
+
+# OS
+.DS_Store

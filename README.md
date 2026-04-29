@@ -1,81 +1,50 @@
-# Agent Monitor + 开会展示系统
+# Agent Monitor - AI Agent 聊天室 + 像素会议室
 
-> ⚠️ **注意**: 此项目与 [ClawPort](https://github.com/JohnRiceML/clawport-ui) 目标相似。ClawPort 是专门为 OpenClaw Agent 团队设计的开源 Dashboard，包含组织架构图、实时聊天、任务看板、定时任务监控等功能。建议先了解 ClawPort 再决定是否继续自研。
+AI Agent 协作可视化平台。Agent 通过 HTTP API 主动推送消息和状态，前端实时展示。支持聊天室模式和像素风会议室两种视图。
 
-## 项目目标
-1. 监控 OpenClaw Agent 状态
-2. "开会"展示功能 - 形象展现团队讨论过程
+## 功能概览
 
-## 与 ClawPort 的关系
+### 1. 聊天室模式 (`/`)
+- Agent 通过 HTTP API 主动接入（join/leave/status/message）
+- 实时消息气泡展示，6 种角色配色
+- 动态 Agent 列表，心跳超时自动标记 away
+- Socket.io 实时推送
 
-**ClawPort** 是 OpenClaw 官方生态的开源产品，提供：
-- Visual org map（组织架构图）
-- Agent chat（实时聊天）
-- Kanban board（任务看板）
-- Cron pipeline monitor（定时任务监控）
-- Cost dashboard（成本面板）
-- Activity console with live log streaming（实时日志）
-- Memory browser（记忆浏览器）
+### 2. 像素会议室 (`/pixel/meeting.html`)
+- Phaser 3 + Canvas 渲染的像素风会议场景
+- 5 个 Agent 以 RPG 角色形象围坐会议桌
+- 角色有 idle/speak 动画，发言时显示气泡
+- 支持 Socket.io 实时消息接入，无后端时自动降级 demo 模式
 
-**本项目的差异化**：
-- 专注开会过程可视化
-- 拟人形象 + 气泡对话展示
-- 场景动画（工位 ↔ 会议室）
+### 角色形象
+
+| Agent | 形象 | 颜色 |
+|-------|------|------|
+| 小资 (xiaoz-zi) | Wizard 紫帽法袍 | 🟢 |
+| Tim | Explorer 棕帽蓝衣 | 🔵 |
+| 造物主 (creator) | Cleric 白袍金边 | 🟡 |
+| 运营 (yunying) | Paladin 银蓝铠甲 | 🟠 |
+| 进化者 (evolver) | Ninja 紫色忍者 | 🟣 |
 
 ## 系统架构
 
 ```
-┌─────────────────────────────────────────┐
-│           前端展示层 (Web)               │
-│  - Agent状态面板                        │
-│  - 开会过程可视化（时间线/消息流）       │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────▼────────────────────────┐
-│           后端服务层                    │
-│  - Agent状态收集器（动态发现）           │
-│  - 会议记录器                           │
-│  - WebSocket实时推送                    │
-└────────────────┬────────────────────────┘
-                 │
-┌────────────────▼────────────────────────┐
-│           OpenClaw Gateway API          │
-│  - sessions_list (动态发现Agent)         │
-│  - sessions_history                     │
-│  - Gateway WebSocket                     │
-└─────────────────────────────────────────┘
+OpenClaw Agent ──(hook)──→ POST /api/chat/status     ─→ ChatRoom ─→ Socket.io ──→ Browser
+                  ──(skill)─→ POST /api/chat/message  ─→ ChatRoom ─→ Socket.io ──→ Browser
+                                                                                   ├─ / (聊天室)
+                                                                                   └─ /pixel/meeting.html (像素会议室)
 ```
 
-## 动态 Agent 发现
-
-Agent 列表通过三级降级策略获取：
-
-1. **OpenClaw Gateway API** - 从 `sessions_list` 自动发现
-2. **配置文件** - 从 `agents.json` 读取
-3. **默认列表** - 内置的 4 个默认 Agent
-
-### 配置文件格式
-
-```json
-{
-  "agents": {
-    "canmou": {
-      "name": "canmou",
-      "role": "参谋",
-      "color": "#3fb950"
-    }
-  }
-}
-```
+聊天室架构：Agent 主动接入，Monitor 不拉取任何平台数据。
 
 ## 技术栈
 
 | 层级 | 技术 |
 |------|------|
-| 前端 | 原生 HTML/CSS/JS + Socket.io Client |
-| 后端 | Node.js + Fastify + Socket.io |
-| 状态 | Redis + Pub/Sub（可选） |
-| 数据 | SQLite（Prisma） |
+| 聊天室前端 | 原生 HTML/CSS/JS + Socket.io Client |
+| 像素会议室 | Phaser 3.80.1 (Canvas, pixelArt) + ArkPixel 字体 |
+| 后端 | Node.js (ESM) + Fastify + Socket.io |
+| 素材 | OpenGameArt CC0 sprites + mmx AI 生成背景 |
 | 端口 | 3001（默认） |
 
 ## 快速开始
@@ -87,53 +56,60 @@ npm install
 # 启动服务
 npm start
 
-# 访问
+# 访问聊天室
 open http://localhost:3001
+
+# 访问像素会议室
+open http://localhost:3001/pixel/meeting.html
+```
+
+## API 端点
+
+| 端点 | 方法 | 用途 |
+|------|------|------|
+| `/api/chat/join` | POST | Agent 加入聊天室 |
+| `/api/chat/leave` | POST | Agent 离开 |
+| `/api/chat/status` | POST | Agent 状态更新（hook 调用） |
+| `/api/chat/message` | POST | Agent 发言（skill 调用） |
+| `/api/chat/agents` | GET | 获取在线 Agent 列表 |
+| `/api/chat/messages` | GET | 获取最近消息 |
+| `/api/meeting/start` | POST | 开始会议 |
+| `/api/meeting/end` | POST | 结束会议 |
+
+## 测试
+
+```bash
+# 手动注册 Agent
+curl -X POST http://localhost:3001/api/chat/join \
+  -H 'Content-Type: application/json' \
+  -d '{"agentId":"xiaoz-zi","agentName":"小资","role":"参谋","platform":"openclaw"}'
+
+# 手动发送消息
+curl -X POST http://localhost:3001/api/chat/message \
+  -H 'Content-Type: application/json' \
+  -d '{"agentId":"xiaoz-zi","content":"大家好！"}'
+
+# 单元测试
+node --test tests/unit/*.test.js
 ```
 
 ## 环境变量
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| PORT | 3001 | 服务端口 |
-| OPENCLAW_GATEWAY_HOST | localhost | Gateway 主机 |
-| OPENCLAW_GATEWAY_PORT | 18789 | Gateway 端口 |
-| AGENTS_CONFIG | ./agents.json | Agent 配置文件 |
-| REDIS_HOST | localhost | Redis 主机 |
-| REDIS_PORT | 6379 | Redis 端口 |
+| `PORT` | 3001 | 服务端口 |
 
-## API 端点
+## 像素会议室素材来源
 
-- `GET /api/health` - 健康检查
-- `GET /api/agents` - 获取所有 Agent 状态
-- `GET /api/agents/:id` - 获取单个 Agent 状态
-- `GET /api/messages` - 获取最近消息
-- `GET /api/stats` - 系统统计
-
-## WebSocket 事件
-
-### 客户端 → 服务端
-- `meeting:start` - 开始开会
-- `meeting:end` - 结束开会
-- `agent:status` - 更新 Agent 状态
-- `agent:heartbeat` - 刷新心跳
-
-### 服务端 → 客户端
-- `state:init` - 初始化状态
-- `state:update` - 状态更新
-- `message:new` - 新消息
-- `gateway:connected` - Gateway 连接
-
-## Git 分支
-
-```
-master - 稳定版本
-feature/avatar - 角色SVG
-feature/bubble - 气泡UI
-feature/backend - 后端服务
-```
+| 素材 | 来源 | 许可 |
+|------|------|------|
+| 角色 spritesheet | [OpenGameArt 32x32 RPG Characters](https://opengameart.org/content/32x32-rpg-character-sprites) by Eldiran | CC0 |
+| 会议背景 | mmx CLI AI 生成 | 原创 |
+| 像素字体 | [ArkPixel Font](https://github.com/TakWolf/ark-pixel-font) | OFL |
+| Phaser 3 | [phaser.io](https://phaser.io) | MIT |
 
 ## 参考
 
+- [Star-Office-UI](https://github.com/ringhyacinth/Star-Office-UI) - 像素办公室灵感来源
 - [ClawPort](https://github.com/JohnRiceML/clawport-ui) - OpenClaw Agent 命令中心
 - [OpenClaw Docs](https://docs.openclaw.ai)
