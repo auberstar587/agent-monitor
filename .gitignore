@@ -18,5 +18,8 @@ tests/.test-tasks.json
 .spec-workflow/
 .workbuddy/
 
+# Local symlinks
+/public
+
 # OS
 .DS_Store
