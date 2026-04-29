@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Monitor - 总览</title>
+    <link rel="stylesheet" href="css/agent.css">
+    <style>
+        /* 总览页面特定样式 */
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+        }
+
+        .dashboard-card {
+            background: var(--bg-card);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            padding: 24px;
+            backdrop-filter: blur(10px);
+            transition: all 0.2s;
+        }
+
+        .dashboard-card:hover {
+            border-color: var(--accent-blue);
+            transform: translateY(-2px);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .card-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .card-icon.blue { background: rgba(59, 130, 246, 0.15); }
+        .card-icon.green { background: rgba(34, 197, 94, 0.15); }
+        .card-icon.purple { background: rgba(168, 85, 247, 0.15); }
+        .card-icon.orange { background: rgba(245, 158, 11, 0.15); }
+
+        .card-title {
+            font-size: 14px;
+            color: var(--text-secondary);
+        }
+
+        .card-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+
+        .card-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 12px;
+            color: var(--accent-blue);
+            text-decoration: none;
+            font-size: 14px;
+        }
+
+        .card-link:hover {
+            text-decoration: underline;
+        }
+
+        /* 最近消息 */
+        .recent-messages {
+            grid-column: span 2;
+        }
+
+        .message-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .message-item {
+            display: flex;
+            gap: 12px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+        }
+
+        .message-avatar {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+
+        .message-content {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .message-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+        }
+
+        .message-name {
+            font-weight: 500;
+            font-size: 14px;
+        }
+
+        .message-time {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .message-text {
+            font-size: 13px;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* Agent 状态列表 */
+        .agent-status-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .agent-status-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 12px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+        }
+
+        .agent-status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+        }
+
+        .agent-status-dot.idle { background: var(--accent-green); }
+        .agent-status-dot.working { background: var(--accent-orange); }
+        .agent-status-dot.meeting { background: var(--accent-purple); }
+        .agent-status-dot.away { background: var(--text-muted); }
+
+        .agent-status-name {
+            flex: 1;
+            font-size: 14px;
+        }
+
+        .agent-status-label {
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+    </style>
+</head>
+<body>
+    <!-- 顶部导航 -->
+    <nav class="top-nav">
+        <div class="nav-brand">
+            <span class="logo">🤖</span>
+            <span class="title">Agent Monitor</span>
+        </div>
+        <div class="nav-links">
+            <a href="index.html" class="nav-link active">总览</a>
+            <a href="agent.html" class="nav-link">Agent</a>
+            <a href="project.html" class="nav-link">项目</a>
+            <a href="meeting.html" class="nav-link">会议</a>
+        </div>
+        <div class="nav-status">
+            <span class="status-indicator online"></span>
+            <span class="status-text">系统正常</span>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <!-- 侧边栏 -->
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">系统资源</h3>
+                <div class="resource-item">
+                    <div class="resource-header">
+                        <span class="resource-label">CPU</span>
+                        <span class="resource-value" id="cpu-value">--</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill cpu" id="cpu-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="resource-item">
+                    <div class="resource-header">
+                        <span class="resource-label">内存</span>
+                        <span class="resource-value" id="memory-value">--</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill memory" id="memory-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+                <div class="resource-item">
+                    <div class="resource-header">
+                        <span class="resource-label">磁盘</span>
+                        <span class="resource-value" id="disk-value">--</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill disk" id="disk-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section">
+                <h3 class="sidebar-title">系统信息</h3>
+                <div class="system-info">
+                    <div class="info-row">
+                        <span class="info-label">版本</span>
+                        <span class="info-value" id="sys-version">v1.0.0</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">启动时间</span>
+                        <span class="info-value" id="sys-startup">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="info-label">运行时长</span>
+                        <span class="info-value" id="sys-uptime">--</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- 主内容区 -->
+        <main class="content">
+            <!-- 仪表盘卡片 -->
+            <div class="dashboard-grid">
+                <!-- Agent 总数 -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-icon blue">🤖</div>
+                        <div>
+                            <div class="card-title">Agent 总数</div>
+                            <div class="card-value" id="kpi-agents">0</div>
+                        </div>
+                    </div>
+                    <a href="agent.html" class="card-link">查看详情 →</a>
+                </div>
+
+                <!-- 在线 Agent -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-icon green">●</div>
+                        <div>
+                            <div class="card-title">在线 Agent</div>
+                            <div class="card-value" id="kpi-online">0</div>
+                        </div>
+                    </div>
+                    <a href="agent.html" class="card-link">查看详情 →</a>
+                </div>
+
+                <!-- 项目总数 -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-icon purple">📁</div>
+                        <div>
+                            <div class="card-title">项目总数</div>
+                            <div class="card-value" id="kpi-projects">0</div>
+                        </div>
+                    </div>
+                    <a href="project.html" class="card-link">管理项目 →</a>
+                </div>
+
+                <!-- 今日任务 -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-icon orange">📋</div>
+                        <div>
+                            <div class="card-title">今日任务</div>
+                            <div class="card-value" id="kpi-tasks">0</div>
+                        </div>
+                    </div>
+                    <a href="agent.html" class="card-link">查看详情 →</a>
+                </div>
+
+                <!-- 最近消息 -->
+                <div class="dashboard-card recent-messages">
+                    <div class="card-header">
+                        <div class="card-icon blue">💬</div>
+                        <div class="card-title">最近消息</div>
+                    </div>
+                    <div class="message-list" id="message-list">
+                        <div class="message-item">
+                            <div class="message-content" style="color: var(--text-muted)">
+                                暂无消息
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Agent 状态 -->
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <div class="card-icon green">👥</div>
+                        <div class="card-title">Agent 状态</div>
+                    </div>
+                    <div class="agent-status-list" id="agent-status-list">
+                        <div class="agent-status-item">
+                            <span class="agent-status-label">暂无 Agent</span>
+                        </div>
+                    </div>
+                    <a href="agent.html" class="card-link">查看全部 →</a>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        const API_BASE = '';
+        const state = {
+            agents: [],
+            projects: [],
+            messages: [],
+            startupTime: null,
+            version: 'v1.0.0',
+            systemStats: null,   // /api/system/stats 真实数据
+            projectStats: null,  // /api/projects 统计
+        };
+
+        // 获取 Agent 图标
+        function getAgentIcon(agentId) {
+            const icons = {
+                'xiaoz-zi': '🧑‍💻', 'tim': '🎯', 'creator': '✍️',
+                'yunying': '📢', 'evolver': '🔮', 'main': '🤖'
+            };
+            return icons[agentId] || '🤖';
+        }
+
+        // 获取 Agent 颜色
+        function getAgentColor(agentId) {
+            const colors = {
+                'xiaoz-zi': '#3fb950', 'tim': '#f97316', 'creator': '#58a6ff',
+                'yunying': '#f59e0b', 'evolver': '#a371f7', 'main': '#3b82f6'
+            };
+            return colors[agentId] || '#6b7280';
+        }
+
+        // 加载数据
+        async function loadData() {
+            try {
+                // 获取 Agent 列表（来源: ChatRoom 内存状态）
+                const agentsRes = await fetch(`${API_BASE}/api/chat/agents`);
+                const agentsData = await agentsRes.json();
+                state.agents = agentsData.agents || [];
+
+                // 获取消息（来源: ChatRoom 消息历史）
+                const msgsRes = await fetch(`${API_BASE}/api/chat/messages?limit=10`);
+                const msgsData = await msgsRes.json();
+                state.messages = msgsData.messages || [];
+
+                // 获取健康状态（来源: 服务真实时间戳）
+                const healthRes = await fetch(`${API_BASE}/api/health`);
+                const health = await healthRes.json();
+                if (health.timestamp) {
+                    state.startupTime = health.timestamp;
+                    state.version = health.version || 'v1.0.0';
+                }
+
+                // 获取系统资源（来源: 真实系统 CPU/内存/磁盘）
+                const statsRes = await fetch(`${API_BASE}/api/system/stats`);
+                state.systemStats = await statsRes.json().catch(() => null);
+
+                // 获取项目统计（来源: projects.json 持久化存储）
+                const projRes = await fetch(`${API_BASE}/api/projects`);
+                const projData = await projRes.json();
+                state.projectStats = projData.stats || { total: projData.projects?.length || 0 };
+
+                // 今日任务：聚合所有项目的 todayTasks 字段
+                const allProjects = projData.projects || [];
+                state.todayTasks = allProjects.reduce((sum, p) => sum + (p.todayTasks || 0), 0);
+            } catch (err) {
+                console.error('Failed to load data:', err);
+            }
+        }
+
+        // 渲染 KPI（所有数据来自后端 API，无臆造）
+        function renderKPIs() {
+            const total = state.agents.length;
+            const online = state.agents.filter(a =>
+                ['idle', 'working', 'meeting'].includes(a.status)
+            ).length;
+
+            // 来源: /api/projects 统计（真实）
+            const projectCount = state.projectStats?.total || 0;
+
+            // 来源: /api/projects 的 todayTasks 聚合（真实）
+            const tasks = state.todayTasks || 0;
+
+            document.getElementById('kpi-agents').textContent = total;
+            document.getElementById('kpi-online').textContent = online;
+            document.getElementById('kpi-projects').textContent = projectCount;
+            document.getElementById('kpi-tasks').textContent = tasks;
+        }
+
+        // 渲染 Agent 状态列表
+        function renderAgentStatus() {
+            const list = document.getElementById('agent-status-list');
+
+            if (state.agents.length === 0) {
+                list.innerHTML = '<div class="agent-status-item"><span class="agent-status-label">暂无 Agent</span></div>';
+                return;
+            }
+
+            list.innerHTML = state.agents.slice(0, 5).map(agent => {
+                const status = agent.status || 'away';
+                const icon = getAgentIcon(agent.agentId);
+                const color = getAgentColor(agent.agentId);
+                const name = agent.agentName || agent.name || agent.agentId;
+
+                const statusLabels = {
+                    idle: '空闲',
+                    working: '工作中',
+                    meeting: '会议中',
+                    away: '离线'
+                };
+
+                return `
+                    <div class="agent-status-item">
+                        <div class="agent-status-dot ${status}"></div>
+                        <span class="agent-status-name">${icon} ${name}</span>
+                        <span class="agent-status-label">${statusLabels[status]}</span>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 渲染最近消息
+        function renderMessages() {
+            const list = document.getElementById('message-list');
+
+            if (state.messages.length === 0) {
+                list.innerHTML = '<div class="message-item"><div class="message-content" style="color: var(--text-muted)">暂无消息</div></div>';
+                return;
+            }
+
+            list.innerHTML = state.messages.slice(0, 5).map(msg => {
+                const icon = getAgentIcon(msg.agentId);
+                const color = getAgentColor(msg.agentId);
+                const name = msg.agentName || msg.agentId;
+                const time = msg.timestamp ?
+                    new Date(msg.timestamp).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) :
+                    '--:--';
+                const content = msg.content || '';
+
+                return `
+                    <div class="message-item">
+                        <div class="message-avatar" style="background: ${color}22; color: ${color}">${icon}</div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="message-name">${name}</span>
+                                <span class="message-time">${time}</span>
+                            </div>
+                            <div class="message-text">${content}</div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // 渲染系统资源（来源: /api/system/stats 真实数据）
+        function renderSystemResources() {
+            const stats = state.systemStats;
+            if (!stats) return;
+
+            document.getElementById('cpu-value').textContent = `${stats.cpu.usagePercent}%`;
+            document.getElementById('cpu-bar').style.width = `${stats.cpu.usagePercent}%`;
+
+            document.getElementById('memory-value').textContent = `${stats.memory.usagePercent}%`;
+            document.getElementById('memory-bar').style.width = `${stats.memory.usagePercent}%`;
+
+            document.getElementById('disk-value').textContent = `${stats.disk.usagePercent}%`;
+            document.getElementById('disk-bar').style.width = `${stats.disk.usagePercent}%`;
+        }
+
+        // 渲染系统信息
+        function renderSystemInfo() {
+            document.getElementById('sys-version').textContent = `v${state.version}`;
+
+            if (state.startupTime) {
+                document.getElementById('sys-startup').textContent =
+                    new Date(state.startupTime).toLocaleString('zh-CN');
+                updateUptime();
+                setInterval(updateUptime, 1000);
+            }
+        }
+
+        function updateUptime() {
+            if (!state.startupTime) return;
+
+            const elapsed = Date.now() - state.startupTime;
+            const seconds = Math.floor(elapsed / 1000) % 60;
+            const minutes = Math.floor(elapsed / 60000) % 60;
+            const hours = Math.floor(elapsed / 3600000);
+
+            document.getElementById('sys-uptime').textContent =
+                `${hours}小时 ${minutes}分 ${seconds}秒`;
+        }
+
+        // 初始化
+        async function init() {
+            await loadData();
+            renderKPIs();
+            renderAgentStatus();
+            renderMessages();
+            renderSystemInfo();
+            renderSystemResources();
+
+            // 每 30 秒刷新资源
+            setInterval(renderSystemResources, 30000);
+            // 每 60 秒刷新数据
+            setInterval(async () => {
+                await loadData();
+                renderKPIs();
+                renderAgentStatus();
+                renderMessages();
+            }, 60000);
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
