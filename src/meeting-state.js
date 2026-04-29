@@ -35,7 +35,7 @@ export const MeetingEvent = {
 const STATE_TRANSITIONS = {
   [MeetingState.IDLE]: {
     [MeetingEvent.MEETING_INVITE]: MeetingState.MEETING_INVITED,
-    [MeetingEvent.MEETING_START]: MeetingState.MEETING_INVITED,
+    [MeetingEvent.MEETING_START]: MeetingState.MEETING,
   },
   [MeetingState.MEETING_INVITED]: {
     [MeetingEvent.MEETING_JOIN]: MeetingState.MEETING_JOINING,
@@ -119,6 +119,19 @@ export class MeetingStateMachine extends EventEmitter {
    */
   isInMeeting() {
     return this.state !== MeetingState.IDLE;
+  }
+
+  /**
+   * 获取当前会议参与者 ID 列表
+   * @returns {string[]}
+   */
+  getParticipantIds() {
+    // 从 ChatRoom 的在线 Agent 推断参与者
+    // 如果没有显式参与者记录，返回空数组
+    if (this.participants.size > 0) {
+      return Array.from(this.participants.keys());
+    }
+    return [];
   }
   
   /**
@@ -236,20 +249,21 @@ export class MeetingStateMachine extends EventEmitter {
       console.warn('[MeetingState] Already in meeting');
       return false;
     }
-    
+
+    const now = Date.now();
     this.currentMeeting = {
-      id: data.meetingId || `meeting_${Date.now()}_${Math.random().toString(36).substr(2, 8)}`,
+      id: data.meetingId || `meeting_${now}_${Math.random().toString(36).substr(2, 8)}`,
       title: data.title || 'Untitled Meeting',
       agenda: data.agenda || [],
       hostId: data.hostId || 'unknown',
       participants: [],
-      createdAt: Date.now(),
-      startedAt: null,
+      createdAt: now,
+      startedAt: now,
       endedAt: null,
     };
-    
+
     this.stats.totalMeetings++;
-    
+
     return true;
   }
   

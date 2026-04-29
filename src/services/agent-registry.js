@@ -42,18 +42,23 @@ export class AgentRegistry extends EventEmitter {
     super();
     this.heartbeatTimeout = options.heartbeatTimeout || DEFAULT_HEARTBEAT_TIMEOUT;
     this.checkInterval = options.checkInterval || HEARTBEAT_CHECK_INTERVAL;
-    
+
     // In-memory state cache: Map<agentId, AgentState>
     this.agents = new Map();
-    
+
     // Heartbeat check timer
     this._checkTimer = null;
-    
+
     // Redis-enabled flag
     this._redisEnabled = false;
-    
+
     // Track which agents were previously away (for state change events)
     this._wasAway = new Set();
+
+    // Demo mode: keep discovered agents alive without real heartbeats
+    this._demoMode = options.demoMode !== false; // default true
+    this._discoveredAgentIds = new Set();
+    this._heartbeatSimTimer = null;
   }
 
   /**
@@ -89,6 +94,7 @@ export class AgentRegistry extends EventEmitter {
     // Initialize discovered agents
     for (const agent of discoveredAgents) {
       if (!this.agents.has(agent.agentId)) {
+        this._discoveredAgentIds.add(agent.agentId);
         this.updateState(agent.agentId, {
           ...agent,
           status: 'idle',
@@ -99,9 +105,14 @@ export class AgentRegistry extends EventEmitter {
         });
       }
     }
-    
+
     // Start heartbeat check loop
     this._startHeartbeatCheck();
+
+    // Start demo heartbeat simulation for discovered agents
+    if (this._demoMode && this._discoveredAgentIds.size > 0) {
+      this._startDemoHeartbeat();
+    }
     
     console.log(`[AgentRegistry] Started with ${this.agents.size} agents`);
   }
@@ -373,8 +384,11 @@ export class AgentRegistry extends EventEmitter {
   _checkHeartbeats() {
     const now = Date.now();
     const timeout = this.heartbeatTimeout;
-    
+
     for (const [agentId, state] of this.agents) {
+      // Skip demo agents — they stay alive via simulation
+      if (this._demoMode && this._discoveredAgentIds.has(agentId)) continue;
+
       const elapsed = now - state.lastHeartbeat;
       
       // Skip if already away
@@ -472,16 +486,45 @@ export class AgentRegistry extends EventEmitter {
   }
 
   /**
+   * Start demo heartbeat simulation
+   * Periodically refreshes lastHeartbeat for discovered agents
+   */
+  _startDemoHeartbeat() {
+    const interval = Math.min(this.heartbeatTimeout / 2, 15000); // refresh at half timeout or 15s
+    this._heartbeatSimTimer = setInterval(() => {
+      const now = Date.now();
+      for (const agentId of this._discoveredAgentIds) {
+        const state = this.agents.get(agentId);
+        if (state && state.status !== 'away') {
+          state.lastHeartbeat = now;
+        }
+      }
+    }, interval);
+    console.log(`[AgentRegistry] Demo heartbeat simulation started for ${this._discoveredAgentIds.size} agents`);
+  }
+
+  /**
+   * Stop demo heartbeat simulation
+   */
+  _stopDemoHeartbeat() {
+    if (this._heartbeatSimTimer) {
+      clearInterval(this._heartbeatSimTimer);
+      this._heartbeatSimTimer = null;
+    }
+  }
+
+  /**
    * Stop the registry
    */
   stop() {
     console.log('[AgentRegistry] Stopping...');
     this._stopHeartbeatCheck();
-    
+    this._stopDemoHeartbeat();
+
     if (this._redisEnabled) {
       redis.disconnect().catch(() => {});
     }
-    
+
     this.emit('stopped');
     console.log('[AgentRegistry] Stopped');
   }
