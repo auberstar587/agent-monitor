@@ -27,7 +27,7 @@ describe('TaskQueue', () => {
       assert.equal(task.title, 'Test task');
       assert.equal(task.agentId, 'agent-1');
       assert.equal(task.status, 'queued');
-      assert.equal(task.priority, 0);
+      assert.equal(task.priority, 'medium');
       assert.ok(task.id);
       assert.ok(task.createdAt);
     });

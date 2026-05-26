@@ -1,34 +1,66 @@
 # Agent Monitor 项目规范 (SPEC.md)
 
-> 版本: 1.0.0
-> 更新: 2026-03-26
+> 版本: 1.3.0
+> 更新: 2026-05-21
 > 状态: 进行中
 
 ---
 
+## 0. 文档导航
+
+当前项目定位已经从早期“Agent 监控 + 会议室 demo”收敛为“个人 AI 工具驾驶舱”。开发前请优先阅读：
+
+- [个人 AI 工具驾驶舱需求文档](docs/PRODUCT-REQUIREMENTS.md)
+- [个人 AI 工具驾驶舱设计文档](docs/DESIGN.md)
+- [多 Agent 项目协作模型](COLLABORATION-MODEL.md)
+
+本文件保留项目规范摘要和已有接口/模型线索；如出现冲突，以需求文档和设计文档为准。
+
 ## 1. 项目概述
 
 ### 1.1 项目名称
-Agent Monitor - AI Agent 状态与项目管理平台
+Agent Monitor - 个人 AI 工具驾驶舱
 
 ### 1.2 核心功能（按优先级）
 
 **P0 - 核心需求**
-1. **Agent 状态管理** - 监控 OpenClaw Agent 的实时状态（idle/working/meeting/away）
-2. **本地项目管理** - 管理 Agent 对应的项目，包括项目名称、路径、状态、关联 Agent
+1. **本地项目管理** - 管理本机 AI 项目，包括路径、目标、状态、项目经理 Agent、参与 Agent 和任务进度
+2. **任务管理与分配** - 以任务为协作单位，把需求、开发、测试、review、文档等工作分配给不同 Agent
+3. **Agent View / 会话监督** - 监督所有真实 Agent 会话，展示运行中、等待用户、失败、完成等状态
+4. **待我处理 Inbox** - 汇总决策请求、权限请求、阻塞任务、review 请求、失败任务和交接请求
+5. **Agent 状态与角色管理** - 监控不同平台 Agent 的状态、能力、角色和当前任务
+6. **产物、事件与执行轨迹** - 记录 Git 变更、文档、测试报告、需求分析、决策记录、任务执行过程等协作事实
 
 **P1 - 附加需求**
-3. 开会过程可视化（拟人形象 + 气泡对话）
-4. WebSocket 实时推送
+7. Git / Worktree / 工作区隔离
+8. 项目经理 Agent 任务拆解和项目进度汇总
+9. Context Pack / 项目上下文包
+10. Handoff / 会话交接
+11. WebSocket 实时推送
+
+**P2 - 体验增强**
+12. Agent 质量指标、成本统计和轻量自动化
+
+**P3 - 展示增强**
+13. 开会过程可视化（像素会议室 + 气泡对话 + 列表回放）
 
 ### 1.3 目标用户
-- AI 团队运营者
-- 需要统一管理 Agent 状态和项目关联的用户
+- 个人 AI 工具重度使用者
+- 本机维护多个 AI 项目和多个 Agent 的用户
+- 希望轻量管理项目、任务、Agent 状态和协作产物的用户
 
 ### 1.4 设计理念
 - **状态管理是基础** - 所有 Agent 的运行状态统一管理，超时自动标记 away
-- **项目与 Agent 绑定** - 每个项目关联负责的 Agent，支持项目级别的状态汇总
+- **项目经理 Agent 是项目控制层** - 项目经理 Agent 位于项目之下、任务之上，负责拆任务、分配任务、追踪进度和组织协作
+- **Agent View 是监督层** - 真实 Agent 会话必须可见、可回复、可接管，不能让后台任务变成黑箱
+- **Inbox 是用户介入入口** - 所有需要用户处理的事项集中展示，而不是散落在各页面
+- **任务是协作单位** - 不同角色 Agent 围绕任务提交代码、文档、测试报告、调研结论、进度事件等不同产物
+- **执行轨迹是可信度基础** - 任务需要保留状态变化、工具调用、文件变更、失败原因和产物链接
+- **Git 是产物通道之一** - 代码/文档类任务可以使用 Git branch/worktree 管理，但需求分析、测试执行、项目管理、review 不必都写 Git
+- **会议室是可视化层** - 会议室模式保留为任务讨论、评审沟通和过程回放视图，不作为核心协作引擎
 - **轻量可扩展** - 内存存储为主，Socket.io 实时推送，开箱即用
+
+详细协作模型见 [COLLABORATION-MODEL.md](COLLABORATION-MODEL.md)。
 
 ---
 
@@ -38,62 +70,77 @@ Agent Monitor - AI Agent 状态与项目管理平台
 
 | 层级 | 技术 | 说明 |
 |------|------|------|
-| 前端 | HTML/CSS/JS + Socket.io Client | 原生实现，无框架 |
-| 后端 | Node.js + Fastify + Socket.io | Web 服务 |
-| 状态存储 | 内存 / Redis (可选) | Redis 用于跨进程共享 |
-| 端口 | 3001 | 记录在 PORTS.md |
+| 前端 | Vite/React 当前原型，后续可迁移 Next.js | 主工作台，统一承载项目、任务、Agent View、Inbox、产物和会议视图 |
+| 后端 | Node.js + Fastify + Socket.io | 本地 API 和实时事件服务 |
+| 状态存储 | JSON 文件 / 内存 | 当前阶段保持轻量，后续可替换为 SQLite |
+| 端口 | 5173 / 3001 | 5173 为当前驾驶舱入口，3001 为本地 API |
 
 ### 2.2 架构图
 
 ```
 ┌────────────────────────────────────────────────────────────┐
-│                        浏览器 (Frontend)                     │
-│  ┌─────────────────┐     ┌─────────────────────────────┐  │
-│  │  Agent 状态面板   │     │       项目管理面板           │  │
-│  │  - 实时状态列表   │     │  - 项目列表/详情            │  │
-│  │  - 状态指示灯     │     │  - Agent-项目关联           │  │
-│  └─────────────────┘     └─────────────────────────────┘  │
+│                         Web 工作台                          │
+│  项目视图 │ 任务队列 │ Agent View │ Inbox │ 产物审查 │ 会议回放 │
 └────────────────────────────┬─────────────────────────────┘
-                             │ WebSocket / HTTP
+                             │ HTTP / Socket.io
 ┌────────────────────────────▼─────────────────────────────┐
-│                      Node.js Backend                        │
+│                       本地协作服务                         │
 │  ┌──────────────────┐  ┌──────────────────┐              │
-│  │  AgentRegistry   │  │  ProjectManager  │              │
-│  │  - 状态管理       │  │  - 项目 CRUD     │              │
-│  │  - 心跳检测       │  │  - Agent 关联     │              │
-│  │  - 超时标记 away  │  │  - 状态汇总       │              │
+│  │ ProjectManager   │  │ TaskQueue        │              │
+│  │ - 项目配置        │  │ - 任务创建/分配   │              │
+│  │ - PM Agent 绑定   │  │ - 状态流转        │              │
 │  └──────────────────┘  └──────────────────┘              │
-│  ┌──────────────────┐                                    │
-│  │  MessageCapture  │  ← 附加功能：开会消息捕获          │
-│  └──────────────────┘                                    │
+│  ┌──────────────────┐  ┌──────────────────┐              │
+│  │ AgentSession     │  │ Inbox            │              │
+│  │ - 会话监督        │  │ - 待我处理        │              │
+│  └──────────────────┘  └──────────────────┘              │
+│  ┌──────────────────┐  ┌──────────────────┐              │
+│  │ ChatRoom         │  │ MessageRouter    │              │
+│  │ - 会议/聊天室     │  │ - 跨平台消息路由   │              │
+│  └──────────────────┘  └──────────────────┘              │
+└────────────────────────────┬─────────────────────────────┘
+                             │ 适配器 / 本地文件 / Git
+┌────────────────────────────▼─────────────────────────────┐
+│                 OpenClaw / Codex / Claude 等本地 Agent      │
 └────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 3. Agent 动态发现机制
+## 3. 协作模型
 
-### 3.1 三级降级策略
+本项目不再以 Gateway 健康探针或自动发现为主线。核心模型是：
 
-| 优先级 | 来源 | 说明 |
-|--------|------|------|
-| 1 | OpenClaw Gateway API | 从 sessions_list 动态发现 |
-| 2 | agents.json 配置文件 | 本地配置文件 |
-| 3 | 内置默认列表 | 4 个默认 Agent |
-
-### 3.2 配置格式 (agents.json)
-
-```json
-{
-  "agents": {
-    "tim": { "name": "Tim", "role": "主控", "color": "#f97316" },
-    "canmou": { "name": "canmou", "role": "参谋", "color": "#3fb950" },
-    "creator": { "name": "creator", "role": "笔杆子", "color": "#58a6ff" },
-    "yunying": { "name": "yunying", "role": "运营官", "color": "#f59e0b" },
-    "evolver": { "name": "evolver", "role": "进化官", "color": "#a371f7" }
-  }
-}
 ```
+项目 → 项目经理 Agent → 任务 → 执行/测试/分析/文档 Agent → 产物/事件 → 项目进度
+```
+
+### 3.1 项目经理 Agent
+
+项目经理 Agent 位于项目之下、任务之上，负责把项目目标转成可执行任务：
+
+- 创建任务和拆分子任务
+- 选择合适的执行 Agent
+- 追踪任务状态、阻塞和风险
+- 汇总项目进度
+- 必要时触发 review、测试或会议讨论
+
+### 3.2 任务与产物
+
+不同 Agent 不一定都提交代码。任务可以产出多种类型的协作材料：
+
+| Agent 类型 | 常见任务 | 典型产物 |
+|------------|----------|----------|
+| 项目经理 | 拆任务、排期、追进度 | 任务分配、风险记录、进度摘要 |
+| 需求分析 | 澄清目标、定义验收标准 | 需求文档、决策记录 |
+| 开发 | 修改代码、实现功能 | diff、commit、实现说明 |
+| 测试 | 写测试、执行验证 | 测试报告、问题清单 |
+| Review | 审查实现和风险 | review 评论、修改建议 |
+| 文档 | 整理说明和教程 | README、使用文档、发布说明 |
+
+### 3.3 Git 的位置
+
+Git 是代码和文档类产物的版本通道，不是所有 Agent 协作的唯一通道。测试报告、需求分析、项目管理状态和会议决策可以通过任务事件、Artifact 记录和聊天室消息保存。
 
 ---
 
@@ -125,9 +172,10 @@ Agent Monitor - AI Agent 状态与项目管理平台
 |------|------|------|------|
 | id | string | 实际 | 项目唯一标识 |
 | name | string | 实际 | 项目名称，用户输入 |
-| path | string | 实际 | 本地路径，从 OpenClaw agents.json 读取 |
+| path | string | 实际 | 本地项目路径，用户配置 |
 | status | enum | 实际 | active/inactive，基于 Agent 状态汇总 |
-| agentId | string | 实际 | 关联的 Agent ID |
+| managerAgentId | string | 实际 | 项目经理 Agent ID，负责项目下任务拆解、分配和进度追踪 |
+| agentIds | string[] | 实际 | 项目关联的执行/测试/分析/文档等 Agent ID 列表 |
 | type | enum | **固定模板** | 对话/工具/编程/调研等预定义类型 |
 | model | string | **固定模板** | 模型列表：qwen2.5/deepseek/gpt-4 等 |
 | todayTasks | number | 实际 | 今日任务数，从任务日志统计 |
@@ -148,20 +196,49 @@ Agent Monitor - AI Agent 状态与项目管理平台
 qwen2.5 | deepseek | gpt-4 | glm-4 | MiniMax-M2.7
 ```
 
-### 5.2 项目状态汇总规则
+### 5.2 项目经理 Agent 与任务层
 
-项目状态根据关联 Agent 的状态计算：
-- **active**: 关联 Agent 状态为 idle/working/meeting
-- **inactive**: 关联 Agent 状态为 away
+项目经理 Agent 是项目下的特殊角色，不等同于普通执行 Agent。它负责：
 
-### 5.3 数据来源
+- 根据项目目标创建任务
+- 判断任务类型与优先级
+- 根据 Agent 能力和负载分配任务
+- 追踪任务进度、阻塞与风险
+- 触发测试、review 或会议讨论
+- 汇总项目状态和下一步建议
+
+任务是多 Agent 协作的最小调度单位。不同任务可以产生不同产物：
+
+| 任务类型 | 典型执行 Agent | 典型产物 | 是否必须使用 Git |
+|----------|----------------|----------|------------------|
+| analysis | 需求/分析 Agent | 需求文档、验收标准、决策记录 | 可选 |
+| research | 调研 Agent | 调研笔记、对比表、链接清单 | 否 |
+| code_change | 开发 Agent | 代码 diff、commit、实现说明 | 是 |
+| test_change | 测试 Agent | 测试代码、测试用例 | 通常是 |
+| test_run | 测试 Agent | 测试报告、bug list | 否 |
+| doc_change | 文档 Agent | README、教程、发布说明 | 可选 |
+| review | Review Agent | review 评论、风险清单 | 否 |
+| project_management | 项目经理 Agent | 进度状态、任务分配、日报 | 否 |
+
+### 5.3 项目状态汇总规则
+
+项目状态不只由 Agent 在线状态决定，还应结合任务状态计算：
+- **active**: 存在进行中任务，或项目经理/执行 Agent 处于 idle/working/meeting/speaking
+- **blocked**: 存在被阻塞任务，且需要用户或其他 Agent 介入
+- **reviewing**: 存在待审核产物
+- **inactive**: 无活跃任务，且关联 Agent 均为 away 或未接入
+
+### 5.4 数据来源
 
 | 数据类型 | 来源 | 示例 |
 |----------|------|------|
-| **实际数据** | OpenClaw agents.json | Agent 名称、路径、关联关系 |
+| **实际数据** | 用户配置 | 项目名称、路径、项目经理 Agent、参与 Agent |
 | **实际数据** | 系统 API | CPU/内存/磁盘使用率 |
 | **实际数据** | 任务日志 | 今日任务数、成功率 |
 | **实际数据** | ChatRoom | 开会状态、在线 Agent |
+| **实际数据** | TaskManager | 任务创建、分配、状态流转 |
+| **实际数据** | ArtifactStore | 代码 diff、文档、测试报告、调研结论 |
+| **实际数据** | Event Log | 项目事件、任务事件、会议事件 |
 | **固定模板** | 预定义枚举 | Agent 类型、模型列表、状态颜色 |
 | **固定模板** | CSS/组件 | 表格布局、卡片样式、图标风格 |
 
@@ -174,23 +251,33 @@ qwen2.5 | deepseek | gpt-4 | glm-4 | MiniMax-M2.7
 | 端点 | 方法 | 说明 |
 |------|------|------|
 | `/api/health` | GET | 健康检查 |
-| `/api/agents` | GET | 获取所有 Agent 状态 |
-| `/api/agents/:id` | GET | 获取单个 Agent 状态 |
-| `/api/messages` | GET | 获取最近消息 |
+| `/api/chat/agents` | GET | 获取聊天室在线 Agent |
+| `/api/chat/messages` | GET | 获取最近会议/聊天消息 |
+| `/api/chat/join` | POST | Agent 加入聊天室 |
+| `/api/chat/message` | POST | Agent 发送消息 |
 | `/api/stats` | GET | 系统统计 |
 
 ### 6.2 项目管理 API
 
 | 端点 | 方法 | 说明 | 数据来源 |
 |------|------|------|----------|
-| `/api/projects` | GET | 获取所有项目 | **实际** - 合并 agents.json + 本地项目配置 |
+| `/api/projects` | GET | 获取所有项目 | **实际** - 本地项目配置 |
 | `/api/projects` | POST | 创建新项目 | 用户输入 |
 | `/api/projects/:id` | GET | 获取项目详情 | **实际** - 包含关联 Agent 状态 |
 | `/api/projects/:id` | PUT | 更新项目 | 用户输入 |
 | `/api/projects/:id` | DELETE | 删除项目 | 用户操作 |
 | `/api/projects/:id/stats` | GET | 获取项目统计 | **实际** - 任务日志汇总 |
 
-### 6.3 WebSocket 事件
+### 6.3 任务管理 API
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/tasks` | GET | 获取任务列表 |
+| `/api/tasks` | POST | 创建任务 |
+| `/api/tasks/:id` | GET | 获取任务详情 |
+| `/api/tasks/:id` | PATCH | 更新任务状态、负责人、进度或结果 |
+
+### 6.4 WebSocket 事件
 
 **客户端 → 服务端**:
 | 事件 | 说明 |
@@ -206,7 +293,7 @@ qwen2.5 | deepseek | gpt-4 | glm-4 | MiniMax-M2.7
 | `state:init` | 初始状态 |
 | `state:update` | 状态更新 |
 | `message:new` | 新消息 |
-| `gateway:connected` | Gateway 连接 |
+| `task:updated` | 任务状态变化 |
 
 ---
 
@@ -233,12 +320,12 @@ qwen2.5 | deepseek | gpt-4 | glm-4 | MiniMax-M2.7
 └────────────┴────────────────────────────────────────────────────┘
 ```
 
-### 7.2 Agent 管理页面（agentmanage.png）
+### 7.2 Agent 管理页面
 
 **KPI 卡片（实际数据）**：
 | 指标 | 数据来源 |
 |------|----------|
-| Agent 总数 | AgentRegistry.count() |
+| Agent 总数 | 在线 Agent + 项目配置统计 |
 | 运行中/空闲/停止 | 按状态分组统计 |
 | 今日任务数 | 任务日志统计 |
 | 平均成功率 | 成功率汇总计算 |
@@ -247,7 +334,7 @@ qwen2.5 | deepseek | gpt-4 | glm-4 | MiniMax-M2.7
 
 | 列 | 数据来源 |
 |----|----------|
-| 名称 | **实际** - 从 AgentRegistry |
+| 名称 | **实际** - 从在线 Agent 或项目配置 |
 | 状态 | **实际** - idle/working/meeting/away |
 | 类型 | **固定模板** - 预定义枚举 |
 | 模型 | **固定模板** - 模型列表 |
@@ -305,7 +392,7 @@ qwen2.5 | deepseek | gpt-4 | glm-4 | MiniMax-M2.7
 └─────────────────────────────────────────────────────────────┘
 ```
 
-### 7.4 开会可视化页面（meeting.png）
+### 7.4 开会可视化页面
 
 **布局**：
 ```
@@ -321,7 +408,7 @@ qwen2.5 | deepseek | gpt-4 | glm-4 | MiniMax-M2.7
 │     [对话气泡1]  [对话气泡2]             │  Tim [10:33]: ...    │
 │                                         │                       │
 ├─────────────────────────────────────────┴───────────────────────┤
-│  参会: ●●●●● (5/5)  [🎤] [📷] [🖥️] [📝] [结束会议]          │
+│  参会: ●●●●● (5/5)  [发言] [记录] [决策] [结束会议]          │
 │  输入消息或使用 / 指令...                              [发送]   │
 └─────────────────────────────────────────────────────────────────┘
 ```
@@ -363,12 +450,8 @@ Orchestrator: #4A90E2 | ProductAgent: #3fb950 | TechAgent: #a371f7 | DataAgent: 
 
 | 变量 | 默认值 | 说明 |
 |------|--------|------|
-| `PORT` | 3001 | 服务端口 |
-| `OPENCLAW_GATEWAY_HOST` | localhost | Gateway 主机 |
-| `OPENCLAW_GATEWAY_PORT` | 18789 | Gateway 端口 |
-| `AGENTS_CONFIG` | ./agents.json | Agent 配置文件 |
-| `REDIS_HOST` | localhost | Redis 主机 |
-| `REDIS_PORT` | 6379 | Redis 端口 |
+| `PORT` | 3001 | 本地 API 服务端口 |
+| `NEXT_PUBLIC_API_URL` | http://localhost:3001 | 前端访问后端地址 |
 
 ---
 
@@ -377,24 +460,22 @@ Orchestrator: #4A90E2 | ProductAgent: #3fb950 | TechAgent: #a371f7 | DataAgent: 
 ```
 agent-monitor/
 ├── src/
-│   ├── index.js              # 入口
+│   ├── index.js                       # 本地 API 入口
+│   ├── meeting-state.js               # 会议状态机
+│   ├── data/
+│   │   ├── projects.json              # 项目数据
+│   │   └── tasks.json                 # 任务数据
 │   └── services/
-│       ├── agent-registry.js  # Agent 状态管理（P0）
-│       ├── project-manager.js # 项目管理（P0）
-│       └── message-capture.js # 消息捕获（附加功能）
-├── public/
-│   ├── index.html          # 主页面
-│   ├── projects.html        # 项目管理页面
-│   ├── bubble.css          # 气泡样式
-│   ├── bubble.js            # 气泡渲染
-│   └── avatars/             # Agent SVG 形象
-├── data/
-│   └── projects.json        # 项目数据持久化
-├── agents.json              # Agent 配置
+│       ├── project-manager.js         # 项目管理
+│       ├── task-queue.js              # 任务队列
+│       ├── chat-room.js               # 会议/聊天室
+│       ├── message-router.js          # 消息路由
+│       └── delivery/adapter-registry.js
+├── web/                               # Next.js 工作台
+├── archive/                           # 过期文档、验证脚本、旧实现归档
 ├── package.json
 ├── SPEC.md                  # 本规范
-├── TEST.md                  # 测试计划
-└── README.md
+└── COLLABORATION-MODEL.md   # 多 Agent 协作模型
 ```
 
 ---
@@ -404,16 +485,19 @@ agent-monitor/
 ### 10.1 功能验收
 
 - [ ] 服务启动成功，无报错
-- [ ] API `/api/agents` 返回 Agent 列表
+- [ ] API `/api/projects` 返回项目列表
+- [ ] API `/api/tasks` 返回任务列表
 - [ ] WebSocket 连接成功
-- [ ] 前端显示 Agent 状态
-- [ ] Agent 列表包含 Tim + 4 个团队成员
+- [ ] 前端显示项目、任务和 Agent 状态
+- [ ] 项目经理 Agent 能位于项目与任务之间
 
-### 10.2 动态发现验收
+### 10.2 协作验收
 
-- [ ] Gateway API 可用时，从 Gateway 发现 Agent
-- [ ] Gateway 不可用时，从 agents.json 加载
-- [ ] 配置文件不存在时，使用内置默认列表
+- [ ] 项目能配置项目经理 Agent
+- [ ] 项目经理 Agent 能创建或分配任务
+- [ ] 任务能绑定不同类型 Agent
+- [ ] 任务能记录代码、文档、测试报告、需求分析、进度摘要等不同产物
+- [ ] Git 产物和非 Git 产物能同时被项目进度引用
 
 ### 10.3 WebSocket 验收
 
@@ -425,7 +509,10 @@ agent-monitor/
 
 ## 12. 更新记录
 
-| 日期 | 版本 | 变更 |
-|------|------|------|
-| 2026-03-26 | 1.0.0 | 初始规范 |
-| 2026-04-26 | 1.1.0 | 补充项目管理模块（P0），区分实际数据与固定模板 |
+| 日期 | 版本 | 作者 | 变更 |
+|------|------|------|------|
+| 2026-03-26 | 1.0.0 | Claude | 初始规范 |
+| 2026-04-26 | 1.1.0 | Claude | 补充项目管理模块（P0），区分实际数据与固定模板 |
+| 2026-05-21 | 1.2.0 | Claude | 清理过期 Gateway/Redis/静态前端方案，明确项目-任务-Agent 协作主线 |
+| 2026-05-21 | 1.3.0 | Claude | 根据 Claude Agent View、Codex app、多 Agent 平台调研补充 Agent View、Inbox、ExecutionTrace、Artifact Review、Context Pack、Handoff |
+| 2026-05-26 | 1.4.0 | Nox | 对比 HiveWard 架构，补充可借鉴方向分析；新建 CLAUDE.md 协作规则文档 |

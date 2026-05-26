@@ -7,23 +7,17 @@
   "scripts": {
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
+    "dev:dashboard": "cd dashboard && npm run dev",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:dashboard\"",
     "test": "node --test tests/integration/api.test.js",
-    "test:unit": "node --test tests/unit/*.test.js",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev"
+    "test:unit": "node --test tests/unit/*.test.js"
   },
   "dependencies": {
     "@fastify/cors": "^9.0.0",
-    "@fastify/static": "^7.0.0",
-    "@fastify/websocket": "^10.0.0",
-    "@prisma/client": "^5.0.0",
     "fastify": "^4.26.0",
-    "ioredis": "^5.3.0",
-    "phaser": "^3.80.1",
-    "socket.io": "^4.7.0",
-    "ws": "^8.16.0"
+    "socket.io": "^4.7.0"
   },
   "devDependencies": {
-    "prisma": "^5.0.0"
+    "concurrently": "^9.2.1"
   }
 }

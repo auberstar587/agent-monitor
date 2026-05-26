@@ -1,6 +1,5 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import staticFiles from '@fastify/static';
 import { Server } from 'socket.io';
 import path from 'path';
 import os from 'os';
@@ -23,9 +22,10 @@ const PORT = process.env.PORT || 3001;
 const fastify = Fastify({ logger: true });
 
 // Register plugins
-await fastify.register(cors);
-await fastify.register(staticFiles, {
-  root: path.join(__dirname, '..', 'public'),
+await fastify.register(cors, {
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
 });
 
 // ===== Core Services =====
@@ -72,6 +72,23 @@ messageRouter.on('delivery:failed', ({ agentId, platform, error }) => {
 });
 
 // ===== Task Queue =====
+// Comments storage: taskId -> Comment[]
+const comments = new Map();
+
+// ===== Event Log (in-memory, append-only) =====
+const eventLog = [];
+const MAX_EVENTS = 200;
+
+function appendEvent(event) {
+  eventLog.push({
+    id: 'evt_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 6),
+    timestamp: Date.now(),
+    ...event,
+  });
+  if (eventLog.length > MAX_EVENTS) {
+    eventLog.splice(0, eventLog.length - MAX_EVENTS);
+  }
+}
 
 const taskQueue = new TaskQueue();
 taskQueue.setChatRoom(chatRoom);
@@ -86,22 +103,28 @@ chatRoom.on('agent:status', ({ agentId, status }) => {
 // ===== Socket.io =====
 
 const io = new Server(fastify.server, {
-  cors: { origin: '*', methods: ['GET', 'POST'] },
+  cors: { origin: ['http://localhost:3000', 'http://localhost:3001', 'http://localhost:5173'], methods: ['GET', 'POST'] },
 });
 
 // ---- ChatRoom → Socket.io Bridge ----
 chatRoom.on('agent:join', ({ agent }) => {
   io.emit('chat:join', agent);
   io.emit('chat:agents', chatRoom.getAgents());
+  appendEvent({ type: 'agent.joined', actorAgentId: agent.agentId, payload: { name: agent.agentName, platform: agent.platform } });
+  io.emit('event:new', eventLog[eventLog.length - 1]);
 });
 
 chatRoom.on('agent:leave', ({ agent }) => {
   io.emit('chat:leave', { agentId: agent.agentId });
   io.emit('chat:agents', chatRoom.getAgents());
+  appendEvent({ type: 'agent.left', actorAgentId: agent.agentId, payload: { name: agent.agentName } });
+  io.emit('event:new', eventLog[eventLog.length - 1]);
 });
 
 chatRoom.on('agent:status', ({ agent, prevStatus, status }) => {
   io.emit('chat:status', { agentId: agent.agentId, status, prevStatus, agent });
+  appendEvent({ type: 'agent.status_changed', actorAgentId: agent.agentId, payload: { name: agent.agentName, from: prevStatus, to: status } });
+  io.emit('event:new', eventLog[eventLog.length - 1]);
 });
 
 chatRoom.on('message:new', (msg) => {
@@ -109,14 +132,44 @@ chatRoom.on('message:new', (msg) => {
 });
 
 // ---- TaskQueue → Socket.io Bridge ----
-taskQueue.on('task:created', ({ task }) => io.emit('task:created', task));
-taskQueue.on('task:dispatched', ({ task }) => io.emit('task:updated', task));
-taskQueue.on('task:started', ({ task }) => io.emit('task:updated', task));
-taskQueue.on('task:progress', ({ task, progress }) => io.emit('task:progress', { taskId: task.id, progress }));
-taskQueue.on('task:completed', ({ task }) => io.emit('task:updated', task));
-taskQueue.on('task:failed', ({ task }) => io.emit('task:updated', task));
-taskQueue.on('task:cancelled', ({ task }) => io.emit('task:updated', task));
-taskQueue.on('task:retried', ({ task }) => io.emit('task:updated', task));
+taskQueue.on('task:created', ({ task }) => {
+  io.emit('task:created', task);
+  appendEvent({ type: 'task.created', projectId: task.projectId, taskId: task.id, actorAgentId: task.agentId, payload: { title: task.title } });
+  io.emit('event:new', eventLog[eventLog.length - 1]);
+});
+taskQueue.on('task:dispatched', ({ task }) => {
+  io.emit('task:updated', task);
+  appendEvent({ type: 'task.assigned', projectId: task.projectId, taskId: task.id, targetAgentId: task.agentId, payload: { title: task.title } });
+  io.emit('event:new', eventLog[eventLog.length - 1]);
+});
+taskQueue.on('task:started', ({ task }) => {
+  io.emit('task:updated', task);
+  appendEvent({ type: 'task.started', projectId: task.projectId, taskId: task.id, actorAgentId: task.agentId, payload: { title: task.title } });
+  io.emit('event:new', eventLog[eventLog.length - 1]);
+});
+taskQueue.on('task:progress', ({ task, progress }) => {
+  io.emit('task:progress', { taskId: task.id, progress });
+});
+taskQueue.on('task:completed', ({ task }) => {
+  io.emit('task:updated', task);
+  appendEvent({ type: 'task.completed', projectId: task.projectId, taskId: task.id, actorAgentId: task.agentId, payload: { title: task.title, result: task.result } });
+  io.emit('event:new', eventLog[eventLog.length - 1]);
+});
+taskQueue.on('task:failed', ({ task }) => {
+  io.emit('task:updated', task);
+  appendEvent({ type: 'task.failed', projectId: task.projectId, taskId: task.id, actorAgentId: task.agentId, payload: { title: task.title, error: task.error } });
+  io.emit('event:new', eventLog[eventLog.length - 1]);
+});
+taskQueue.on('task:cancelled', ({ task }) => {
+  io.emit('task:updated', task);
+  appendEvent({ type: 'task.cancelled', projectId: task.projectId, taskId: task.id, payload: { title: task.title } });
+  io.emit('event:new', eventLog[eventLog.length - 1]);
+});
+taskQueue.on('task:retried', ({ task }) => {
+  io.emit('task:updated', task);
+  appendEvent({ type: 'task.retried', projectId: task.projectId, taskId: task.id, actorAgentId: task.agentId, payload: { title: task.title, attempt: task.attempt } });
+  io.emit('event:new', eventLog[eventLog.length - 1]);
+});
 
 // ---- Meeting State → Socket.io + ChatRoom ----
 meetingSM.on('stateChange', (eventData) => {
@@ -462,8 +515,15 @@ fastify.get('/api/meeting/state', async () => meetingSM.getState());
 
 // Get all tasks
 fastify.get('/api/tasks', async (req) => {
-  const { agentId, status } = req.query || {};
-  const tasks = taskQueue.getAll({ agentId, status });
+  const { agentId, status, q } = req.query || {};
+  let tasks = taskQueue.getAll({ agentId, status });
+  if (q) {
+    const keyword = (q || '').toLowerCase();
+    tasks = tasks.filter(t =>
+      t.title.toLowerCase().includes(keyword) ||
+      (t.description && t.description.toLowerCase().includes(keyword))
+    );
+  }
   const stats = taskQueue.getStats();
   return { tasks, total: tasks.length, stats };
 });
@@ -490,7 +550,8 @@ fastify.post('/api/tasks/claim', async (req) => {
 fastify.get('/api/tasks/:id', async (req) => {
   const task = taskQueue.get(req.params.id);
   if (!task) throw { statusCode: 404, message: 'Task not found' };
-  return task;
+  const taskComments = comments.get(req.params.id) || [];
+  return { ...task, commentCount: taskComments.length };
 });
 
 // Agent starts a task
@@ -517,11 +578,89 @@ fastify.post('/api/tasks/:id/fail', async (req) => {
   return { success: true, task };
 });
 
+// Update a task (for kanban drag-and-drop status changes)
+fastify.put('/api/tasks/:id', async (req) => {
+  const task = taskQueue.get(req.params.id);
+  if (!task) throw { statusCode: 404, message: 'Task not found' };
+  const updates = req.body || {};
+  if (updates.status) {
+    try {
+      switch (updates.status) {
+        case 'running': taskQueue.start(req.params.id); break;
+        case 'completed': taskQueue.complete(req.params.id, updates); break;
+        case 'failed': taskQueue.fail(req.params.id, updates); break;
+        case 'cancelled': taskQueue.cancel(req.params.id); break;
+        default: taskQueue.update(req.params.id, updates);
+      }
+    } catch (e) {
+      // Status transition may not be valid, just update fields
+      taskQueue.update(req.params.id, updates);
+    }
+  } else {
+    taskQueue.update(req.params.id, updates);
+  }
+  return taskQueue.get(req.params.id);
+});
+
+// Get task comments
+fastify.get('/api/tasks/:id/comments', async (req) => {
+  const { id } = req.params;
+  return { comments: comments.get(id) || [] };
+});
+
+// Create a task comment
+fastify.post('/api/tasks/:id/comments', async (req) => {
+  const { id } = req.params;
+  const { content, authorId, authorName } = req.body || {};
+  if (!content) return { success: false, error: 'Content required' };
+  if (!comments.has(id)) comments.set(id, []);
+  const comment = {
+    id: `comment_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    taskId: id,
+    content,
+    authorId: authorId || 'user',
+    authorName: authorName || 'User',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  comments.get(id).push(comment);
+  return { success: true, comment };
+});
+
 // Cancel a task
 fastify.delete('/api/tasks/:id', async (req) => {
   const task = taskQueue.cancel(req.params.id);
   if (!task) throw { statusCode: 404, message: 'Task not found' };
   return { success: true };
+});
+
+// ===== Project CRUD API =====
+
+// ===== Event Log API =====
+
+// Get event log
+fastify.get('/api/events', async (req) => {
+  const { type, projectId, limit } = req.query || {};
+  let events = [...eventLog];
+  if (type) events = events.filter(e => e.type.startsWith(type));
+  if (projectId) events = events.filter(e => e.projectId === projectId);
+  const n = parseInt(limit || '50', 10);
+  return { events: events.slice(-n), total: events.length };
+});
+
+// ===== Agent Registration API =====
+
+// Agent self-registration (semantic alias for chat/join)
+fastify.post('/api/agents/register', async (req) => {
+  const { agentId, agentName, role, model, platform, type, todayTasks, successRate, ...extra } = req.body || {};
+  if (!agentId) {
+    throw { statusCode: 400, message: 'agentId is required' };
+  }
+  const agent = chatRoom.join(agentId, {
+    agentName: agentName || agentId,
+    role, model, platform, type, todayTasks, successRate, ...extra,
+  });
+  return { success: true, agent };
 });
 
 // ===== Project CRUD API =====
@@ -588,6 +727,7 @@ fastify.post('/api/projects/import', async (req) => {
   };
 });
 
+
 // ===== Graceful Shutdown =====
 
 const shutdown = async () => {
@@ -613,6 +753,21 @@ const start = async () => {
 
     // Start message router
     messageRouter.start();
+
+    // Auto-register demo agents for development
+    const DEMO_AGENTS = [
+      { agentId: 'nox', agentName: 'Nox', role: 'project_manager', platform: 'openclaw', model: 'GLM-4.7-Flash', type: 'coding', todayTasks: 12, successRate: 94.2 },
+      { agentId: 'openclaw-default', agentName: '小资', role: 'analyst', platform: 'openclaw', model: 'GLM-4.7-Flash', type: 'research', todayTasks: 8, successRate: 91.5 },
+      { agentId: 'claude-code', agentName: 'Claude', role: 'developer', platform: 'claude', model: 'gpt-4', type: 'coding', todayTasks: 15, successRate: 96.8 },
+    ];
+    for (const agent of DEMO_AGENTS) {
+      chatRoom.join(agent.agentId, agent);
+      chatRoom.updateStatus(agent.agentId, agent.agentId === 'claude-code' ? 'working' : 'idle');
+    }
+    console.log(`[Server] Registered ${DEMO_AGENTS.length} demo agents`);
+
+    // Seed initial events
+    appendEvent({ type: 'system.started', payload: { message: 'Agent Monitor 服务已启动' } });
 
     console.log('[Server] All services started successfully');
   } catch (err) {

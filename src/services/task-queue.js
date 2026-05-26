@@ -13,6 +13,12 @@ const MAX_COMPLETED_TASKS = 500;
 
 // Default retry config
 const DEFAULT_MAX_ATTEMPTS = 3;
+const PRIORITY_WEIGHT = { low: 1, medium: 5, high: 10, urgent: 20 };
+
+function priorityWeight(priority) {
+  if (typeof priority === 'number') return priority;
+  return PRIORITY_WEIGHT[priority] ?? PRIORITY_WEIGHT.medium;
+}
 
 /**
  * TaskQueue - Agent task scheduling service
@@ -144,13 +150,19 @@ export class TaskQueue extends EventEmitter {
       title: data.title.trim(),
       description: data.description?.trim() || '',
       agentId: data.agentId || '',
-      priority: data.priority || 0,
+      priority: data.priority || 'medium',
       status: 'queued',
       maxAttempts: data.maxAttempts || DEFAULT_MAX_ATTEMPTS,
       attempt: 1,
       progress: null,
       result: null,
       error: null,
+      // New fields
+      projectId: data.projectId || null,
+      position: data.position || 0,
+      labels: Array.isArray(data.labels) ? data.labels : [],
+      assigneeType: data.assigneeType || null,
+      dueDate: data.dueDate || null,
       createdAt: now,
       dispatchedAt: null,
       startedAt: null,
@@ -185,7 +197,7 @@ export class TaskQueue extends EventEmitter {
     tasks.sort((a, b) => {
       const so = (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9);
       if (so !== 0) return so;
-      const po = (b.priority || 0) - (a.priority || 0);
+      const po = priorityWeight(b.priority) - priorityWeight(a.priority);
       if (po !== 0) return po;
       return (a.createdAt || 0) - (b.createdAt || 0);
     });
@@ -225,6 +237,21 @@ export class TaskQueue extends EventEmitter {
     return task;
   }
 
+  /**
+   * Update task fields (title, description, priority, etc.)
+   */
+  update(taskId, updates) {
+    const task = this.tasks.get(taskId);
+    if (!task) return null;
+    const allowed = ['title', 'description', 'priority', 'agentId', 'position', 'projectId', 'labels', 'assigneeType', 'dueDate'];
+    for (const key of allowed) {
+      if (updates[key] !== undefined) task[key] = updates[key];
+    }
+    this._save();
+    this.emit('task:updated', { task });
+    return task;
+  }
+
   // ===== Agent-facing operations (called by agents via HTTP) =====
 
   /**
@@ -242,7 +269,9 @@ export class TaskQueue extends EventEmitter {
       if (task.agentId && task.agentId !== agentId) continue;
       // Unassigned tasks are claimable by anyone
       if (!task.agentId || task.agentId === agentId) {
-        if (!best || (task.priority || 0) > (best.priority || 0) || task.createdAt < best.createdAt) {
+        const taskPriority = priorityWeight(task.priority);
+        const bestPriority = priorityWeight(best?.priority);
+        if (!best || taskPriority > bestPriority || (taskPriority === bestPriority && task.createdAt < best.createdAt)) {
           best = task;
         }
       }
