@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Agent Monitor - 输出</title>
+  <style>
+    :root {
+      --bg: #07111f;
+      --bg-2: #0a1426;
+      --panel: rgba(14, 24, 42, 0.92);
+      --panel-2: rgba(10, 18, 34, 0.95);
+      --border: rgba(86, 112, 160, 0.18);
+      --border-strong: rgba(49, 212, 255, 0.45);
+      --text: #eef4ff;
+      --text-2: #a9b7d3;
+      --text-3: #7f8dab;
+      --accent: #12d7ff;
+      --accent-2: #18b4ff;
+      --success: #28e06f;
+      --shadow: 0 10px 40px rgba(0, 0, 0, 0.35);
+      --radius-lg: 22px;
+      --radius-md: 16px;
+      --radius-sm: 12px;
+      --glow: 0 0 0 1px rgba(18, 215, 255, 0.25), 0 0 20px rgba(18, 215, 255, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: Inter, "PingFang SC", "Microsoft YaHei", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at top center, rgba(21, 74, 170, 0.28), transparent 32%),
+        linear-gradient(180deg, #07101d 0%, #040a14 100%);
+      min-height: 100vh;
+    }
+
+    .app {
+      display: flex;
+      min-height: 100vh;
+      padding: 14px;
+      gap: 14px;
+    }
+
+    .sidebar {
+      width: 280px;
+      background:
+        linear-gradient(180deg, rgba(8, 15, 28, 0.98), rgba(4, 10, 20, 0.98));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .brand {
+      padding: 26px 24px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .brand-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .brand-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .pulse {
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+    }
+
+    .pulse svg {
+      width: 30px;
+      height: 30px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 2;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 700;
+    }
+
+    .version {
+      margin-top: 4px;
+      color: var(--text-3);
+      font-size: 13px;
+    }
+
+    .mini-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--text-2);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+    }
+
+    .nav-title {
+      padding: 18px 24px 10px;
+      color: var(--text-3);
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .nav {
+      padding: 0 12px 16px;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 14px;
+      margin-bottom: 6px;
+      color: #d6e2f9;
+      border-radius: 14px;
+      text-decoration: none;
+      transition: 0.2s ease;
+      border: 1px solid transparent;
+    }
+
+    .nav-item:hover {
+      background: rgba(255,255,255,0.03);
+    }
+
+    .nav-item.active {
+      color: var(--accent);
+      background: linear-gradient(90deg, rgba(18, 215, 255, 0.10), rgba(18, 215, 255, 0.04));
+      border-color: rgba(18, 215, 255, 0.45);
+      box-shadow: 0 0 18px rgba(18, 215, 255, 0.12);
+    }
+
+    .nav-item .icon {
+      width: 22px;
+      text-align: center;
+      font-size: 18px;
+      opacity: 0.95;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 18px 16px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    .status {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--text-2);
+      margin-bottom: 14px;
+      font-size: 15px;
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--success);
+      box-shadow: 0 0 12px rgba(40, 224, 111, 0.7);
+    }
+
+    .footer-actions {
+      display: flex;
+      gap: 10px;
+    }
+
+    .ghost-btn {
+      flex: 1;
+      padding: 12px 14px;
+      border-radius: 12px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      cursor: pointer;
+    }
+
+    .main {
+      flex: 1;
+      background:
+        radial-gradient(circle at top center, rgba(18, 87, 220, 0.15), transparent 32%),
+        linear-gradient(180deg, rgba(5, 11, 21, 0.96), rgba(6, 12, 22, 0.98));
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      box-shadow: var(--shadow);
+      padding: 28px 26px 20px;
+      overflow: hidden;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      margin-bottom: 22px;
+    }
+
+    .page-tag {
+      color: var(--accent);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      margin-bottom: 10px;
+    }
+
+    .page-title {
+      margin: 0;
+      font-size: 46px;
+      font-weight: 800;
+      line-height: 1.1;
+    }
+
+    .page-desc {
+      margin-top: 8px;
+      color: var(--text-3);
+      font-size: 16px;
+    }
+
+    .top-actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .action-btn {
+      height: 52px;
+      padding: 0 18px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--text);
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      font-size: 16px;
+    }
+
+    .icon-btn {
+      width: 52px;
+      justify-content: center;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 0.95fr 1.2fr;
+      gap: 16px;
+      height: calc(100vh - 170px);
+      min-height: 650px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(10, 18, 34, 0.94), rgba(7, 14, 26, 0.96));
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.02);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 22px 22px 12px;
+      font-size: 16px;
+      font-weight: 700;
+    }
+
+    .panel-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-count {
+      min-width: 24px;
+      height: 24px;
+      border-radius: 999px;
+      padding: 0 8px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(18, 215, 255, 0.12);
+      color: var(--accent);
+      font-size: 13px;
+      border: 1px solid rgba(18, 215, 255, 0.18);
+    }
+
+    .filters {
+      display: flex;
+      gap: 14px;
+      padding: 0 22px 18px;
+      flex-wrap: wrap;
+    }
+
+    select {
+      min-width: 170px;
+      background: rgba(255,255,255,0.03);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 16px;
+      outline: none;
+      font-size: 15px;
+    }
+
+    .list-body {
+      padding: 0 22px 18px;
+      overflow: auto;
+    }
+
+    .record-card {
+      width: 100%;
+      background: linear-gradient(180deg, rgba(14, 22, 38, 0.95), rgba(10, 18, 32, 0.98));
+      border: 1px solid rgba(18, 215, 255, 0.45);
+      border-radius: 18px;
+      box-shadow: var(--glow);
+      color: var(--text);
+      padding: 20px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+      cursor: pointer;
+    }
+
+    .record-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      min-width: 0;
+    }
+
+    .chev {
+      font-size: 18px;
+      color: var(--text-2);
+    }
+
+    .record-main {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      min-width: 0;
+      flex-wrap: wrap;
+    }
+
+    .source-name {
+      color: var(--accent);
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 12px;
+      background: rgba(24, 180, 255, 0.12);
+      color: #5bd5ff;
+      border: 1px solid rgba(24, 180, 255, 0.22);
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .record-title {
+      font-size: 18px;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 240px;
+    }
+
+    .record-time {
+      color: var(--text-3);
+      font-size: 15px;
+      white-space: nowrap;
+    }
+
+    .list-footer {
+      margin-top: auto;
+      padding: 18px 22px 22px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      color: var(--text-3);
+    }
+
+    .pager {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pager-btn, .pager-current {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+      color: var(--text-2);
+    }
+
+    .pager-current {
+      background: rgba(18, 215, 255, 0.14);
+      color: var(--accent);
+      border-color: rgba(18, 215, 255, 0.35);
+    }
+
+    .detail-body {
+      padding: 0 22px 22px;
+      overflow: auto;
+    }
+
+    .detail-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 10px 0 16px;
+      border-top: 1px solid rgba(255,255,255,0.05);
+    }
+
+    .detail-title {
+      margin: 0 0 14px;
+      font-size: 26px;
+      font-weight: 800;
+    }
+
+    .detail-badges {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .detail-meta-top {
+      color: var(--text-3);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      white-space: nowrap;
+      padding-top: 4px;
+    }
+
+    .copy {
+      cursor: pointer;
+      opacity: 0.9;
+    }
+
+    .card-block {
+      background: rgba(255,255,255,0.02);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 18px;
+      padding: 18px;
+      margin-bottom: 14px;
+    }
+
+    .block-title {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 14px;
+    }
+
+    .summary-text {
+      color: var(--text-2);
+      line-height: 1.85;
+      font-size: 16px;
+    }
+
+    .meta-list {
+      overflow: hidden;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.05);
+      background: rgba(255,255,255,0.01);
+    }
+
+    .meta-row {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      min-height: 64px;
+    }
+
+    .meta-row:last-child {
+      border-bottom: none;
+    }
+
+    .meta-key, .meta-value {
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+    }
+
+    .meta-key {
+      color: var(--text);
+      gap: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      background: rgba(255,255,255,0.01);
+    }
+
+    .meta-value {
+      color: var(--text-2);
+      font-size: 16px;
+    }
+
+    .preview-box {
+      background: rgba(1, 7, 18, 0.7);
+      border: 1px solid rgba(255,255,255,0.05);
+      border-radius: 14px;
+      padding: 16px 18px;
+      color: var(--text-2);
+      line-height: 1.8;
+      font-size: 16px;
+    }
+
+    .preview-box ul {
+      margin: 0;
+      padding-left: 22px;
+    }
+
+    .preview-box li {
+      margin: 2px 0;
+    }
+
+    @media (max-width: 1280px) {
+      .content {
+        grid-template-columns: 1fr;
+        height: auto;
+      }
+
+      .sidebar {
+        width: 230px;
+      }
+
+      .main {
+        padding: 22px 18px 18px;
+      }
+
+      .page-title {
+        font-size: 34px;
+      }
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        flex-direction: column;
+      }
+
+      .sidebar {
+        width: 100%;
+      }
+
+      .topbar {
+        flex-direction: column;
+      }
+
+      .top-actions {
+        width: 100%;
+      }
+
+      .action-btn {
+        flex: 1;
+        justify-content: center;
+      }
+
+      .meta-row {
+        grid-template-columns: 1fr;
+      }
+
+      .meta-key, .meta-value {
+        min-height: 52px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-top">
+          <div class="brand-left">
+            <div class="pulse">
+              <svg viewBox="0 0 24 24">
+                <path d="M2 12h4l2-5 4 10 2-5h8"></path>
+              </svg>
+            </div>
+            <div>
+              <h1>Agent Monitor</h1>
+              <div class="version">v2.0.0</div>
+            </div>
+          </div>
+          <button class="mini-btn">⧉</button>
+        </div>
+      </div>
+
+      <div class="nav-title">导航</div>
+      <nav class="nav">
+        <a class="nav-item" href="#"><span class="icon">◫</span><span>总览</span></a>
+        <a class="nav-item" href="#"><span class="icon">🗂</span><span>项目</span></a>
+        <a class="nav-item" href="#"><span class="icon">🤖</span><span>Agents</span></a>
+        <a class="nav-item active" href="#"><span class="icon">📄</span><span>输出</span></a>
+        <a class="nav-item" href="#"><span class="icon">🧠</span><span>记忆</span></a>
+        <a class="nav-item" href="#"><span class="icon">✉️</span><span>收件箱</span></a>
+        <a class="nav-item" href="#"><span class="icon">🔗</span><span>蓝图</span></a>
+        <a class="nav-item" href="#"><span class="icon">☰</span><span>任务</span></a>
+        <a class="nav-item" href="#"><span class="icon">⚙</span><span>设置</span></a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="status">
+          <span class="status-dot"></span>
+          <span>系统在线</span>
+        </div>
+        <div class="footer-actions">
+          <button class="ghost-btn">显示菜单</button>
+          <button class="ghost-btn" style="max-width: 56px;">‹</button>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main">
+      <div class="topbar">
+        <div>
+          <div class="page-tag">ARTIFACTS</div>
+          <h2 class="page-title">输出</h2>
+          <div class="page-desc">跨工具输出、决策和分析记录</div>
+        </div>
+        <div class="top-actions">
+          <button class="action-btn">🌙 深色</button>
+          <button class="action-btn icon-btn">⚙</button>
+        </div>
+      </div>
+
+      <section class="content">
+        <!-- 左侧列表 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span>📋</span>
+              <span>输出记录</span>
+              <span class="badge-count">1</span>
+            </div>
+          </div>
+
+          <div class="filters">
+            <select>
+              <option>全部来源</option>
+            </select>
+            <select>
+              <option>全部类型</option>
+            </select>
+          </div>
+
+          <div class="list-body">
+            <button class="record-card" id="recordCard">
+              <div class="record-left">
+                <span class="chev">›</span>
+                <div class="record-main">
+                  <span class="source-name">claude-code</span>
+                  <span class="pill">分析</span>
+                  <span class="record-title">架构分析</span>
+                </div>
+              </div>
+              <div class="record-time">2026/5/31 09:08:54</div>
+            </button>
+          </div>
+
+          <div class="list-footer">
+            <div>共 1 条</div>
+            <div class="pager">
+              <div class="pager-btn">‹</div>
+              <div class="pager-current">1</div>
+              <div class="pager-btn">›</div>
+            </div>
+            <div>
+              <select style="min-width: 110px; padding: 10px 12px;">
+                <option>10 条/页</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <!-- 右侧详情 -->
+        <div class="panel">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span>📄</span>
+              <span>输出详情</span>
+            </div>
+          </div>
+
+          <div class="detail-body">
+            <div class="detail-title-row">
+              <div>
+                <h3 class="detail-title">架构分析</h3>
+                <div class="detail-badges">
+                  <span class="pill">claude-code</span>
+                  <span class="pill">分析</span>
+                </div>
+              </div>
+              <div class="detail-meta-top">
+                <span>2026/5/31 09:08:54</span>
+                <span class="copy">📋</span>
+              </div>
+            </div>
+
+            <div class="card-block">
+              <div class="block-title">📝 摘要</div>
+              <div class="summary-text">
+                对当前系统的整体架构进行了分析，梳理了各模块的职责边界、交互关系与数据流向，
+                识别出潜在的耦合点与风险，并提出了优化建议。
+              </div>
+            </div>
+
+            <div class="card-block">
+              <div class="meta-list">
+                <div class="meta-row">
+                  <div class="meta-key">🔎 来源</div>
+                  <div class="meta-value">claude-code</div>
+                </div>
+                <div class="meta-row">
+                  <div class="meta-key">🏷 类型</div>
+                  <div class="meta-value"><span class="pill">分析</span></div>
+                </div>
+                <div class="meta-row">
+                  <div class="meta-key">🏷 标签</div>
+                  <div class="meta-value"><span class="pill">架构分析</span></div>
+                </div>
+                <div class="meta-row">
+                  <div class="meta-key">🕒 时间</div>
+                  <div class="meta-value">2026/5/31 09:08:54</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="card-block">
+              <div class="block-title">📄 内容预览</div>
+              <div class="preview-box">
+                <ul>
+                  <li>系统架构概览</li>
+                  <li>核心模块分析</li>
+                  <li>交互与数据流</li>
+                  <li>风险与问题识别</li>
+                  <li>优化建议</li>
+                </ul>
+                <div>...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const recordCard = document.getElementById('recordCard');
+    recordCard.addEventListener('click', () => {
+      alert('这里后续可以接入详情切换、接口数据绑定、文件预览等逻辑。');
+    });
+  </script>
+</body>
+</html>

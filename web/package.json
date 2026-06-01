@@ -1,9 +1,0 @@
-{
-  "name": "agent-monitor-web",
-  "private": true,
-  "scripts": {
-    "dev": "pnpm --filter @multica/web dev",
-    "build": "pnpm --filter @multica/web build",
-    "start": "pnpm --filter @multica/web start"
-  }
-}

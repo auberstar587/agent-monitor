@@ -7,7 +7,7 @@
 
 import http from 'http';
 
-const BASE_URL = 'http://localhost:3001';
+const BASE_URL = 'http://localhost:3002';
 const RESULTS = [];
 
 function httpGet(path) {

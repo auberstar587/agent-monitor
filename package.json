@@ -1,23 +1,21 @@
 {
   "name": "agent-monitor",
-  "version": "1.0.0",
-  "description": "Agent Monitor + Meeting Visualization System",
-  "main": "src/index.js",
+  "version": "2.0.0",
+  "description": "Local Agent Hub — unified output collection, project management, multi-agent orchestration",
   "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "start": "node src/index.js",
-    "dev": "node --watch src/index.js",
-    "dev:dashboard": "cd dashboard && npm run dev",
-    "dev:all": "concurrently \"npm run dev\" \"npm run dev:dashboard\"",
-    "test": "node --test tests/integration/api.test.js",
-    "test:unit": "node --test tests/unit/*.test.js"
-  },
-  "dependencies": {
-    "@fastify/cors": "^9.0.0",
-    "fastify": "^4.26.0",
-    "socket.io": "^4.7.0"
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:ui\"",
+    "dev:server": "npm --prefix packages/server run dev",
+    "dev:ui": "npm --prefix packages/ui run dev",
+    "build": "npm run build --workspaces",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "typescript": "^5.6.0"
   }
 }

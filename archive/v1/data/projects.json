@@ -1,0 +1,134 @@
+[
+  {
+    "id": "proj_agent_monitor",
+    "name": "Agent Monitor",
+    "path": "/Users/hanyongfeng/AI/agent-monitor",
+    "agentId": "nox",
+    "type": "coding",
+    "model": "glm-4",
+    "port": 3001,
+    "createdAt": 1716249600000,
+    "updatedAt": 1716336000000
+  },
+  {
+    "id": "proj_ai_memory",
+    "name": "AiMemory",
+    "path": "/Users/hanyongfeng/AI/ai-memory",
+    "agentId": "openclaw-default",
+    "type": "research",
+    "model": "glm-4",
+    "port": 0,
+    "createdAt": 1716163200000,
+    "updatedAt": 1716249600000
+  },
+  {
+    "id": "proj_ncbs_claim",
+    "name": "NCBS Claim",
+    "path": "/Users/hanyongfeng/workspace/ncbs-claim",
+    "agentId": "claude-code",
+    "type": "coding",
+    "model": "gpt-4",
+    "port": 8080,
+    "createdAt": 1716076800000,
+    "updatedAt": 1716163200000
+  },
+  {
+    "id": "proj_mpezas8l8nfxp9",
+    "name": "Agent_Copilot",
+    "path": "/Users/hanyongfeng/AI/Agent_Copilot",
+    "agentId": "",
+    "type": "tool",
+    "model": "qwen2.5",
+    "port": 0,
+    "createdAt": 1779336984693,
+    "updatedAt": 1779336984693
+  },
+  {
+    "id": "proj_mpezas8mc17lqo",
+    "name": "AiMemory",
+    "path": "/Users/hanyongfeng/AI/AiMemory",
+    "agentId": "",
+    "type": "tool",
+    "model": "qwen2.5",
+    "port": 0,
+    "createdAt": 1779336984694,
+    "updatedAt": 1779336984694
+  },
+  {
+    "id": "proj_mpezas8pxx5w4n",
+    "name": "llm-router",
+    "path": "/Users/hanyongfeng/AI/LLMRouter",
+    "agentId": "",
+    "type": "tool",
+    "model": "MiniMax-M2.7",
+    "port": 0,
+    "createdAt": 1779336984697,
+    "updatedAt": 1779336984697
+  },
+  {
+    "id": "proj_mpezas8qq1z7ox",
+    "name": "MOSS-TTS-Nano",
+    "path": "/Users/hanyongfeng/AI/MOSS-TTS-Nano",
+    "agentId": "",
+    "type": "tool",
+    "model": "qwen2.5",
+    "port": 0,
+    "createdAt": 1779336984698,
+    "updatedAt": 1779336984698
+  },
+  {
+    "id": "proj_mpezas8q72l2mo",
+    "name": "MyAgent",
+    "path": "/Users/hanyongfeng/AI/MyAgent",
+    "agentId": "",
+    "type": "tool",
+    "model": "qwen2.5",
+    "port": 0,
+    "createdAt": 1779336984698,
+    "updatedAt": 1779336984698
+  },
+  {
+    "id": "proj_mpezas8qvmjzqq",
+    "name": "openclaw-bot-review",
+    "path": "/Users/hanyongfeng/AI/OpenClaw-bot-review",
+    "agentId": "",
+    "type": "tool",
+    "model": "qwen2.5",
+    "port": 0,
+    "createdAt": 1779336984698,
+    "updatedAt": 1779336984698
+  },
+  {
+    "id": "proj_mpezas8senc6rr",
+    "name": "openclaw",
+    "path": "/Users/hanyongfeng/AI/Openclaw",
+    "agentId": "",
+    "type": "tool",
+    "model": "gpt-4",
+    "port": 0,
+    "createdAt": 1779336984700,
+    "updatedAt": 1779336984700
+  },
+  {
+    "id": "proj_mpezas8t3dzvu7",
+    "name": "Star-Office-UI",
+    "path": "/Users/hanyongfeng/AI/Star-Office-UI",
+    "agentId": "",
+    "type": "tool",
+    "model": "qwen2.5",
+    "port": 0,
+    "createdAt": 1779336984701,
+    "updatedAt": 1779336984701
+  },
+  {
+    "id": "proj_mpezas8tn3s2lo",
+    "name": "multica",
+    "path": "/Users/hanyongfeng/AI/multica",
+    "agentId": "",
+    "type": "tool",
+    "model": "qwen2.5",
+    "port": 0,
+    "createdAt": 1779336984701,
+    "updatedAt": 1779336984701
+  }
+]

@@ -1,518 +1,482 @@
-# Agent Monitor 项目规范 (SPEC.md)
+# Agent Monitor — 项目规范 (SPEC.md)
 
-> 版本: 1.3.0
-> 更新: 2026-05-21
-> 状态: 进行中
+> 版本: 2.2.0
+> 更新: 2026-05-31
+> 状态: v2 功能骨架已实施，正在集成验证与 QA 收口
+> 历史版本: 1.4.0 已归档至 `archive/20260529-old-requirements/`
 
 ---
 
 ## 0. 文档导航
 
-当前项目定位已经从早期“Agent 监控 + 会议室 demo”收敛为“个人 AI 工具驾驶舱”。开发前请优先阅读：
+项目定位已于 2026-05-29 重塑。旧版需求文档和设计文档归档至：
+- `archive/20260529-old-requirements/PRODUCT-REQUIREMENTS.md`
+- `archive/20260529-old-requirements/DESIGN.md`
+- `archive/20260529-old-requirements/SPEC.md`
 
-- [个人 AI 工具驾驶舱需求文档](docs/PRODUCT-REQUIREMENTS.md)
-- [个人 AI 工具驾驶舱设计文档](docs/DESIGN.md)
-- [多 Agent 项目协作模型](COLLABORATION-MODEL.md)
-
-本文件保留项目规范摘要和已有接口/模型线索；如出现冲突，以需求文档和设计文档为准。
-
-## 1. 项目概述
-
-### 1.1 项目名称
-Agent Monitor - 个人 AI 工具驾驶舱
-
-### 1.2 核心功能（按优先级）
-
-**P0 - 核心需求**
-1. **本地项目管理** - 管理本机 AI 项目，包括路径、目标、状态、项目经理 Agent、参与 Agent 和任务进度
-2. **任务管理与分配** - 以任务为协作单位，把需求、开发、测试、review、文档等工作分配给不同 Agent
-3. **Agent View / 会话监督** - 监督所有真实 Agent 会话，展示运行中、等待用户、失败、完成等状态
-4. **待我处理 Inbox** - 汇总决策请求、权限请求、阻塞任务、review 请求、失败任务和交接请求
-5. **Agent 状态与角色管理** - 监控不同平台 Agent 的状态、能力、角色和当前任务
-6. **产物、事件与执行轨迹** - 记录 Git 变更、文档、测试报告、需求分析、决策记录、任务执行过程等协作事实
-
-**P1 - 附加需求**
-7. Git / Worktree / 工作区隔离
-8. 项目经理 Agent 任务拆解和项目进度汇总
-9. Context Pack / 项目上下文包
-10. Handoff / 会话交接
-11. WebSocket 实时推送
-
-**P2 - 体验增强**
-12. Agent 质量指标、成本统计和轻量自动化
-
-**P3 - 展示增强**
-13. 开会过程可视化（像素会议室 + 气泡对话 + 列表回放）
-
-### 1.3 目标用户
-- 个人 AI 工具重度使用者
-- 本机维护多个 AI 项目和多个 Agent 的用户
-- 希望轻量管理项目、任务、Agent 状态和协作产物的用户
-
-### 1.4 设计理念
-- **状态管理是基础** - 所有 Agent 的运行状态统一管理，超时自动标记 away
-- **项目经理 Agent 是项目控制层** - 项目经理 Agent 位于项目之下、任务之上，负责拆任务、分配任务、追踪进度和组织协作
-- **Agent View 是监督层** - 真实 Agent 会话必须可见、可回复、可接管，不能让后台任务变成黑箱
-- **Inbox 是用户介入入口** - 所有需要用户处理的事项集中展示，而不是散落在各页面
-- **任务是协作单位** - 不同角色 Agent 围绕任务提交代码、文档、测试报告、调研结论、进度事件等不同产物
-- **执行轨迹是可信度基础** - 任务需要保留状态变化、工具调用、文件变更、失败原因和产物链接
-- **Git 是产物通道之一** - 代码/文档类任务可以使用 Git branch/worktree 管理，但需求分析、测试执行、项目管理、review 不必都写 Git
-- **会议室是可视化层** - 会议室模式保留为任务讨论、评审沟通和过程回放视图，不作为核心协作引擎
-- **轻量可扩展** - 内存存储为主，Socket.io 实时推送，开箱即用
-
-详细协作模型见 [COLLABORATION-MODEL.md](COLLABORATION-MODEL.md)。
+本文件为新的项目规范。旧版中仍适用的内容（核心对象、产品原则）已吸收整合到新版中。
 
 ---
 
-## 2. 系统架构
+## 1. 项目定位
 
-### 2.1 技术栈
+**Agent Monitor** 是一个个人 AI Agent 统一管理平台。
 
-| 层级 | 技术 | 说明 |
-|------|------|------|
-| 前端 | Vite/React 当前原型，后续可迁移 Next.js | 主工作台，统一承载项目、任务、Agent View、Inbox、产物和会议视图 |
-| 后端 | Node.js + Fastify + Socket.io | 本地 API 和实时事件服务 |
-| 状态存储 | JSON 文件 / 内存 | 当前阶段保持轻量，后续可替换为 SQLite |
-| 端口 | 5173 / 3001 | 5173 为当前驾驶舱入口，3001 为本地 API |
+核心目标不是从零造轮子，而是在优秀的开源基座项目上，增强我们真正需要的差异化能力。
 
-### 2.2 架构图
+### 1.1 四个核心目标（按用户真实需求）
+
+| 目标 | 说明 |
+|------|------|
+| **① 统一入口** | 管理本地所有项目和 Agent，一个平台看到全部状态。不再开 N 个窗口和终端来回切换 |
+| **② 多 Agent 协作** | 不同 Agent 围绕同一项目协作，跨工具上下文连续。A Agent 知道 B Agent 做了什么，不用反复解释 |
+| **③ 跨工具上下文** | 同一个项目可以穿梭使用 Claude Code / Codex / OpenClaw 等工具产生的上下文，不因工具切换而丢失 |
+| **④ 自主决策** | 多 Agent 可通过会议/编排自主决定方案和推进方向，减少人工确认断点，工作流可离线持续推进 |
+
+### 1.2 技术战略：基座 + 增强层
+
+不倒车造轮子。所有可通过已有优秀开源项目实现的基础能力，使用开源基座。我们的精力集中在这些基座**做不到或做不好**的事情上。
 
 ```
-┌────────────────────────────────────────────────────────────┐
-│                         Web 工作台                          │
-│  项目视图 │ 任务队列 │ Agent View │ Inbox │ 产物审查 │ 会议回放 │
-└────────────────────────────┬─────────────────────────────┘
-                             │ HTTP / Socket.io
-┌────────────────────────────▼─────────────────────────────┐
-│                       本地协作服务                         │
-│  ┌──────────────────┐  ┌──────────────────┐              │
-│  │ ProjectManager   │  │ TaskQueue        │              │
-│  │ - 项目配置        │  │ - 任务创建/分配   │              │
-│  │ - PM Agent 绑定   │  │ - 状态流转        │              │
-│  └──────────────────┘  └──────────────────┘              │
-│  ┌──────────────────┐  ┌──────────────────┐              │
-│  │ AgentSession     │  │ Inbox            │              │
-│  │ - 会话监督        │  │ - 待我处理        │              │
-│  └──────────────────┘  └──────────────────┘              │
-│  ┌──────────────────┐  ┌──────────────────┐              │
-│  │ ChatRoom         │  │ MessageRouter    │              │
-│  │ - 会议/聊天室     │  │ - 跨平台消息路由   │              │
-│  └──────────────────┘  └──────────────────┘              │
-└────────────────────────────┬─────────────────────────────┘
-                             │ 适配器 / 本地文件 / Git
-┌────────────────────────────▼─────────────────────────────┐
-│                 OpenClaw / Codex / Claude 等本地 Agent      │
-└────────────────────────────────────────────────────────────┘
+Multica（基座）
+    ├── 项目管理 (Kanban + Issue + Workspace)
+    ├── Agent 运行时 (12+ CLI daemon 自动管理)
+    ├── 任务分配 (Issue → Agent assign → 执行 → PR)
+    ├── Squad 小队 (多 Agent 角色分工)
+    └── Autopilots (Cron/Webhook 定时任务)
+        │
+agent-monitor（增强层）
+    ├── ① Blueprint 编排  → 多 Agent 决策流程 + 自主节点跳转
+    ├── ② Always-on 执行  → 离线不中断 + Dream 模式
+    ├── ③ 白盒跨工具记忆  → 同一个项目跨 Claude/Codex/OpenClaw 上下文连续
+    ├── ④ Agent View      → 统一入口下的会话总览
+    ├── ⑤ ExecutionTrace   → 带记忆+成本的全链路可追溯
+    ├── ⑥ Inbox            → 决策/权限/阻塞/review 统一介入
+    ├── ⑦ Artifact Review  → 多 Agent 产出物审查闭环
+    └── ⑧ Git/Worktree     → 任务级分支隔离 + diff 关联
+```
+
+### 1.3 借鉴来源
+
+| 能力 | 来源 | 借鉴方式 |
+|------|------|---------|
+| Blueprint 多 Agent 决策编排 | HiveWard | 提炼节点编排思想，在 Multica 任务层上实现 |
+| Always-on 离线执行 | PilotDeck | 融入 Autopilots + Dream 模式 |
+| 白盒跨工具记忆 | PilotDeck | 在 Multica Event 流上叠加记忆层，挂接不同工具会话 |
+| 成本追踪 | HiveWard | 融入 ExecutionTrace |
+
+---
+
+## 2. 目标用户
+
+个人开发者 / AI 工具重度使用者：
+
+- 本机有多个项目目录。
+- 同时使用多个 AI 编程、分析、测试、文档或自动化工具（Claude Code、Codex、OpenClaw 等）。
+- 同一个项目可能在不同阶段使用不同 AI 工具。
+- 需要统一入口管理一切，而不是散落在多个终端和工具窗口。
+- 希望 AI 能自主推进工作流，不需要守在电脑前逐个确认。
+
+---
+
+## 3. 产品原则
+
+1. **基座优先，不做竞品**
+   能用 Multica 的用 Multica，精力花在 Multica 做不到的事上。
+
+2. **本地优先**
+   数据默认保存在本机，不依赖云端服务。
+
+3. **统一入口**
+   用户打开一个地方，看到所有项目和 Agent 状态。
+
+4. **上下文连续**
+   同一个项目的不同 AI 工具之间，知道彼此做了什么。
+
+5. **自主推进**
+   多 Agent 决策后不需人工逐一点确认，流程可以离线跑完整条链路。
+
+6. **可追溯、可介入、可纠正**
+   每个决策、每次工具调用、每次产出物都有记录。出错过时可以定位根因，而不是重开会话。
+
+7. **Git 是协作基础设施**
+   代码类任务的 worktree 隔离、diff 追踪、review 都围绕 Git 展开。
+
+---
+
+## 4. 核心信息架构
+
+```
+Agent Monitor
+├── 项目总览（Multica Kanban 基础上增强）
+│   ├── 项目列表 + 状态
+│   ├── Agent 在线状态
+│   └── 待我处理 (Inbox)
+├── 项目详情
+│   ├── 目标 + 技术栈 + Context Pack
+│   ├── 任务看板（Multica Issue Board）
+│   ├── Blueprint 编排可视化
+│   ├── 跨工具记忆时间线
+│   ├── Git 状态 + Worktree 列表
+│   └── 产物索引
+├── Agent View
+│   ├── 所有活跃 Agent 会话总览
+│   ├── 会话 peek（实时工具调用、文件变更）
+│   ├── 回复 / 接管 / 终止
+│   └── 跨平台会话关联
+├── Inbox
+│   ├── 决策请求
+│   ├── 权限确认
+│   ├── 阻塞升级
+│   ├── Review 请求
+│   ├── 失败重试
+│   └── Handoff 交接
+├── ExecutionTrace
+│   ├── 任务状态变化时间线
+│   ├── 工具调用链
+│   ├── 文件变更 diff
+│   ├── 测试结果
+│   ├── 成本追踪（token / latency）
+│   └── 关联记忆条目
+├── Artifact Review
+│   ├── Git Diff / Commit / Branch
+│   ├── 文档 / 报告 / 调研笔记
+│   ├── 决策记录
+│   └── Review 状态流转（draft → submitted → accepted / rejected）
+└── 跨工具记忆管理
+    ├── 记忆条目列表（生成→抽取→存储→检索）
+    ├── 按项目 / 工具 / 时间筛选
+    ├── 编辑 / 删除 / 固定关键记忆
+    └── Dream 模式自动归纳
 ```
 
 ---
 
-## 3. 协作模型
+## 5. 核心对象
 
-本项目不再以 Gateway 健康探针或自动发现为主线。核心模型是：
+### 5.1 Project
+本地项目，继承 Multica Workspace 概念。
 
-```
-项目 → 项目经理 Agent → 任务 → 执行/测试/分析/文档 Agent → 产物/事件 → 项目进度
-```
+关键字段：id / name / path / status / goals / tags / repo / managerAgentId / agentIds / contextPack / createdAt / updatedAt
 
-### 3.1 项目经理 Agent
+### 5.2 Agent
+表示一个可参与项目的本地 AI 助手实例。持久化存储在 `registered_agents` 表。
 
-项目经理 Agent 位于项目之下、任务之上，负责把项目目标转成可执行任务：
+关键字段：id / name / platform (claude-code/codex/openclaw/opencode/custom) / role / status / capabilities / currentTaskId / quality (successCount/failCount/avgDurationMs) / lastSeenAt / metadata
 
-- 创建任务和拆分子任务
-- 选择合适的执行 Agent
-- 追踪任务状态、阻塞和风险
-- 汇总项目进度
-- 必要时触发 review、测试或会议讨论
+状态：online / busy / offline
 
-### 3.2 任务与产物
+质量指标（quality JSONB）：successCount（成功次数）、failCount（失败次数）、avgDurationMs（平均耗时 ms）
 
-不同 Agent 不一定都提交代码。任务可以产出多种类型的协作材料：
+### 5.3 Task
+任务是 Agent 协作的最小调度单位。持久化存储在 `tasks` 表，独立状态机流转。
 
-| Agent 类型 | 常见任务 | 典型产物 |
-|------------|----------|----------|
-| 项目经理 | 拆任务、排期、追进度 | 任务分配、风险记录、进度摘要 |
-| 需求分析 | 澄清目标、定义验收标准 | 需求文档、决策记录 |
-| 开发 | 修改代码、实现功能 | diff、commit、实现说明 |
-| 测试 | 写测试、执行验证 | 测试报告、问题清单 |
-| Review | 审查实现和风险 | review 评论、修改建议 |
-| 文档 | 整理说明和教程 | README、使用文档、发布说明 |
+关键字段：id / externalId(adapter) / projectId / title / description / type (general/bug/feature/review/analysis) / status / priority (urgent/high/medium/low) / assigneeId / reviewerId / labels / traceId / startedAt / completedAt
 
-### 3.3 Git 的位置
+状态机：pending → in_progress → completed / failed / cancelled
+                  ↑                         |
+                  └─────── (重试) ──────────┘
 
-Git 是代码和文档类产物的版本通道，不是所有 Agent 协作的唯一通道。测试报告、需求分析、项目管理状态和会议决策可以通过任务事件、Artifact 记录和聊天室消息保存。
+### 5.4 Blueprint
+多 Agent 决策流程编排图。
+
+节点类型：Agent（执行）、Manager（分配）、Slot（并行）、Condition（条件分支）、Approval（可选人工确认）、Summary（汇总）
+
+关键字段：id / projectId / name / nodes[] / edges[] / status / createdAt / updatedAt
+
+### 5.5 MemoryEntry
+跨工具记忆条目，实现同一个项目不同 AI 工具间的上下文连续。
+
+关键字段：id / projectId / source (claude-code/codex/openclaw/custom) / sessionId / taskId / type (decision/context/rule/risk/note) / content / tags / status (active/pinned/archived/deprecated) / createdAt / retrievedAt
+
+参考：PilotDeck 白盒记忆的"生成→提取→存储→检索"四阶段模型。
+
+### 5.6 AgentSession
+某个平台上的一次真实 Agent 工作会话。
+
+关键字段：id / platform / agentId / projectId / taskId / status (running/waiting_user/completed/failed/idle) / lastOutput / sourceRef / canReply / canPause / canStop / startedAt / lastInteractionAt
+
+### 5.7 InboxItem
+需要用户处理的事项。
+
+类型：decision_required / permission_request / blocked_task / review_request / failed_task / handoff_needed
+
+### 5.8 ExecutionTrace
+任务执行过程记录。
+
+包含：状态变化 / Agent 输出摘要 / 工具调用 / 修改文件 diff / 测试结果 / 失败原因 / 关联 Artifact / 关联记忆条目 / token 消耗 / latency / 用户介入记录
+
+### 5.9 Artifact
+任务执行后的可审查产物。
+
+类型：Git branch/commit/diff / 文档 / 测试报告 / 需求分析 / 调研笔记 / review 评论 / 决策记录
+
+### 5.10 ContextPack
+项目级上下文包，供 Agent 接任务时引用。
+
+内容：项目目标 / 技术栈 / 关键目录 / 常用命令 / 编码规则 / 最近决策 / 当前风险 / 禁止事项
 
 ---
 
-## 4. Agent 状态定义
+## 6. 功能需求（新）
 
-### 4.1 状态类型
+只列入 Multica 覆盖范围之外的功能需求。
 
-| 状态 | 说明 | 颜色 |
-|------|------|------|
-| idle | 空闲，等待任务 | #3fb950 (绿) |
-| working | 执行任务中 | #f59e0b (橙) |
-| meeting | 开会中 | #a371f7 (紫) |
-| away | 离线/超时 | #6b7280 (灰) |
+### 6.1 P0: Blueprint 多 Agent 决策编排
 
-### 4.2 心跳机制
-- 超时时间: 30 秒
-- 检查间隔: 10 秒
-- 30 秒无心跳 → 自动标记为 away
+目标：多 Agent 按预定义流程协作，自主决策节点跳转，减少人工确认断点。
+
+需求：
+- 可视化编排画布，支持 Agent/Manager/Slot/Condition/Summary 节点。
+- 节点可配置执行 Agent、输入、预期输出。
+- Condition 节点支持基于 Agent 输出的自动分支。
+- Blueprint Run 生成完整执行记录。
+- 人工确认节点可选（默认自动流转，仅在关键决策点留 Approve 节点）。
+
+验收：
+- 一个 Blueprint 至少包含 3 个不同 Agent 参与。
+- Condition 节点能根据上游输出自动跳转到不同分支。
+- Blueprint Run 失败时能定位到具体节点。
+
+参考：HiveWard Blueprint Studio 的节点模型和可视化编排。
+
+### 6.2 P0: Always-on 自主执行
+
+目标：用户离线后，已启动的 Blueprint 或任务不因缺少确认而中断。
+
+需求：
+- 非 Approve 节点自动流转，不需要人工确认。
+- Autopilots 支持在指定时间或触发条件下自动启动 Blueprint。
+- Dream 模式：空闲窗口自动归纳整理记忆和上下文。
+- 执行结束后生成摘要通知。
+
+验收：
+- 用户关闭电脑前启动一个 Blueprint，次日能看到完成状态和产物。
+- Approve 节点以外的决策点不产生 Inbox 阻塞。
+
+参考：PilotDeck Always-on 模式 + Multica Autopilots。
+
+### 6.3 P0: 白盒跨工具记忆
+
+目标：同一个项目在不同 AI 工具之间上下文连续。Claude Code 做完的事，Codex 接任务时能直接知道，不需要用户复述。
+
+需求：
+- 记忆条目按项目隔离。
+- 每条记忆标注来源（工具类型 + 会话 ID + 任务 ID）。
+- 支持手动编辑/删除/固定关键记忆。
+- 支持 Dream 模式自动归纳总结。
+- 支持按项目/工具/时间筛选。
+- 跨工具上下文桥接：Agent 接任务时自动检索关联记忆。
+
+验收：
+- 用户用 Claude Code 做完一个分析任务，然后用 Codex 做后续开发时，Codex 能看到分析结论。
+- 某条记忆出错时，用户可以定位并修改，不需要重开整个会话。
+- 跨工具记忆不混淆（项目 A 的记忆不会出现在项目 B）。
+
+参考：PilotDeck 白盒记忆模型。
+
+### 6.4 P0: Agent View（会话总览）
+
+目标：在一个页面看到所有后台 Agent 正在做什么。
+
+需求：
+- 展示所有活跃 AgentSession。
+- 实时展示工具调用、文件变更、输出摘要。
+- 标识 waiting_user / running / failed / completed 状态。
+- 支持 peek 最近输出，支持回复、暂停、终止。
+- 支持跳转到 Multica 原任务页面。
+
+验收：
+- 等待用户的会话高亮显示。
+- 会话完成后能跳转到对应任务和产物。
+
+### 6.5 P0: ExecutionTrace（全链路可追溯）
+
+目标：每个任务都有完整的执行轨迹，可追溯、可审计。
+
+需求：
+- 记录任务状态变化、Agent 输出、工具调用、文件变更 diff、测试结果。
+- 记录 token 消耗和 latency（参考 HiveWard Run Ledger）。
+- 关联记忆条目，可追溯"为什么这样决策"（参考 PilotDeck 白盒记忆）。
+- 支持按任务查看完整时间线。
+
+验收：
+- 用户能回答"这个任务为什么失败"。
+- 用户能看到 Agent 改了哪些文件。
+- 成本异常的任务能被标记。
+
+### 6.6 P0: Inbox（统一介入入口）
+
+目标：集中收集所有需要用户介入的事项。
+
+需求：
+- 支持 6 种类型：decision_required / permission_request / blocked_task / review_request / failed_task / handoff_needed。
+- 总览页展示待处理数量。
+- 每项关联项目、任务或会话。
+- Approve 节点以外的流程不应产生 Inbox 阻塞（Always-on 原则）。
+
+验收：
+- 打开总览页看到"我现在需要处理什么"。
+- Blueprint 运行时，仅预定义的 Approve 节点才产生 Inbox。
+
+### 6.7 P0: Artifact Review（产物审查闭环）
+
+目标：任务结果可审查、可接受、可退回。
+
+需求：
+- Artifact 状态：draft → submitted → accepted / rejected。
+- 支持 Git diff/commit/branch、文档、报告、决策记录。
+- Review 后更新任务状态。
+
+验收：
+- 任务完成时至少有一个结果摘要或 Artifact。
+- 退回后任务回到 running 或 review 状态。
+
+### 6.8 P1: Git/Worktree 任务隔离
+
+目标：代码类任务独立分支，互不污染。
+
+需求：
+- 识别项目 Git 仓库状态。
+- 任务可关联 branch/commit/diff。
+- 并行代码任务使用独立 worktree 或分支。
+- diff 关联到 ExecutionTrace。
+
+验收：
+- 两个代码任务并行时不污染同一工作区。
+- 完成的任务能记录对应 diff 或 commit。
+
+### 6.9 P1: Context Pack 项目上下文
+
+目标：Agent 接任务时拥有稳定项目上下文，不反复解释。
+
+需求：
+- 每个项目维护 ContextPack。
+- 内容：目标、技术栈、关键目录、常用命令、禁止事项。
+- 重要决策沉淀进 ContextPack。
+
+验收：
+- Agent 接任务时能从 ContextPack 获取上下文。
+- 交接时能复用 ContextPack。
+
+### 6.10 P1: Handoff 会话交接
+
+目标：一个 Agent 的未完成工作可被另一个 Agent 接手。
+
+需求：
+- 生成 handoff summary：已完成、未完成、修改文件、风险、阻塞、下一步。
+- 从失败任务、阻塞任务触发 handoff。
+- 接手 Agent 能看到必要上下文。
+
+验收：
+- 能跨平台交接（Claude → Codex / OpenClaw）。
+- 接手 Agent 不需要从零读聊天记录。
+
+### 6.11 P2: 成本与质量指标
+
+目标：有经济账，知道哪个 Agent 靠谱。
+
+需求：
+- 记录 token 消耗、latency。
+- Agent 质量指标：成功率、失败次数、平均耗时。
+- 异常 Agent 或异常任务提醒。
+
+### 6.12 P2: 会议室 / 多 Agent 讨论可视化
+
+目标：用可视化方式展示多 Agent 讨论过程。
+
+需求：
+- 支持会议发言、决策记录。
+- 列表模式 + 像素会议室模式。
+- 会议决策可沉淀为事件或记忆条目。
 
 ---
 
-## 5. 项目管理（P0 核心功能）
+## 7. 非功能需求
 
-### 5.1 数据模型
+### 7.1 架构原则
+- 不修改 Multica 核心代码。增强层通过 Multica API + WebSocket 事件流集成。
+- 增强层前端可以独立部署，也可以嵌入 Multica UI 作为插件面板。
+- 增强层数据独立存储在本地 PostgreSQL，不侵入 Multica 数据库。
 
-**项目 (Project)**
+### 7.2 安全
+- 默认只监听本机。
+- 不自动暴露公网。
+- Token、密钥不得进入普通日志。
 
-| 字段 | 类型 | 来源 | 说明 |
+### 7.3 可扩展
+- 记忆层通过 MemoryProvider 接口可替换后端（PostgreSQL → 向量库）。
+- Agent 平台通过 Adapter 接口扩展。
+
+---
+
+## 8. 开发阶段与当前状态
+
+说明：以下“已实施”表示代码骨架、主要服务或页面已经存在；“待验证”表示还需要测试、端到端运行或真实集成证明它稳定可用。
+
+### Phase 1: 项目脚手架 + MockAdapter + Agent View
+- Monorepo 搭建（Fastify 5 + Vite 6 + React 19 + PostgreSQL 17）
+- AgentPlatformAdapter 接口定义 + MockAdapter 实现
+- Agent View 会话总览 + 详情页（工具调用时间线）
+- ExecutionTrace（状态时间线 + Token/成本统计）
+- Inbox 基础（failed_task + blocked_task）
+- 前端 6 个页面：总览/项目/Agents/输出/记忆/收件箱
+- 当前状态：已实施，`npm run typecheck` 通过。
+
+### Phase 2: 蓝图 DAG 引擎 + 编辑器 + 多 Agent 会议
+- 蓝图 CRUD（创建/查看/更新/删除/克隆）
+- DAG 执行引擎（runUntilBlockedOrDone + 7 种节点分发）
+- 会议服务（round 轮次发言 + 3 种共识规则）
+- @xyflow/react DAG 编辑器（7 种自定义节点 + 拖拽 + 配置面板）
+- 蓝图运行历史查看
+- 当前状态：已实施，仍需 Blueprint 保存、运行、失败路径的端到端复测。
+
+### Phase 3: 记忆 Dream Mode + 跨项目上下文注入
+- Dream Mode 自动合并重复记忆、降权过期、归档低价值
+- 跨项目上下文注入（buildContext: 项目信息 + 关系 + 决策 + 输出）
+- 记忆统计 + 类型筛选 + Dream 触发按钮
+- 上下文 API：GET /api/projects/:id/context
+- 当前状态：已实施，仍需跨工具接续场景验证。
+
+### Phase 4: 定时调度器 + 风险评估
+- croner 定时调度蓝图执行（scheduleBlueprint/unscheduleBlueprint）
+- 风险评估引擎（assessRisk: 文件数/核心模块/delete 三维判断）
+- 自动审批规则（autoApprove 配置）
+- Dashboard 调度任务展示
+- 当前状态：已实施；调度为内存态，重启恢复尚未完成。
+
+### Phase 5: 前端深度打磨 + 通铺
+- 前端设计语言统一（CSS 组件类替代内联样式）
+- 逐项入场动画 + 交互细节增强
+- 实时数据流 + 状态同步
+- 当前状态：页面已铺开；实时数据流仍待 socket.io 接入，错误态和空态需 QA 收口。
+
+### 当前验证基线
+
+| 项目 | 结果 | 日期 | 说明 |
 |------|------|------|------|
-| id | string | 实际 | 项目唯一标识 |
-| name | string | 实际 | 项目名称，用户输入 |
-| path | string | 实际 | 本地项目路径，用户配置 |
-| status | enum | 实际 | active/inactive，基于 Agent 状态汇总 |
-| managerAgentId | string | 实际 | 项目经理 Agent ID，负责项目下任务拆解、分配和进度追踪 |
-| agentIds | string[] | 实际 | 项目关联的执行/测试/分析/文档等 Agent ID 列表 |
-| type | enum | **固定模板** | 对话/工具/编程/调研等预定义类型 |
-| model | string | **固定模板** | 模型列表：qwen2.5/deepseek/gpt-4 等 |
-| todayTasks | number | 实际 | 今日任务数，从任务日志统计 |
-| successRate | number | 实际 | 成功率百分比，从历史记录计算 |
-| cpuUsage | number | 实际 | CPU 使用率，从系统 API 读取 |
-| memoryUsage | number | 实际 | 内存使用率，从系统 API 读取 |
-| diskUsage | number | 实际 | 磁盘使用率，从系统 API 读取 |
-| createdAt | timestamp | 实际 | 创建时间 |
-| updatedAt | timestamp | 实际 | 更新时间 |
+| `npm run typecheck` | 通过 | 2026-05-31 | server + ui TypeScript 均通过 |
+| `npm test` | 未通过 | 2026-05-31 | 测试文件使用 `node:test`，当前脚本使用 Vitest |
 
-**Agent 类型枚举（固定模板）**
-```
-对话型 (chat) | 工具型 (tool) | 编程型 (coding) | 调研型 (research) | 创作型 (creative)
-```
+### 下一步收口顺序
 
-**模型列表（固定模板）**
-```
-qwen2.5 | deepseek | gpt-4 | glm-4 | MiniMax-M2.7
-```
-
-### 5.2 项目经理 Agent 与任务层
-
-项目经理 Agent 是项目下的特殊角色，不等同于普通执行 Agent。它负责：
-
-- 根据项目目标创建任务
-- 判断任务类型与优先级
-- 根据 Agent 能力和负载分配任务
-- 追踪任务进度、阻塞与风险
-- 触发测试、review 或会议讨论
-- 汇总项目状态和下一步建议
-
-任务是多 Agent 协作的最小调度单位。不同任务可以产生不同产物：
-
-| 任务类型 | 典型执行 Agent | 典型产物 | 是否必须使用 Git |
-|----------|----------------|----------|------------------|
-| analysis | 需求/分析 Agent | 需求文档、验收标准、决策记录 | 可选 |
-| research | 调研 Agent | 调研笔记、对比表、链接清单 | 否 |
-| code_change | 开发 Agent | 代码 diff、commit、实现说明 | 是 |
-| test_change | 测试 Agent | 测试代码、测试用例 | 通常是 |
-| test_run | 测试 Agent | 测试报告、bug list | 否 |
-| doc_change | 文档 Agent | README、教程、发布说明 | 可选 |
-| review | Review Agent | review 评论、风险清单 | 否 |
-| project_management | 项目经理 Agent | 进度状态、任务分配、日报 | 否 |
-
-### 5.3 项目状态汇总规则
-
-项目状态不只由 Agent 在线状态决定，还应结合任务状态计算：
-- **active**: 存在进行中任务，或项目经理/执行 Agent 处于 idle/working/meeting/speaking
-- **blocked**: 存在被阻塞任务，且需要用户或其他 Agent 介入
-- **reviewing**: 存在待审核产物
-- **inactive**: 无活跃任务，且关联 Agent 均为 away 或未接入
-
-### 5.4 数据来源
-
-| 数据类型 | 来源 | 示例 |
-|----------|------|------|
-| **实际数据** | 用户配置 | 项目名称、路径、项目经理 Agent、参与 Agent |
-| **实际数据** | 系统 API | CPU/内存/磁盘使用率 |
-| **实际数据** | 任务日志 | 今日任务数、成功率 |
-| **实际数据** | ChatRoom | 开会状态、在线 Agent |
-| **实际数据** | TaskManager | 任务创建、分配、状态流转 |
-| **实际数据** | ArtifactStore | 代码 diff、文档、测试报告、调研结论 |
-| **实际数据** | Event Log | 项目事件、任务事件、会议事件 |
-| **固定模板** | 预定义枚举 | Agent 类型、模型列表、状态颜色 |
-| **固定模板** | CSS/组件 | 表格布局、卡片样式、图标风格 |
+1. 统一 server 测试到 Vitest，恢复 `npm test`。
+2. 按 `docs/QA-REPORT.md` 复测 UI/API 修复项。
+3. 跑通 Project → Task/Output/Memory → Blueprint → Trace/Inbox/Dashboard 的最小端到端链路。
+4. 补齐 Blueprint 路由 UUID 校验。
+5. 本地 mock 链路稳定后，再接真实 Multica。
 
 ---
 
-## 6. API 端点
-
-### 6.1 HTTP API
-
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/api/health` | GET | 健康检查 |
-| `/api/chat/agents` | GET | 获取聊天室在线 Agent |
-| `/api/chat/messages` | GET | 获取最近会议/聊天消息 |
-| `/api/chat/join` | POST | Agent 加入聊天室 |
-| `/api/chat/message` | POST | Agent 发送消息 |
-| `/api/stats` | GET | 系统统计 |
-
-### 6.2 项目管理 API
-
-| 端点 | 方法 | 说明 | 数据来源 |
-|------|------|------|----------|
-| `/api/projects` | GET | 获取所有项目 | **实际** - 本地项目配置 |
-| `/api/projects` | POST | 创建新项目 | 用户输入 |
-| `/api/projects/:id` | GET | 获取项目详情 | **实际** - 包含关联 Agent 状态 |
-| `/api/projects/:id` | PUT | 更新项目 | 用户输入 |
-| `/api/projects/:id` | DELETE | 删除项目 | 用户操作 |
-| `/api/projects/:id/stats` | GET | 获取项目统计 | **实际** - 任务日志汇总 |
-
-### 6.3 任务管理 API
-
-| 端点 | 方法 | 说明 |
-|------|------|------|
-| `/api/tasks` | GET | 获取任务列表 |
-| `/api/tasks` | POST | 创建任务 |
-| `/api/tasks/:id` | GET | 获取任务详情 |
-| `/api/tasks/:id` | PATCH | 更新任务状态、负责人、进度或结果 |
-
-### 6.4 WebSocket 事件
-
-**客户端 → 服务端**:
-| 事件 | 说明 |
-|------|------|
-| `meeting:start` | 开始开会 |
-| `meeting:end` | 结束开会 |
-| `agent:status` | 更新状态 |
-| `agent:heartbeat` | 刷新心跳 |
-
-**服务端 → 客户端**:
-| 事件 | 说明 |
-|------|------|
-| `state:init` | 初始状态 |
-| `state:update` | 状态更新 |
-| `message:new` | 新消息 |
-| `task:updated` | 任务状态变化 |
-
----
-
-## 7. 前端界面
-
-### 7.1 布局结构
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Top Bar: Agent Monitor                    [状态指示灯] [+新建]  │
-├────────────┬────────────────────────────────────────────────────┤
-│            │                                                     │
-│  侧边导航   │              主内容区                              │
-│            │                                                     │
-│  - 总览    │  ┌─────────────┐  ┌─────────────────────────────┐ │
-│  - Agent  │  │  KPI 卡片    │  │     趋势图/最近任务          │ │
-│  - 项目    │  │  (总数/运行) │  │                             │ │
-│  - 对话    │  └─────────────┘  └─────────────────────────────┘ │
-│  - 设置    │  ┌─────────────────────────────────────────────┐  │
-│            │  │                                             │  │
-│  [系统资源] │  │         Agent/项目 列表（表格）              │  │
-│   CPU/内存  │  │                                             │  │
-│            │  └─────────────────────────────────────────────┘  │
-└────────────┴────────────────────────────────────────────────────┘
-```
-
-### 7.2 Agent 管理页面
-
-**KPI 卡片（实际数据）**：
-| 指标 | 数据来源 |
-|------|----------|
-| Agent 总数 | 在线 Agent + 项目配置统计 |
-| 运行中/空闲/停止 | 按状态分组统计 |
-| 今日任务数 | 任务日志统计 |
-| 平均成功率 | 成功率汇总计算 |
-
-**Agent 列表（实际数据 + 固定模板）**：
-
-| 列 | 数据来源 |
-|----|----------|
-| 名称 | **实际** - 从在线 Agent 或项目配置 |
-| 状态 | **实际** - idle/working/meeting/away |
-| 类型 | **固定模板** - 预定义枚举 |
-| 模型 | **固定模板** - 模型列表 |
-| 今日任务 | **实际** - 任务日志 |
-| 成功率 | **实际** - 历史记录 |
-| 操作 | 播放/暂停/设置（固定模板） |
-
-**资源环形图（实际数据）**：
-| 指标 | 数据来源 |
-|------|----------|
-| CPU 28% (2.2/8核) | `os.cpus()` / `os.loadavg()` |
-| 内存 45% (7.2/16GB) | `os.totalmem()` / `os.freemem()` |
-| 磁盘 62% (248/400GB) | `df` 或 `fs.statfs()` |
-
-**系统信息（实际数据）**：
-- 版本号：package.json version
-- 启动时间：进程 startTime
-- 运行时长：计算得出
-- 操作系统：`os.platform()` / `os.release()`
-
-### 7.3 项目管理页面（新增）
-
-**布局**：
-```
-┌─────────────────────────────────────────────────────────────┐
-│  项目管理                              [+ 新建项目]          │
-├─────────────────────────────────────────────────────────────┤
-│  搜索：[____________]  筛选：[状态▼] [类型▼]  [搜索]       │
-├─────────────────────────────────────────────────────────────┤
-│  ┌─────────────────────────────────────────────────────┐   │
-│  │ 项目卡片                                               │   │
-│  │ 名称：知识助手    Agent：小资    状态：运行中 ●        │   │
-│  │ 路径：~/projects/knowledge-assistant                  │   │
-│  │ 今日任务：128  成功率：96.8%                          │   │
-│  │ [编辑] [查看详情] [删除]                              │   │
-│  └─────────────────────────────────────────────────────┘   │
-│  ...                                                       │
-└─────────────────────────────────────────────────────────────┘
-```
-
-**项目详情页**：
-```
-┌─────────────────────────────────────────────────────────────┐
-│  ← 返回  项目名称：小资知识助手                    [编辑]   │
-├─────────────────────────────────────────────────────────────┤
-│  关联 Agent: [小资 ▼]                                      │
-│  类型: [调研型 ▼]   模型: [GLM-5.1 ▼]                      │
-│  路径: ~/projects/knowledge-assistant                      │
-├─────────────────────────────────────────────────────────────┤
-│  统计：                                                    │
-│  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐    │
-│  │ 今日任务  │ │ 成功率   │ │ CPU使用  │ │ 内存使用  │    │
-│  │   128    │ │  96.8%   │ │   28%    │ │   45%    │    │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘    │
-└─────────────────────────────────────────────────────────────┘
-```
-
-### 7.4 开会可视化页面
-
-**布局**：
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  会议进行中 00:18:42           [全屏] [设置]                     │
-├─────────────────────────────────────────┬───────────────────────┤
-│                                         │ 全部 | 小资 | Tim |... │
-│  ┌─────────────┐                        ├───────────────────────┤
-│  │ 会议主题     │                        │                       │
-│  │ 产品方案讨论  │      3D 虚拟会议室      │  实时聊天记录          │
-│  └─────────────┘      (5个 Agent 围坐)   │                       │
-│                                         │  小资 [10:32]: ...    │
-│     [对话气泡1]  [对话气泡2]             │  Tim [10:33]: ...    │
-│                                         │                       │
-├─────────────────────────────────────────┴───────────────────────┤
-│  参会: ●●●●● (5/5)  [发言] [记录] [决策] [结束会议]          │
-│  输入消息或使用 / 指令...                              [发送]   │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-**数据来源**：
-| 元素 | 来源 |
-|------|------|
-| 会议主题 | **实际** - 用户创建会议时输入 |
-| 参会 Agent | **实际** - ChatRoom.getOnlineAgents() |
-| 角色定义 | **固定模板** - Orchestrator/ProductAgent/TechAgent/DataAgent/UXAgent |
-| 对话气泡 | **实际** - ChatRoom 消息队列 |
-| 会议时长 | **实际** - 计时器实时计算 |
-
-### 7.5 固定模板清单
-
-**类型枚举（固定模板）**：
-```
-chat | tool | coding | research | creative
-```
-
-**模型列表（固定模板）**：
-```
-qwen2.5 | deepseek | gpt-4 | glm-4 | MiniMax-M2.7
-```
-
-**状态颜色（固定模板）**：
-```
-idle: #3fb950 | working: #f59e0b | meeting: #a371f7 | away: #6b7280
-```
-
-**Agent 角色颜色（固定模板）**：
-```
-Orchestrator: #4A90E2 | ProductAgent: #3fb950 | TechAgent: #a371f7 | DataAgent: #f59e0b | UXAgent: #ec4899
-```
-
----
-
-## 8. 环境变量
-
-| 变量 | 默认值 | 说明 |
-|------|--------|------|
-| `PORT` | 3001 | 本地 API 服务端口 |
-| `NEXT_PUBLIC_API_URL` | http://localhost:3001 | 前端访问后端地址 |
-
----
-
-## 9. 目录结构
-
-```
-agent-monitor/
-├── src/
-│   ├── index.js                       # 本地 API 入口
-│   ├── meeting-state.js               # 会议状态机
-│   ├── data/
-│   │   ├── projects.json              # 项目数据
-│   │   └── tasks.json                 # 任务数据
-│   └── services/
-│       ├── project-manager.js         # 项目管理
-│       ├── task-queue.js              # 任务队列
-│       ├── chat-room.js               # 会议/聊天室
-│       ├── message-router.js          # 消息路由
-│       └── delivery/adapter-registry.js
-├── web/                               # Next.js 工作台
-├── archive/                           # 过期文档、验证脚本、旧实现归档
-├── package.json
-├── SPEC.md                  # 本规范
-└── COLLABORATION-MODEL.md   # 多 Agent 协作模型
-```
-
----
-
-## 10. 验收标准
-
-### 10.1 功能验收
-
-- [ ] 服务启动成功，无报错
-- [ ] API `/api/projects` 返回项目列表
-- [ ] API `/api/tasks` 返回任务列表
-- [ ] WebSocket 连接成功
-- [ ] 前端显示项目、任务和 Agent 状态
-- [ ] 项目经理 Agent 能位于项目与任务之间
-
-### 10.2 协作验收
-
-- [ ] 项目能配置项目经理 Agent
-- [ ] 项目经理 Agent 能创建或分配任务
-- [ ] 任务能绑定不同类型 Agent
-- [ ] 任务能记录代码、文档、测试报告、需求分析、进度摘要等不同产物
-- [ ] Git 产物和非 Git 产物能同时被项目进度引用
-
-### 10.3 WebSocket 验收
-
-- [ ] 前端能成功连接 WebSocket
-- [ ] 状态变化能实时推送到前端
-- [ ] 连接断开后能自动重连
-
----
-
-## 12. 更新记录
+## 9. 更新记录
 
 | 日期 | 版本 | 作者 | 变更 |
 |------|------|------|------|
 | 2026-03-26 | 1.0.0 | Claude | 初始规范 |
 | 2026-04-26 | 1.1.0 | Claude | 补充项目管理模块（P0），区分实际数据与固定模板 |
 | 2026-05-21 | 1.2.0 | Claude | 清理过期 Gateway/Redis/静态前端方案，明确项目-任务-Agent 协作主线 |
-| 2026-05-21 | 1.3.0 | Claude | 根据 Claude Agent View、Codex app、多 Agent 平台调研补充 Agent View、Inbox、ExecutionTrace、Artifact Review、Context Pack、Handoff |
+| 2026-05-21 | 1.3.0 | Claude | 根据 Claude Agent View、Codex app、多 Agent 平台调研补充核心能力 |
 | 2026-05-26 | 1.4.0 | Nox | 对比 HiveWard 架构，补充可借鉴方向分析；新建 CLAUDE.md 协作规则文档 |
+| 2026-05-29 | 2.0.0 | Nox | 项目定位重塑：从自研驾驶舱转型为 Multica 基座 + 增强层。集成 HiveWard Blueprint、PilotDeck 白盒记忆/Always-on。旧版需求文档归档至 archive/20260529-old-requirements/ |
+| 2026-05-31 | 2.1.0 | DeepSeek | Phase 3-5 全部实施完成：蓝图 DAG 引擎 + DAG 编辑器 + 多 Agent 会议 + 记忆 Dream Mode + 跨项目上下文注入 + 定时调度 + 风险评估 |
+| 2026-05-31 | 2.2.0 | Codex | 校正项目状态：功能骨架已实施，类型检查通过，测试和端到端验证仍需收口 |
