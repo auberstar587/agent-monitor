@@ -26,6 +26,7 @@ export async function traceRoutes(fastify: FastifyInstance) {
 
   fastify.get("/api/traces/:taskId", async (req: FastifyRequest, reply: FastifyReply) => {
     const { taskId } = req.params as { taskId: string };
+    if (!requireUUID(taskId, reply)) return;
     const trace = await queryOne(
       "SELECT * FROM execution_traces WHERE task_id = $1", [taskId],
     );

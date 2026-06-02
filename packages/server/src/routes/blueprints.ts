@@ -26,6 +26,7 @@ export async function blueprintRoutes(fastify: FastifyInstance) {
   // Get blueprint detail
   fastify.get('/api/blueprints/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
+    if (!requireUUID(id, reply)) return;
     const bp = await getBlueprint(id);
     if (!bp) return reply.code(404).send({ error: 'blueprint not found' });
     return bp;
@@ -34,6 +35,7 @@ export async function blueprintRoutes(fastify: FastifyInstance) {
   // Update blueprint
   fastify.put('/api/blueprints/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
+    if (!requireUUID(id, reply)) return;
     const data = req.body as any;
     const bp = await updateBlueprint(id, data);
     if (!bp) return reply.code(404).send({ error: 'blueprint not found' });
@@ -43,6 +45,7 @@ export async function blueprintRoutes(fastify: FastifyInstance) {
   // Delete blueprint
   fastify.delete('/api/blueprints/:id', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
+    if (!requireUUID(id, reply)) return;
     const ok = await deleteBlueprint(id);
     if (!ok) return reply.code(404).send({ error: 'blueprint not found' });
     return { success: true };
@@ -51,6 +54,7 @@ export async function blueprintRoutes(fastify: FastifyInstance) {
   // Clone blueprint
   fastify.post('/api/blueprints/:id/clone', async (req: FastifyRequest, reply: FastifyReply) => {
     const { id } = req.params as { id: string };
+    if (!requireUUID(id, reply)) return;
     const bp = await cloneBlueprint(id);
     if (!bp) return reply.code(404).send({ error: 'blueprint not found' });
     return bp;
@@ -76,6 +80,7 @@ export async function blueprintRoutes(fastify: FastifyInstance) {
   // Get run detail
   fastify.get('/api/blueprints/runs/:runId', async (req: FastifyRequest, reply: FastifyReply) => {
     const { runId } = req.params as { runId: string };
+    if (!requireUUID(runId, reply)) return;
     const run = await getRun(runId);
     if (!run) return reply.code(404).send({ error: 'run not found' });
     return run;
@@ -84,6 +89,7 @@ export async function blueprintRoutes(fastify: FastifyInstance) {
   // Cancel run
   fastify.post('/api/blueprints/runs/:runId/cancel', async (req: FastifyRequest, reply: FastifyReply) => {
     const { runId } = req.params as { runId: string };
+    if (!requireUUID(runId, reply)) return;
     await cancelRun(runId);
     return { success: true };
   });
