@@ -14,6 +14,8 @@ import { schedulerRoutes } from "./routes/scheduler.js";
 import { decisionRoutes } from "./routes/decisions.js";
 import { agentRoutes } from "./routes/agents.js";
 import { taskRoutes } from "./routes/tasks.js";
+import { fsRoutes } from "./routes/fs.js";
+import { routes as engineRoutes } from "./routes/engines.js";
 import { initScheduler, stopAllSchedulers } from "./services/scheduler.js";
 
 const config = loadConfig();
@@ -47,6 +49,7 @@ await fastify.register(blueprintRoutes);
 await fastify.register(meetingRoutes);
 await fastify.register(schedulerRoutes);
 await fastify.register(decisionRoutes);
+await fastify.register(engineRoutes);
 
 // Initialize scheduler
 await initScheduler();
@@ -61,6 +64,7 @@ if (adapter) {
 // --- Register agent routes (replaces inline agent endpoints) ---
 await fastify.register(agentRoutes);
 await fastify.register(taskRoutes);
+await fastify.register(fsRoutes);
 
 // --- Adapter-backed routes ---
 fastify.get("/api/adapter/tasks", async (req) => {
@@ -78,8 +82,9 @@ fastify.get("/api/adapter/tasks/:taskId/messages", async (req) => {
 // Health check
 fastify.get("/api/health", async () => ({
   status: "ok",
-  version: "2.0.0",
+  version: "2.3.0",
   adapter: config.adapter,
+  engines: ["multica", "claude-code"],
   timestamp: Date.now(),
 }));
 
@@ -96,7 +101,7 @@ process.on("SIGINT", shutdown);
 // Start
 try {
   await fastify.listen({ port: config.port, host: config.host });
-  console.log(`[server] agent-monitor v2.0.0 running on http://${config.host}:${config.port}`);
+  console.log(`[server] agent-monitor v2.3.0 running on http://${config.host}:${config.port}`);
 } catch (err) {
   fastify.log.error(err);
   process.exit(1);
