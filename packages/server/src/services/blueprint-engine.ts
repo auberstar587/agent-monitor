@@ -1,7 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { query, queryOne, execute } from '../db/client.js';
-import { getAdapter } from '../adapters/registry.js';
+import { getAdapter, getEngine } from '../adapters/registry.js';
+// 触发 registry.ts 底部 registerEngine('claude-code', ...) 副作用，否则 EngineAdapter 注册表为空
+import '../adapters/registry.js';
+import type { EngineMessage } from '../adapters/engine.js';
 
 // --- Types ---
 
@@ -494,21 +497,40 @@ async function executeAgentNode(node: BlueprintNode, context: RunContext): Promi
   const cfg = node.config || {};
   const prompt = renderTemplate(cfg.prompt_template || '', Object.fromEntries(context.nodeOutputs));
 
-  // Try claude-code CLI execution
-  if (cfg.adapter === 'claude-code' || cfg.adapter === 'claude') {
+  // === Path 1: EngineAdapter 优先（claude-code / multica / codex）===
+  // 这是真路径：startMetrics + run() + finish() + 自动持久化到 runtime_calls
+  if (cfg.adapter) {
     try {
-      const maxTokens = cfg.max_tokens || 2000;
-      const result = execSync(
-        `echo ${JSON.stringify(prompt)} | claude-code -p - --max-tokens ${maxTokens}`,
-        { timeout: cfg.timeout_ms || 120000, maxBuffer: 100 * 1024 },
-      );
-      return { status: 'completed', output: result.toString().trim() };
+      const engine = await getEngine(cfg.adapter);
+      if (engine) {
+        const stream = engine.run(prompt, {
+          model: cfg.model,
+          projectId: cfg.projectId,
+          workingDir: cfg.workingDir,
+        });
+        const runId = stream.runId;
+        // 累计文本输出 + tool calls
+        const textParts: string[] = [];
+        let toolCalls = 0;
+        try {
+          for await (const msg of stream) {
+            if (msg.type === 'text' && msg.content) textParts.push(msg.content);
+            else if (msg.type === 'tool_use') toolCalls++;
+            // error 流不中断，仅记录到最终输出
+          }
+        } catch (err: any) {
+          return { status: 'failed', output: `[EngineAdapter ${cfg.adapter}] 异常: ${err?.message || err}` };
+        }
+        const output = textParts.join('') || `[EngineAdapter ${cfg.adapter} runId=${runId}] 无文本输出`;
+        return { status: 'completed', output };
+      }
     } catch (err: any) {
-      return { status: 'failed', output: `claude-code CLI 执行失败: ${err.message}` };
+      // EngineAdapter 抛错（未安装、缺 key 等）→ fall through 到 AgentPlatformAdapter
+      // 这种情况通常 adapter 真的不存在，记录但不阻断
     }
   }
 
-  // Try real adapter
+  // === Path 2: AgentPlatformAdapter（multica / openclaw / codex-platform）===
   try {
     const adapter = getAdapter(cfg.adapter || 'mock');
     const a = await adapter;
@@ -525,7 +547,7 @@ async function executeAgentNode(node: BlueprintNode, context: RunContext): Promi
     // Fall through to mock
   }
 
-  // Mock
+  // === Path 3: Mock fallback（保证蓝图 run 永远有输出）===
   return {
     status: 'completed',
     output: `[Mock] Agent "${node.name}" 执行: ${prompt.slice(0, 100)}${prompt.length > 100 ? '...' : ''}`

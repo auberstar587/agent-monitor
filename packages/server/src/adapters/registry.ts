@@ -32,7 +32,12 @@ export function getRegisteredEngines(): string[] {
 export async function getEngine(name: string): Promise<import('./engine.js').EngineAdapter | null> {
   const factory = _engineRegistry.get(name);
   if (!factory) return null;
-  return factory();
+  try {
+    return await factory();
+  } catch {
+    // factory 抛错（如 multica 未配置）→ 返回 null 让调用方走 fallback
+    return null;
+  }
 }
 
 // --- Auto-register platform adapters ---
