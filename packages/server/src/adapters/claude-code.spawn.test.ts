@@ -206,8 +206,8 @@ describe('ClaudeCodeAdapter 真实 spawn 集成', () => {
 
     const textMsgs = messages.filter(m => m.type === 'text');
     const systemMsgs = messages.filter(m => m.type === 'system');
-    // text: assistant + result = 2
-    expect(textMsgs.length).toBe(2);
+    // text: only from assistant events (result no longer yields text to avoid duplication)
+    expect(textMsgs.length).toBe(1);
     // system: hook_started + hook_response + spawn-init = 3
     expect(systemMsgs.length).toBeGreaterThanOrEqual(2);
   });

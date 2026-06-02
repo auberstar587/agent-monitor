@@ -230,11 +230,15 @@ function* handleStreamEvent(
     if (typeof evt.total_cost_usd === 'number') {
       metrics.overrideCost(Math.round(evt.total_cost_usd * 100));
     }
-    yield {
-      seq: nextSeq(),
-      type: evt.is_error ? 'error' : 'text',
-      content: evt.result || `(result: ${evt.subtype || 'completed'})`,
-    };
+    // result 事件只记指标，不再 yield 文本
+    // 文本已通过 assistant 事件逐条流式发送，避免重复
+    if (evt.is_error && evt.result) {
+      yield {
+        seq: nextSeq(),
+        type: 'error',
+        content: evt.result,
+      };
+    }
     return;
   }
 
