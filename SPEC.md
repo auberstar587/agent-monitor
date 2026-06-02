@@ -1,8 +1,8 @@
 # Agent Monitor — 项目规范 (SPEC.md)
 
-> 版本: 2.2.0
-> 更新: 2026-05-31
-> 状态: v2 功能骨架已实施，正在集成验证与 QA 收口
+> 版本: 2.3.0
+> 更新: 2026-06-01
+> 状态: v2 功能骨架已实施 + WeSight 借鉴方向已锁定（Phase 6 多引擎适配层待启动）
 > 历史版本: 1.4.0 已归档至 `archive/20260529-old-requirements/`
 
 ---
@@ -64,6 +64,9 @@ agent-monitor（增强层）
 | Always-on 离线执行 | PilotDeck | 融入 Autopilots + Dream 模式 |
 | 白盒跨工具记忆 | PilotDeck | 在 Multica Event 流上叠加记忆层，挂接不同工具会话 |
 | 成本追踪 | HiveWard | 融入 ExecutionTrace |
+| **引擎适配器协议** | **WeSight (freestylefly/wesight, MIT)** | **直接复用其 `libs/agentEngine/` 抽象：抽 `EngineAdapter` interface + Claude Code/Codex 适配器落地。不绑死 Multica 单一引擎** |
+| **多模型 Provider 路由** | **WeSight** | **抽 `providers.ts` 抽象层，支持 OpenAI / Anthropic / Gemini / DeepSeek / Qwen / Moonshot / Ollama / 自定义 OpenAI 兼容端点** |
+| **运行时指标维度** | **WeSight `runtime_calls` 表** | **ExecutionTrace 对齐 5 字段：TTFT / output-phase TPS / estimated model TPS / tool latency / agent steps** |
 
 ---
 
@@ -406,7 +409,7 @@ Agent Monitor
 
 ### 7.3 可扩展
 - 记忆层通过 MemoryProvider 接口可替换后端（PostgreSQL → 向量库）。
-- Agent 平台通过 Adapter 接口扩展。
+- Agent 平台通过 EngineAdapter 接口扩展。**EngineAdapter 协议参考 WeSight `libs/agentEngine/` 的设计**（5 个方法：`detectInstalled` / `run` / `approve` / `cancel` / `cost`），保证新引擎接入只需实现一个文件。
 
 ---
 
@@ -451,6 +454,16 @@ Agent Monitor
 - 实时数据流 + 状态同步
 - 当前状态：页面已铺开；实时数据流仍待 socket.io 接入，错误态和空态需 QA 收口。
 
+### Phase 6: 多引擎适配层（基于 WeSight 协议）— **新方向，2026-06-01 锁定**
+- 抽 `EngineAdapter` interface（5 方法：`detectInstalled` / `run` / `approve` / `cancel` / `cost`）
+- `packages/server/src/adapters/multica.ts` 改造为实现新接口
+- 新增 `claude-code.ts` 适配（参考 wesight `libs/agentEngine/` 的 `externalAgent*.ts` 安装/复用本地配置思路）
+- 新增 `codex.ts` 适配（如时间允许）
+- UI：Agent View / Settings 加引擎选择器
+- `providers.ts` 抽象层（OpenAI / Anthropic / Gemini / DeepSeek / Qwen / Moonshot / Ollama / 自定义 OpenAI 兼容端点）
+- ExecutionTrace 表补齐 5 指标字段（TTFT / output-phase TPS / estimated model TPS / tool latency / agent steps）
+- 验收：UI 能选引擎；Claude Code 适配器跑通最小链路；ExecutionTrace 5 指标可视化
+
 ### 当前验证基线
 
 | 项目 | 结果 | 日期 | 说明 |
@@ -480,3 +493,5 @@ Agent Monitor
 | 2026-05-29 | 2.0.0 | Nox | 项目定位重塑：从自研驾驶舱转型为 Multica 基座 + 增强层。集成 HiveWard Blueprint、PilotDeck 白盒记忆/Always-on。旧版需求文档归档至 archive/20260529-old-requirements/ |
 | 2026-05-31 | 2.1.0 | DeepSeek | Phase 3-5 全部实施完成：蓝图 DAG 引擎 + DAG 编辑器 + 多 Agent 会议 + 记忆 Dream Mode + 跨项目上下文注入 + 定时调度 + 风险评估 |
 | 2026-05-31 | 2.2.0 | Codex | 校正项目状态：功能骨架已实施，类型检查通过，测试和端到端验证仍需收口 |
+| 2026-06-01 | 2.3.0 | Nox | 锁定 WeSight (freestylefly/wesight, MIT) 借鉴方向。**前 3 项直接复用 WeSight 思路**：(1) `EngineAdapter` 引擎适配器协议（5 方法：detectInstalled/run/approve/cancel/cost）；(2) 多模型 Provider 路由抽象（providers.ts）；(3) ExecutionTrace 对齐 `runtime_calls` 5 指标（TTFT/output-phase TPS/estimated model TPS/tool latency/agent steps）。**飞书 IM 网关不在本项目范围内**。**Redux Toolkit slice 切分思路后续再考虑**。新增 Phase 6（多引擎适配层）。保持 Multica 基座不变 |
+| 2026-06-01 | 2.3.1 | Nox | Phase 6 实施推进：(1) `RunMetricsCollector` helper 落地（`packages/server/src/adapters/engine.ts`），统一 5 指标采集接口（TTFT/outputTps/estimatedModelTps/toolLatencyMs/agentSteps）；(2) `claude-code.ts` + `multica/engine.ts` 接入 collector，5 指标在 mock 阶段已能真实采集；(3) `cost(runId)` 改用 `getMetrics(runId).snapshot()` 返回真实用量，不再返回 null；(4) 新增 13 个单测覆盖 RunMetricsCollector 边界（TTFT 幂等、TPS 计算、toolLatency 取最大值、snapshot 不可变等）。**进度**：Phase 6 整体从 ~40% → ~60%。**未完成**：Provider 路由层（`providers.ts`）尚未建文件、ExecutionTrace 持久化到 `runtime_calls` 表待做、EngineAdapter 真实 CLI spawn（`claude-code.ts` 仍为 mock） |
