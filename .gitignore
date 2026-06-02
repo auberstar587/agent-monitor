@@ -30,3 +30,10 @@ tests/.test-tasks.json
 **/dist/
 **/.turbo/
 **/.cache/
+
+# Backup files (from pre-edit safety backups)
+*.bak
+*.*.bak
+*.tmp
+*.swp
+*~
