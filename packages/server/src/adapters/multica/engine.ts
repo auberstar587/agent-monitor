@@ -39,7 +39,7 @@ export async function createMulticaEngineAdapter(
     run(prompt: string, opts?: Record<string, unknown>) {
       const runId = `multica_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
       const model = (opts?.model as string) || 'multica-default';
-      const metrics = startMetrics(runId, { model });
+      const metrics = startMetrics(runId, { model, engineId: 'multica', persist: true });
 
       async function* gen(): AsyncGenerator<EngineMessage> {
         let seq = 0;

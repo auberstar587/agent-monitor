@@ -65,7 +65,7 @@ export async function createClaudeCodeAdapter(
       const model = (opts?.model as string) || 'sonnet';
       const systemPrompt = opts?.systemPrompt as string | undefined;
       const extraArgs = (opts?.extraArgs as string[] | undefined) ?? [];
-      const metrics = startMetrics(runId, { model });
+      const metrics = startMetrics(runId, { model, engineId: 'claude-code', persist: true });
 
       // 先把 runId 标"待启动"，让 cancel() 在 spawn 前也能识别
       // 用 null 占位，spawn 完成后替换为真实 child

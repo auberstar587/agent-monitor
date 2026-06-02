@@ -1,8 +1,8 @@
 # Agent Monitor — 项目规范 (SPEC.md)
 
-> 版本: 2.3.2
+> 版本: 2.3.3
 > 更新: 2026-06-02
-> 状态: v2 端到端链路已通 + Phase 6 仍待收口（providers.ts / runtime_calls 持久化）
+> 状态: v2 端到端链路已通 + Phase 6 多引擎适配层已完成
 > 历史版本: 1.4.0 已归档至 `archive/20260529-old-requirements/`
 
 ---
@@ -470,7 +470,7 @@ Agent Monitor
 |------|------|------|------|
 | `npm run typecheck` | ✅ 通过 | 2026-06-02 | server + ui TypeScript 均通过 |
 | `npm run build` | ✅ 通过 | 2026-06-02 | Vite chunk 542kB warning，非阻断 |
-| `npm test` | ✅ 通过 | 2026-06-02 | 30/30 (4 test files) |
+| `npm test` | ✅ 通过 | 2026-06-02 | 47/47 (5 test files, 含 Phase 6 收口 17 个新测) |
 | 端到端最小链路 | ✅ 通过 | 2026-06-02 | Project → Task/Output/Memory → Blueprint → Trace/Inbox 4 层全部联通（mock 数据） |
 | UUID 校验（4 路由） | ✅ 修复 | 2026-06-02 | projects / blueprints / memory / traces 统一返回 400 |
 | UI 用例（TC-003/005/006/007/008/009/011/015/018/019/020） | ⚠️ 待浏览器 | 2026-06-02 | 代码层已实现，需 Playwright 走一遍 |
@@ -500,3 +500,4 @@ Agent Monitor
 | 2026-06-01 | 2.3.0 | Nox | 锁定 WeSight (freestylefly/wesight, MIT) 借鉴方向。**前 3 项直接复用 WeSight 思路**：(1) `EngineAdapter` 引擎适配器协议（5 方法：detectInstalled/run/approve/cancel/cost）；(2) 多模型 Provider 路由抽象（providers.ts）；(3) ExecutionTrace 对齐 `runtime_calls` 5 指标（TTFT/output-phase TPS/estimated model TPS/tool latency/agent steps）。**飞书 IM 网关不在本项目范围内**。**Redux Toolkit slice 切分思路后续再考虑**。新增 Phase 6（多引擎适配层）。保持 Multica 基座不变 |
 | 2026-06-01 | 2.3.1 | Nox | Phase 6 实施推进：(1) `RunMetricsCollector` helper 落地（`packages/server/src/adapters/engine.ts`），统一 5 指标采集接口（TTFT/outputTps/estimatedModelTps/toolLatencyMs/agentSteps）；(2) `claude-code.ts` + `multica/engine.ts` 接入 collector，5 指标在 mock 阶段已能真实采集；(3) `cost(runId)` 改用 `getMetrics(runId).snapshot()` 返回真实用量，不再返回 null；(4) 新增 13 个单测覆盖 RunMetricsCollector 边界（TTFT 幂等、TPS 计算、toolLatency 取最大值、snapshot 不可变等）。**进度**：Phase 6 整体从 ~40% → ~60%。**未完成**：Provider 路由层（`providers.ts`）尚未建文件、ExecutionTrace 持久化到 `runtime_calls` 表待做、EngineAdapter 真实 CLI spawn（`claude-code.ts` 仍为 mock） |
 | 2026-06-02 | 2.3.2 | Claude | 收口 SPEC "下一步收口顺序" 前 4 步：(1) **Step 1 验证**：server 测试已统一 Vitest，30/30 通过（SPEC 旧记录"npm test 未通过"已过期）；(2) **Step 2 QA 复测**：TC-002/010/013/014/016/017 共 7 条纯 API 用例通过，TC-004 暴露 UUID 校验真实 bug；(3) **Step 4 UUID 修复**：补齐 blueprints 5 端点（GET/PUT/DELETE/clone/runs/:runId/cancel）+ traces 1 端点，统一 4 路由（projects/blueprints/memory/traces）对非法 UUID 返回 400 + `invalid id format`；(4) **Step 3 端到端链路**：Project→Task/Output/Memory→Blueprint(agent+summary)→Trace/Inbox 4 层全部联通，Blueprint Run 跑出 mock 输出。**附带清理**：(a) `.gitignore` 加固（`*.bak/.tmp/.swp/~` 备份+编辑器临时文件 + `pnpm-lock.yaml` 屏蔽）；(b) 清理工作树残留 `archive/20260521-101807-cleanup/code-legacy/web.20260429.bak/` 目录。**未完成**：Phase 6 收口（providers.ts / runtime_calls 持久化）、UI 用例需 Playwright 走一遍 |
+| 2026-06-02 | 2.3.3 | Claude | **Phase 6 收口完成**（SPEC v2.3.0 锁定的 3 项 WeSight 借鉴点全部落地）：(1) **`runtime_calls` 表 migration**（`005_runtime_calls.sql`）— 对齐 WeSight 5 指标字段（ttft_ms/output_tps/est_model_tps/tool_latency_ms/agent_steps）+ engine_id/model/provider 维度；(2) **`RunMetricsCollector.finish()` 持久化** — 在 `opts.persist=true` 时把 5 指标 + 计量写 `runtime_calls` 表（fire-and-forget，错误不影响主流程）；(3) **`providers.ts` 抽象层** — 5 个 provider 实现（anthropic / openai / deepseek / ollama / mock），纯 fetch 包装不引入 SDK，`resolveProvider(model)` 按前缀路由（claude-*/gpt-*/o[1-9]*/deepseek-*/ollama:*/llama/qwen/mistral）；(4) **EngineAdapter 接入** — `claude-code.ts` 和 `multica/engine.ts` 在 `startMetrics` 时设 `engineId` + `persist: true`，让每次真实跑 agent 都自动入库。**新增 17 个单测**（providers.test.ts 覆盖 resolveProvider/注册表/cost 估算/mock 流/缺 key 抛错），总测试数 47/47 通过。**配置要求**：用真实 provider 需在 env 设 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `DEEPSEEK_API_KEY`（Ollama 不需要 key，走 `OLLAMA_ENDPOINT` env）。**Phase 6 进度 60% → 100%** |

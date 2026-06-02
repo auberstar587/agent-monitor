@@ -91,6 +91,10 @@ export async function getEngine(name: string): Promise<EngineAdapter | null> {
 
 export interface RunMetricsOptions {
   model?: string;
+  /** 引擎 ID（持久化时使用，例 'claude-code'） */
+  engineId?: string;
+  /** 是否在 finish() 时持久化到 runtime_calls 表（默认 false 保持向后兼容） */
+  persist?: boolean;
 }
 
 export interface RunMetricsHandle {
@@ -180,6 +184,10 @@ export function startMetrics(
         state.outputTps = (state.outputTokens / outputPhaseMs) * 1000;
         state.estimatedModelTps = state.outputTps * 1.05;
       }
+      // 持久化（fire-and-forget，错误不抛给调用方）
+      if (opts.persist) {
+        void persistRunMetrics(runId, opts.engineId ?? 'unknown', start, elapsedMs, state);
+      }
     },
     snapshot() {
       return { ...state };
@@ -197,4 +205,50 @@ export function getMetrics(runId: string): RunMetricsHandle | null {
 
 export function clearMetrics(runId: string): void {
   _metricsStore.delete(runId);
+}
+
+// ---------------------------------------------------------------------
+// 持久化：fire-and-forget 写 runtime_calls 表
+// 用动态 import 避免 adapter 层强耦合 db 模块（保持纯协议层可独立测试）
+// ---------------------------------------------------------------------
+async function persistRunMetrics(
+  runId: string,
+  engineId: string,
+  startedAtMs: number,
+  durationMs: number,
+  state: EngineUsage,
+): Promise<void> {
+  try {
+    const { query } = await import("../db/client.js");
+    const { resolveProvider } = await import("./providers.js");
+    const provider = state.model ? resolveProvider(state.model) : null;
+    await query(
+      `INSERT INTO runtime_calls
+        (run_id, engine_id, model, provider, ttft_ms, output_tps, est_model_tps,
+         tool_latency_ms, agent_steps, input_tokens, output_tokens, cost_cents,
+         started_at, finished_at, duration_ms)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12, to_timestamp($13/1000.0), to_timestamp($14/1000.0), $15)
+       ON CONFLICT (run_id) DO NOTHING`,
+      [
+        runId,
+        engineId,
+        state.model ?? null,
+        provider?.id ?? null,
+        state.ttftMs ?? null,
+        state.outputTps ?? null,
+        state.estimatedModelTps ?? null,
+        state.toolLatencyMs ?? null,
+        state.agentSteps ?? null,
+        state.inputTokens,
+        state.outputTokens,
+        state.costCents ?? null,
+        startedAtMs,
+        startedAtMs + durationMs,
+        durationMs,
+      ],
+    );
+  } catch (err) {
+    // 持久化失败不影响主流程
+    console.error(`[engine] persistRunMetrics failed for runId=${runId}:`, (err as Error).message);
+  }
 }
