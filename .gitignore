@@ -23,3 +23,10 @@ tests/.test-tasks.json
 
 # OS
 .DS_Store
+
+# Build/cache artifacts (defense in depth, even inside archive/)
+**/node_modules/
+**/.next/
+**/dist/
+**/.turbo/
+**/.cache/
