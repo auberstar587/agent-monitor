@@ -139,4 +139,12 @@ export const api = {
   unscheduleBlueprint: (blueprintId: string) =>
     request<{ success: boolean }>(`/scheduler/${blueprintId}`, { method: "DELETE" }),
   assessRisk: (action: any) => request<any>("/decisions/assess-risk", { method: "POST", body: JSON.stringify(action) }),
+
+  // Filesystem browser (sandboxed to home dir)
+  browseFs: (path: string) =>
+    request<{ current: string; parent: string | null; dirs: { name: string; path: string; has_children: boolean }[] }>(
+      `/fs/browse?path=${encodeURIComponent(path)}`,
+    ),
+  getHome: () => request<{ home: string; recent: string[] }>("/fs/home"),
+  getCommon: () => request<{ shortcuts: { key: string; label: string; path: string }[] }>("/fs/common"),
 };

@@ -1,16 +1,67 @@
 import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { api } from "../lib/api";
-import { ArrowLeft, MapPin, Edit3, Check, X, FolderKanban } from "lucide-react";
+import {
+  ArrowLeft,
+  FolderKanban,
+  Edit3,
+  Check,
+  X,
+  GitBranch,
+  FileOutput,
+  Cpu,
+  Clock,
+  Hash,
+  Target,
+  MapPin,
+  Layers,
+} from "lucide-react";
+
+/* ── Relative time helper ── */
+function relTime(iso?: string) {
+  if (!iso) return "—";
+  const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return new Date(iso).toLocaleDateString();
+}
+
+/* ── Status channel colours ── */
+function statusStyle(status: string) {
+  switch (status) {
+    case "active":
+      return { color: "var(--success)", label: "ACTIVE", code: "01" };
+    case "paused":
+      return { color: "var(--warning)", label: "PAUSED", code: "02" };
+    case "archived":
+      return { color: "var(--muted)", label: "ARCHIVED", code: "00" };
+    default:
+      return {
+        color: "var(--muted)",
+        label: (status ?? "UNKNOWN").toUpperCase(),
+        code: "??",
+      };
+  }
+}
+
+/* ── Direction label map ── */
+const DIR_LABEL: Record<string, string> = {
+  analysis: "分析",
+  implementation: "实现",
+  decision: "决策",
+  review: "审查",
+  question: "提问",
+};
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const [project, setProject] = useState<any>(null);
   const [relations, setRelations] = useState<any[]>([]);
   const [outputs, setOutputs] = useState<any[]>([]);
   const [editing, setEditing] = useState<string | null>(null);
   const [editVal, setEditVal] = useState("");
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!id) return;
@@ -25,154 +76,338 @@ export default function ProjectDetail() {
     });
   }, [id]);
 
-  if (!project) return <div className="p-6 text-sm" style={{ color: "var(--muted)" }}>加载中...</div>;
+  // 1 Hz heartbeat for relative timestamps
+  useEffect(() => {
+    const iv = setInterval(() => setTick((n) => n + 1), 1000);
+    return () => clearInterval(iv);
+  }, []);
+
+  if (!project)
+    return (
+      <div className="pd-loading">
+        <span className="mono">ACQUIRING SIGNAL…</span>
+      </div>
+    );
+
+  const ch = statusStyle(project.status);
+  const techCount = (project.tech_stack || []).length;
+  const goalCount = (project.goals || []).length;
 
   const startEdit = (field: string, value: string) => {
     setEditing(field);
     setEditVal(value);
   };
-
   const saveEdit = async (field: string) => {
-    if (!editVal.trim()) { setEditing(null); return; }
+    if (!editVal.trim()) {
+      setEditing(null);
+      return;
+    }
     await api.updateProject(project.id, { [field]: editVal });
     setProject({ ...project, [field]: editVal });
     setEditing(null);
   };
-
   const cancelEdit = () => setEditing(null);
 
   return (
-    <div className="p-6 max-w-4xl">
-      <Link to="/projects" className="flex items-center gap-1 text-xs mb-4" style={{ color: "var(--muted)" }}>
-        <ArrowLeft size={14} /> 返回项目列表
+    <div className="pd-page">
+      {/* ═══ Telemetry bar ═══ */}
+      <div className="pd-telemetry">
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label">
+            <Hash size={11} /> PROJECT
+          </span>
+          <span className="pd-telem-value mono">
+            {project.id?.slice(0, 8).toUpperCase()}
+          </span>
+        </div>
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label" style={{ color: ch.color }}>
+            <FolderKanban size={11} /> STATUS
+          </span>
+          <span className="pd-telem-value mono" style={{ color: ch.color }}>
+            {ch.label}
+          </span>
+        </div>
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label">
+            <GitBranch size={11} /> RELATIONS
+          </span>
+          <span className="pd-telem-value mono">
+            {String(relations.length).padStart(3, "0")}
+          </span>
+        </div>
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label">
+            <FileOutput size={11} /> OUTPUTS
+          </span>
+          <span className="pd-telem-value mono">
+            {String(outputs.length).padStart(3, "0")}
+          </span>
+        </div>
+        <div className="pd-telem-spacer" />
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label">
+            <Clock size={11} /> UPTIME
+          </span>
+          <span className="pd-telem-value mono">
+            {relTime(project.last_activity || project.updated_at)}
+          </span>
+        </div>
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label">SIGNAL</span>
+          <span
+            className="pd-telem-value mono"
+            style={{ color: "var(--success)" }}
+          >
+            LOCKED
+          </span>
+        </div>
+      </div>
+
+      {/* ═══ Back nav ═══ */}
+      <Link to="/projects" className="pd-back">
+        <ArrowLeft size={13} />
+        <span className="mono">BACK · PROJECT INDEX</span>
       </Link>
 
-      {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "var(--accent-soft)" }}>
-          <FolderKanban size={16} style={{ color: "var(--accent)" }} />
-        </div>
-        <div className="flex-1">
+      {/* ═══ Header card with status rail ═══ */}
+      <div className="pd-header-card" style={{ "--ch": ch.color } as any}>
+        <div className="pd-header-rail" />
+        <div className="pd-header-body">
+          {/* Name */}
+          <div className="pd-header-head">
+            <span className="pd-header-index mono">
+              PRJ{project.id?.slice(0, 3).toUpperCase()}
+            </span>
+            <span className="pd-header-channel mono" style={{ color: ch.color }}>
+              · {ch.code}
+            </span>
+            <span className="pd-header-status mono" style={{ color: ch.color }}>
+              {ch.label}
+            </span>
+          </div>
+
           {editing === "name" ? (
-            <div className="flex items-center gap-1">
-              <input value={editVal} onChange={(e) => setEditVal(e.target.value)}
-                className="config-input text-sm font-semibold" style={{ width: 300 }} autoFocus />
-              <button onClick={() => saveEdit("name")} className="icon-btn"><Check size={14} /></button>
-              <button onClick={cancelEdit} className="icon-btn"><X size={14} /></button>
+            <div className="pd-edit-row">
+              <input
+                value={editVal}
+                onChange={(e) => setEditVal(e.target.value)}
+                className="pd-edit-input"
+                autoFocus
+              />
+              <button onClick={() => saveEdit("name")} className="icon-btn">
+                <Check size={14} />
+              </button>
+              <button onClick={cancelEdit} className="icon-btn">
+                <X size={14} />
+              </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
-              <h1 className="page-title">{project.name}</h1>
-              <button onClick={() => startEdit("name", project.name)} className="icon-btn" title="编辑名称">
+            <div className="pd-title-row">
+              <h1 className="pd-title">{project.name}</h1>
+              <button
+                onClick={() => startEdit("name", project.name)}
+                className="icon-btn"
+                title="编辑名称"
+              >
                 <Edit3 size={12} />
               </button>
             </div>
           )}
-          <div className="flex items-center gap-2 mt-0.5">
+
+          {/* Path + status pill */}
+          <div className="pd-path-row">
             <MapPin size={11} style={{ color: "var(--muted)" }} />
-            <span className="text-xs" style={{ color: "var(--muted)" }}>{project.path}</span>
-            <span className={`status-pill status-${project.status === 'active' ? 'active' : 'paused'}`}>
-              {project.status === 'active' ? '活跃' : project.status}
-            </span>
+            <span className="mono pd-path-text">{project.path}</span>
           </div>
         </div>
       </div>
 
-      {/* Meta grid */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="content-card p-4">
-          <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>描述</div>
+      {/* ═══ Meta grid ═══ */}
+      <div className="pd-meta-grid">
+        {/* Description */}
+        <div className="pd-meta-card">
+          <div className="pd-meta-label">
+            <Layers size={11} /> DESCRIPTION
+          </div>
           {editing === "description" ? (
-            <div className="flex items-start gap-1">
-              <textarea value={editVal} onChange={(e) => setEditVal(e.target.value)}
-                className="config-input text-xs" rows={3} autoFocus />
-              <button onClick={() => saveEdit("description")} className="icon-btn mt-1"><Check size={14} /></button>
-              <button onClick={cancelEdit} className="icon-btn mt-1"><X size={14} /></button>
+            <div className="pd-edit-col">
+              <textarea
+                value={editVal}
+                onChange={(e) => setEditVal(e.target.value)}
+                className="pd-edit-textarea"
+                rows={3}
+                autoFocus
+              />
+              <div className="pd-edit-actions">
+                <button
+                  onClick={() => saveEdit("description")}
+                  className="icon-btn"
+                >
+                  <Check size={14} />
+                </button>
+                <button onClick={cancelEdit} className="icon-btn">
+                  <X size={14} />
+                </button>
+              </div>
             </div>
           ) : (
-            <div className="flex items-start gap-2">
-              <p className="text-sm" style={{ color: project.description ? "var(--text)" : "var(--muted)" }}>
-                {project.description || "暂无描述"}
+            <div className="pd-desc-body">
+              <p
+                className="pd-desc-text"
+                style={{
+                  color: project.description ? "var(--text)" : "var(--muted)",
+                }}
+              >
+                {project.description || "NO DESCRIPTION ON FILE"}
               </p>
-              <button onClick={() => startEdit("description", project.description || "")} className="icon-btn shrink-0" title="编辑">
+              <button
+                onClick={() =>
+                  startEdit("description", project.description || "")
+                }
+                className="icon-btn"
+                title="编辑"
+              >
                 <Edit3 size={12} />
               </button>
             </div>
           )}
         </div>
-        <div className="content-card p-4">
-          <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>技术栈</div>
-          <div className="flex flex-wrap gap-1.5">
-            {(project.tech_stack || []).map((t: string) => (
-              <span key={t} className="tech-badge">{t}</span>
-            ))}
-            {(project.tech_stack || []).length === 0 && (
-              <span className="text-xs" style={{ color: "var(--muted)" }}>未检测到</span>
+
+        {/* Tech Stack */}
+        <div className="pd-meta-card">
+          <div className="pd-meta-label">
+            <Cpu size={11} /> TECH STACK ·{" "}
+            <span className="mono">{String(techCount).padStart(2, "0")}</span>
+          </div>
+          <div className="pd-tech-list">
+            {(project.tech_stack || []).length > 0 ? (
+              (project.tech_stack || []).map((t: string) => (
+                <span key={t} className="tech-badge mono">
+                  {t}
+                </span>
+              ))
+            ) : (
+              <span className="mono pd-empty">NOT DETECTED</span>
             )}
           </div>
         </div>
-        <div className="content-card p-4">
-          <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>目标</div>
+
+        {/* Goals */}
+        <div className="pd-meta-card">
+          <div className="pd-meta-label">
+            <Target size={11} /> GOALS ·{" "}
+            <span className="mono">{String(goalCount).padStart(2, "0")}</span>
+          </div>
           {(project.goals || []).length > 0 ? (
-            <ul className="text-xs space-y-1" style={{ color: "var(--text-secondary)" }}>
-              {(project.goals || []).map((g: string, i: number) => <li key={i}>• {g}</li>)}
-            </ul>
+            <div className="pd-goals-list">
+              {(project.goals || []).map((g: string, i: number) => (
+                <div key={i} className="pd-goal-item">
+                  <span className="pd-goal-index mono">
+                    {String(i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="pd-goal-dash">╌</span>
+                  <span className="pd-goal-text">{g}</span>
+                </div>
+              ))}
+            </div>
           ) : (
-            <span className="text-xs" style={{ color: "var(--muted)" }}>暂无目标</span>
+            <span className="mono pd-empty">NO GOALS SET</span>
           )}
         </div>
-        <div className="content-card p-4">
-          <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>时间</div>
-          <div className="text-xs space-y-1" style={{ color: "var(--text-secondary)" }}>
-            <div>创建: {new Date(project.created_at).toLocaleString("zh-CN")}</div>
-            <div>更新: {new Date(project.updated_at).toLocaleString("zh-CN")}</div>
-            {project.last_activity && <div>活跃: {new Date(project.last_activity).toLocaleString("zh-CN")}</div>}
+
+        {/* Timestamps */}
+        <div className="pd-meta-card">
+          <div className="pd-meta-label">
+            <Clock size={11} /> TIMELINE
+          </div>
+          <div className="pd-time-list">
+            <div className="pd-time-row">
+              <span className="pd-time-key mono">CREATED</span>
+              <span className="pd-time-val">
+                {new Date(project.created_at).toLocaleString("zh-CN")}
+              </span>
+            </div>
+            <div className="pd-time-row">
+              <span className="pd-time-key mono">UPDATED</span>
+              <span className="pd-time-val">
+                {new Date(project.updated_at).toLocaleString("zh-CN")}
+              </span>
+            </div>
+            {project.last_activity && (
+              <div className="pd-time-row">
+                <span className="pd-time-key mono">ACTIVE</span>
+                <span className="pd-time-val">
+                  {new Date(project.last_activity).toLocaleString("zh-CN")}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Relations */}
-      <div className="mb-6">
-        <h3 className="section-title mb-3">项目关系 ({relations.length})</h3>
+      {/* ═══ Relations ═══ */}
+      <section className="pd-section">
+        <h3 className="pd-section-title">
+          RELATIONS
+          <span className="pd-section-count mono">
+            {String(relations.length).padStart(3, "0")}
+          </span>
+        </h3>
         {relations.length === 0 ? (
-          <div className="text-xs" style={{ color: "var(--muted)" }}>暂无关联项目</div>
+          <div className="pd-section-empty">
+            <span className="mono">NO LINKED PROJECTS</span>
+          </div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="pd-relations-list">
             {relations.map((r: any) => (
-              <div key={r.id} className="list-row">
-                <span className="text-xs" style={{ color: "var(--text)" }}>{r.target_id?.slice(0, 8) || r.id?.slice(0, 8)}</span>
-                <span className="type-badge type-context">{r.relation_type}</span>
-                {r.description && <span className="text-xs" style={{ color: "var(--muted)" }}>{r.description}</span>}
+              <div key={r.id} className="pd-relation-row">
+                <span className="pd-rel-id mono">
+                  {r.target_id?.slice(0, 8) || r.id?.slice(0, 8)}
+                </span>
+                <span className="type-badge type-context">
+                  {r.relation_type}
+                </span>
+                {r.description && (
+                  <span className="pd-rel-desc">{r.description}</span>
+                )}
               </div>
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Recent Outputs */}
-      <div>
-        <h3 className="section-title mb-3">最近输出 ({outputs.length})</h3>
+      {/* ═══ Outputs ═══ */}
+      <section className="pd-section">
+        <h3 className="pd-section-title">
+          OUTPUTS
+          <span className="pd-section-count mono">
+            {String(outputs.length).padStart(3, "0")}
+          </span>
+        </h3>
         {outputs.length === 0 ? (
-          <div className="text-xs" style={{ color: "var(--muted)" }}>暂无输出</div>
+          <div className="pd-section-empty">
+            <span className="mono">NO OUTPUTS RECORDED</span>
+          </div>
         ) : (
-          <div className="space-y-1.5">
+          <div className="pd-outputs-list">
             {outputs.slice(0, 10).map((o: any) => (
-              <div key={o.id} className="list-row">
-                <span className={`text-xs font-semibold source-${o.source}`}>{o.source}</span>
-                <span className={`type-badge type-${o.direction}`}>
-                  {({analysis:"分析",implementation:"实现",decision:"决策",review:"审查",question:"提问"} as Record<string, string>)[o.direction] || o.direction}
+              <div key={o.id} className="pd-output-row">
+                <span className={`pd-output-source mono source-${o.source}`}>
+                  {o.source}
                 </span>
-                <span className="text-sm flex-1 truncate" style={{ color: "var(--text)" }}>{o.title}</span>
-                <span className="text-[11px]" style={{ color: "var(--muted)" }}>
+                <span className={`type-badge type-${o.direction}`}>
+                  {DIR_LABEL[o.direction] || o.direction}
+                </span>
+                <span className="pd-output-title">{o.title}</span>
+                <span className="pd-output-time mono">
                   {new Date(o.created_at).toLocaleDateString("zh-CN")}
                 </span>
               </div>
             ))}
           </div>
         )}
-      </div>
+      </section>
     </div>
   );
 }
-
-
