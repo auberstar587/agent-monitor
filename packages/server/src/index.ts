@@ -1,9 +1,12 @@
 import Fastify from "fastify";
 import cors from "@fastify/cors";
+import fs from "fs";
+import path from "path";
 import { closePool } from "./db/client.js";
 import { migrate } from "./db/migrate.js";
 import { loadConfig } from "./config.js";
 import { getAdapter } from "./adapters/registry.js";
+import { listProjects, registerProject } from "./services/project-registry.js";
 import { projectRoutes } from "./routes/projects.js";
 import { outputRoutes } from "./routes/outputs.js";
 import { memoryRoutes } from "./routes/memory.js";
@@ -16,6 +19,7 @@ import { agentRoutes } from "./routes/agents.js";
 import { taskRoutes } from "./routes/tasks.js";
 import { fsRoutes } from "./routes/fs.js";
 import { routes as engineRoutes } from "./routes/engines.js";
+import { routes as chatRoutes } from "./routes/chat.js";
 import { initScheduler, stopAllSchedulers } from "./services/scheduler.js";
 
 const config = loadConfig();
@@ -30,6 +34,22 @@ await fastify.register(cors, {
 // Database migration
 await migrate();
 console.log("[server] database migrations applied");
+
+// Bootstrap the current workspace so a fresh local install is not an empty shell.
+try {
+  const projects = await listProjects();
+  if (projects.length === 0) {
+    const workspaceRoot = findWorkspaceRoot(process.cwd());
+    const project = await registerProject(
+      workspaceRoot,
+      path.basename(workspaceRoot),
+      "Auto-registered local workspace",
+    );
+    console.log(`[server] bootstrapped current project: ${project.name} (${project.path})`);
+  }
+} catch (err) {
+  console.warn("[server] project bootstrap skipped:", err);
+}
 
 // --- Adapter setup ---
 console.log(`[server] using adapter: ${config.adapter}`);
@@ -50,6 +70,7 @@ await fastify.register(meetingRoutes);
 await fastify.register(schedulerRoutes);
 await fastify.register(decisionRoutes);
 await fastify.register(engineRoutes);
+await fastify.register(chatRoutes, { prefix: "/api/chat" });
 
 // Initialize scheduler
 await initScheduler();
@@ -105,4 +126,19 @@ try {
 } catch (err) {
   fastify.log.error(err);
   process.exit(1);
+}
+
+function findWorkspaceRoot(start: string): string {
+  let current = path.resolve(start);
+  while (true) {
+    if (
+      fs.existsSync(path.join(current, "pnpm-workspace.yaml")) ||
+      fs.existsSync(path.join(current, ".git"))
+    ) {
+      return current;
+    }
+    const parent = path.dirname(current);
+    if (parent === current) return path.resolve(start);
+    current = parent;
+  }
 }
