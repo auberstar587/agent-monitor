@@ -13,6 +13,7 @@ import AgentDetail from "./pages/AgentDetail";
 import Tasks from "./pages/Tasks";
 import TaskDetail from "./pages/TaskDetail";
 import Settings from "./pages/Settings";
+import Chat from "./pages/Chat";
 
 export default function App() {
   return (
@@ -30,6 +31,7 @@ export default function App() {
         <Route path="inbox" element={<Inbox />} />
         <Route path="blueprints" element={<BlueprintList />} />
         <Route path="blueprints/:id" element={<BlueprintStudio />} />
+        <Route path="chat" element={<Chat />} />
         <Route path="settings" element={<Settings />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard, FolderKanban, Bot, FileText,
   Brain, Inbox, GitBranch, ListTodo, Activity, Menu, Monitor,
-  Moon, PanelLeftClose, PanelLeftOpen, Settings, Sun,
+  Moon, PanelLeftClose, PanelLeftOpen, Settings, Sun, MessageSquare,
 } from "lucide-react";
 import { useStore } from "../stores";
 
@@ -15,6 +15,7 @@ const NAV_ITEMS = [
   { path: "/memory", label: "记忆", icon: Brain },
   { path: "/inbox", label: "收件箱", icon: Inbox },
   { path: "/blueprints", label: "蓝图", icon: GitBranch },
+  { path: "/chat", label: "对话", icon: MessageSquare },
   { path: "/tasks", label: "任务", icon: ListTodo },
   { path: "/settings", label: "设置", icon: Settings },
 ];
@@ -27,6 +28,7 @@ const PAGE_META = [
   { match: "/memory", title: "记忆库", eyebrow: "Memory", desc: "跨项目共享：决策、规则、上下文、偏好、经验" },
   { match: "/inbox", title: "收件箱", eyebrow: "Attention", desc: "需要你介入的决策、阻塞和审查请求" },
   { match: "/blueprints", title: "蓝图", eyebrow: "Automation", desc: "多 Agent 工作流编排与运行" },
+  { match: "/chat", title: "对话", eyebrow: "Cowork", desc: "与 Agent 直接对话，发送任务，查看流式响应" },
   { match: "/tasks", title: "任务", eyebrow: "Tasks", desc: "任务管理与状态流转" },
   { match: "/settings", title: "设置", eyebrow: "Preferences", desc: "主题、布局和本地工作台偏好" },
 ];

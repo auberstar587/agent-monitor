@@ -16,6 +16,12 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return res.json();
 }
 
+export interface EngineInfo {
+  id: string;
+  label: string;
+  installed: boolean;
+}
+
 export interface Project {
   id: string;
   name: string;
@@ -96,6 +102,7 @@ export const api = {
   getAgent: (id: string) => request<any>(`/agents/${id}`),
 
   health: () => request<any>("/health"),
+  listEngines: () => request<EngineInfo[]>("/engines"),
 
   // Blueprint APIs
   listBlueprints: () => request<any[]>("/blueprints"),
