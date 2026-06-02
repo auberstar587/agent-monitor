@@ -37,3 +37,6 @@ tests/.test-tasks.json
 *.tmp
 *.swp
 *~
+
+# Stray lockfiles (project uses package-lock.json)
+pnpm-lock.yaml

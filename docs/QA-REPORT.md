@@ -1,20 +1,22 @@
 # QA 修复报告 — 复测清单
 
 > 修复日期: 2026-05-31
+> 复测日期: 2026-06-02
 > 修复范围: QA-REPORT.md 中 P0/P1 Bug + REQ 功能补全
-> 当前状态: 部分命令已复测，UI/API 端到端仍待复测
+> 当前状态: **API 用例全部复测通过；UUID 校验 bug 已修复；UI 用例待 Playwright 走一遍**
 
 ---
 
 ## 当前复测结论
 
-| 项目 | 结果 | 说明 |
-|------|------|------|
-| `npm run typecheck` | ✅ 通过 | server + ui TypeScript 均通过 |
-| `npm run build` | ✅ 通过 | Vite 有 chunk size warning，不阻断构建 |
-| `npm test` | ❌ 未通过 | 测试文件使用 `node:test`，当前运行器为 Vitest |
-
-当前不能继续写“Phase 1-5 全部完成”。准确口径是：v2 功能骨架已实施，正在集成验证与 QA 收口。
+| 项目 | 结果 | 日期 | 说明 |
+|------|:----:|:----:|------|
+| `npm run typecheck` | ✅ | 2026-06-02 | server + ui TypeScript 均通过 |
+| `npm run build` | ✅ | 2026-06-02 | Vite chunk 542kB warning，非阻断 |
+| `npm test` | ✅ | 2026-06-02 | 30/30 (4 test files) — SPEC 旧记录已过期 |
+| 端到端最小链路 | ✅ | 2026-06-02 | Project → Task/Output/Memory → Blueprint → Trace/Inbox 4 层全通（mock 数据） |
+| UUID 校验 (4 路由) | ✅ | 2026-06-02 | 修复 blueprints 5 端点 + traces 1 端点（commit `0df50ac`） |
+| UI 用例 (TC-003/005/006/007/008/009/011/015/018/019/020) | ⚠️ | 2026-06-02 | 代码层已实现，curl 测不了，需 Playwright 验证 |
 
 ---
 
@@ -362,21 +364,31 @@ curl -s -X POST "http://localhost:3002/api/tasks/$TID/transition" \
 
 ## 修复总结
 
-| 优先级 | 编号 | 修复内容 | 测试用例 | 状态 |
-|--------|:----:|---------|:--------:|:----:|
-| **P0** | BUG-001 | BlueprintStudio 编译修复 | TC-001 | ✅ typecheck/build 已通过 |
-| **P0** | BUG-002 | pnpm-workspace.yaml | TC-001 | ✅ typecheck/build 已通过 |
-| **P0** | BUG-003 | Scheduler 列表为空 | TC-002 | 🔲 |
-| **P0** | BUG-004 | importance-high CSS 缺失 | TC-003 | 🔲 |
-| **P1** | BUG-005 | UUID 校验 | TC-004 | 🔲 |
-| **P1** | BUG-006 | Dashboard 翻译 | TC-005 | 🔲 |
-| **P1** | BUG-007 | Inbox 标签缺失 | TC-006 | 🔲 |
-| **P1** | BUG-008 | 蓝图节点无法删除 | TC-007 | 🔲 |
-| **P1** | BUG-009 | 蓝图保存不持久化 | TC-008 | 🔲 |
-| **P1** | BUG-010 | 前端无错误边界 | TC-009 | 🔲 |
-| **REQ** | 001 | 会议调用 LLM | TC-010 | 🔲 |
-| **REQ** | 003 | 前端调度界面 | TC-011 | 🔲 |
-| **REQ** | 004 | 测试覆盖 | TC-012 | ❌ 测试运行器不一致 |
+| 优先级 | 编号 | 修复内容 | 测试用例 | 状态 | 复测备注 |
+|--------|:----:|---------|:--------:|:----:|----------|
+| **P0** | BUG-001 | BlueprintStudio 编译修复 | TC-001 | ✅ | typecheck/build 已通过 |
+| **P0** | BUG-002 | pnpm-workspace.yaml | TC-001 | ✅ | typecheck/build 已通过 |
+| **P0** | BUG-003 | Scheduler 列表为空 | TC-002 | ✅ | POST `/api/scheduler` 返回 `status=active`，list 含 nextRun |
+| **P0** | BUG-004 | importance-high CSS 缺失 | TC-003 | ⚠️ | 后端 importance=8 已存，UI 黄色背景+边框待浏览器 |
+| **P1** | BUG-005 | UUID 校验 | TC-004 | ✅ | 4 路由统一 400 + `invalid id format`（含 blueprints 5 端点 + traces 1 端点修复） |
+| **P1** | BUG-006 | Dashboard 翻译 | TC-005 | ⚠️ | `DIR_LABEL[o.direction]` 已就位，UI 验证待 Playwright |
+| **P1** | BUG-007 | Inbox 标签缺失 | TC-006 | ⚠️ | approval/handoff_needed 标签已加，UI 验证待 Playwright |
+| **P1** | BUG-008 | 蓝图节点无法删除 | TC-007 | ⚠️ | Delete 键 + 工具栏 🗑️ 已实现，UI 验证待 Playwright |
+| **P1** | BUG-009 | 蓝图保存不持久化 | TC-008 | ⚠️ | `PUT /api/blueprints/:id/nodes` 端点存在，UI 验证待 Playwright |
+| **P1** | BUG-010 | 前端无错误边界 | TC-009 | ⚠️ | ErrorBoundary 已实现，UI 验证待 Playwright |
+| **REQ** | 001 | 会议调用 LLM | TC-010 | ✅ | status=completed，消息数 6 = 3 participants × 2 rounds |
+| **REQ** | 003 | 前端调度界面 | TC-011 | ⚠️ | UI 验证待 Playwright |
+| **REQ** | 004 | 测试覆盖 | TC-012 | ✅ | 30/30 通过（4 test files，vitest） |
+| **REQ** | 005 | 项目编辑 | TC-013 | ✅ | name/description 更新成功 |
+| **REQ** | 006 | Agent 持久化+同步 | TC-014 | ✅ | 4 个 Agent，详情含 quality，可编辑 |
+| **REQ** | 007 | 任务创建 | TC-016 | ✅ | 3 任务创建，按 priority 排序 |
+| **REQ** | 008 | 任务状态流转 | TC-017 | ✅ | 合法流转+非法拒绝 |
+
+### 复测结论
+- **纯 API 用例 7/7 通过**（TC-002/004/010/012/013/014/016/017）
+- **修复中暴露的真实 bug 1 个**：TC-004 UUID 校验（blueprints/traces 漏校验），已修复 commit `0df50ac`
+- **UI 用例 7 条需 Playwright 验证**（已加 ⚠️ 标记，未跑浏览器）
+- **SPEC v2.3.1 旧记录"npm test 未通过"已纠正**
 
 ---
 
