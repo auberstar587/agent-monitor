@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest';
-import { resolveProvider, getProvider } from './providers.js';
+import { resolveProvider, getProvider, fetchWithTimeout } from './providers.js';
 
 describe('providers: resolveProvider', () => {
   it('claude-* → anthropic', () => {
@@ -59,6 +59,34 @@ describe('providers: cost 估算（不调 API）', () => {
     expect(cents).toBeGreaterThan(0);
     // 1000 input * 0.003 + 500 output * 0.015 = 3 + 7.5 = 10.5 cents
     expect(cents).toBeCloseTo(10.5, 1);
+  });
+
+  it('openai gpt-4o-mini 不命中 gpt-4o 价（长前缀优先）', () => {
+    const p = getProvider('openai');
+    const cents = p.cost('gpt-4o-mini', 1000, 1000);
+    // 1k * 0.0015 + 1k * 0.006 = 0.15 + 0.6 = 0.75 cents（mini 价）
+    // 不是 1k * 0.025 + 1k * 0.1 = 12.5 cents（gpt-4o 价，16x 偏差）
+    expect(cents).toBeCloseTo(0.75, 2);
+  });
+
+  it('openai gpt-4o 价格正确（确认 prefix 排序没改坏）', () => {
+    const p = getProvider('openai');
+    const cents = p.cost('gpt-4o', 1000, 1000);
+    expect(cents).toBeCloseTo(12.5, 1);
+  });
+
+  it('cost() 大小写不敏感（与 resolveProvider 一致）', () => {
+    const p = getProvider('anthropic');
+    const upper = p.cost('CLAUDE-OPUS-4', 1000, 1000);
+    const lower = p.cost('claude-opus-4', 1000, 1000);
+    expect(upper).toBe(lower);
+    expect(upper).toBeCloseTo(90, 0); // 1k * 15 + 1k * 75
+  });
+
+  it('未知 model 返回 0 + warn（P1-7 修回退掩盖）', () => {
+    const p = getProvider('openai');
+    const cents = p.cost('gpt-99-future-model', 100000, 100000);
+    expect(cents).toBe(0);
   });
 
   it('deepseek-chat 估算 cost（DeepSeek API 价）', () => {
@@ -121,5 +149,49 @@ describe('providers: 缺 API key 抛错（不静默走 mock）', () => {
     // ollama 即使没 env 也不应抛 key 错
     const p = getProvider('ollama');
     expect(p.id).toBe('ollama');
+  });
+});
+
+describe('providers: P0-4 fetch 超时', () => {
+  // 起一个永不响应的 HTTP server，验证 fetchWithTimeout 在指定 timeoutMs 内抛 AbortError
+  it('永不响应的 server 在 timeoutMs 内抛 AbortError', async () => {
+    const http = await import('node:http');
+    const server = http.createServer(() => {
+      // 故意不调用 res.end()，模拟半开连接
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = (server.address() as { port: number }).port;
+    const url = `http://127.0.0.1:${port}/`;
+    try {
+      const start = Date.now();
+      await expect(
+        fetchWithTimeout(url, { method: 'GET' }, 500),
+      ).rejects.toThrow();
+      const elapsed = Date.now() - start;
+      // 500ms timeout + 一些调度开销，断言在 1500ms 内 abort
+      expect(elapsed).toBeLessThan(1500);
+    } finally {
+      server.close();
+    }
+  });
+
+  it('正常响应的 server 在 timeoutMs 内返回', async () => {
+    const http = await import('node:http');
+    const server = http.createServer((_req, res) => {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end('{"ok":true}');
+    });
+    await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+    const port = (server.address() as { port: number }).port;
+    try {
+      const resp = await fetchWithTimeout(
+        `http://127.0.0.1:${port}/`,
+        { method: 'GET' },
+        2000,
+      );
+      expect(resp.status).toBe(200);
+    } finally {
+      server.close();
+    }
   });
 });

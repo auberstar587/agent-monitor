@@ -221,7 +221,18 @@ async function persistRunMetrics(
   try {
     const { query } = await import("../db/client.js");
     const { resolveProvider } = await import("./providers.js");
-    const provider = state.model ? resolveProvider(state.model) : null;
+    // P0-2 兜底：未知 model 不让整行丢失。provider 字段写 null，row 仍入库
+    // 运维可监控 "WHERE provider IS NULL" 发现未识别的 model
+    let provider: { id: string } | null = null;
+    if (state.model) {
+      try {
+        provider = resolveProvider(state.model);
+      } catch {
+        console.warn(
+          `[engine] persistRunMetrics: unknown model "${state.model}" for runId=${runId}, provider column will be NULL`,
+        );
+      }
+    }
     await query(
       `INSERT INTO runtime_calls
         (run_id, engine_id, model, provider, ttft_ms, output_tps, est_model_tps,

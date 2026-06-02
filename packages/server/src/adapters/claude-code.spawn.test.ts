@@ -114,7 +114,7 @@ describe('ClaudeCodeAdapter 真实 spawn 集成', () => {
     expect(usage!.agentSteps).toBe(1);
     expect(usage!.toolLatencyMs).toBe(9500);
     expect(usage!.costCents).toBe(18);
-    expect(usage!.model).toBe('sonnet');
+    expect(usage!.model).toBe('claude-sonnet-4-5');
   });
 
   it('子进程 exit code 非零时 yield error 消息', async () => {

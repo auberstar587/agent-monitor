@@ -62,7 +62,8 @@ export async function createClaudeCodeAdapter(
 
     run(prompt: string, opts?: Record<string, unknown>) {
       const runId = `claude_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const model = (opts?.model as string) || 'sonnet';
+      // 默认 model 改为完整名以匹配 resolveProvider 前缀规则（持久化层不会写 provider=null）
+      const model = (opts?.model as string) || 'claude-sonnet-4-5';
       const systemPrompt = opts?.systemPrompt as string | undefined;
       const extraArgs = (opts?.extraArgs as string[] | undefined) ?? [];
       const metrics = startMetrics(runId, { model, engineId: 'claude-code', persist: true });
@@ -132,8 +133,13 @@ export async function createClaudeCodeAdapter(
             }, timeoutMs).unref?.();
           });
 
-          if (exitCode !== 0 && exitCode !== -1) {
-            yield { seq: ++seq, type: 'error', content: `claude CLI exited with code ${exitCode}` };
+          // P0-3 修：timeout (-1) 也 yield error，让上层知道被 SIGTERM 杀掉
+          if (exitCode !== 0) {
+            const msg =
+              exitCode === -1
+                ? `claude CLI timeout (killed after ${timeoutMs}ms)`
+                : `claude CLI exited with code ${exitCode}`;
+            yield { seq: ++seq, type: 'error', content: msg };
           }
         } catch (err: any) {
           yield { seq: ++seq, type: 'error', content: err?.message || 'spawn/parse error' };

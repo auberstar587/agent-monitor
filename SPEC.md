@@ -1,8 +1,8 @@
 # Agent Monitor — 项目规范 (SPEC.md)
 
-> 版本: 2.3.3
+> 版本: 2.3.4
 > 更新: 2026-06-02
-> 状态: v2 端到端链路已通 + Phase 6 多引擎适配层已完成
+> 状态: Phase 6 多引擎适配层可用 + 4 个 P0 修复落地 + 6 个 P1/P2 待办
 > 历史版本: 1.4.0 已归档至 `archive/20260529-old-requirements/`
 
 ---
@@ -470,7 +470,7 @@ Agent Monitor
 |------|------|------|------|
 | `npm run typecheck` | ✅ 通过 | 2026-06-02 | server + ui TypeScript 均通过 |
 | `npm run build` | ✅ 通过 | 2026-06-02 | Vite chunk 542kB warning，非阻断 |
-| `npm test` | ✅ 通过 | 2026-06-02 | 47/47 (5 test files, 含 Phase 6 收口 17 个新测) |
+| `npm test` | ✅ 通过 | 2026-06-02 | 53/53 (5 test files, 含 P0-1 gpt-4o-mini + P0-4 fetchWithTimeout 2 个新测) |
 | 端到端最小链路 | ✅ 通过 | 2026-06-02 | Project → Task/Output/Memory → Blueprint → Trace/Inbox 4 层全部联通（mock 数据） |
 | UUID 校验（4 路由） | ✅ 修复 | 2026-06-02 | projects / blueprints / memory / traces 统一返回 400 |
 | UI 用例（TC-003/005/006/007/008/009/011/015/018/019/020） | ⚠️ 待浏览器 | 2026-06-02 | 代码层已实现，需 Playwright 走一遍 |
@@ -501,3 +501,4 @@ Agent Monitor
 | 2026-06-01 | 2.3.1 | Nox | Phase 6 实施推进：(1) `RunMetricsCollector` helper 落地（`packages/server/src/adapters/engine.ts`），统一 5 指标采集接口（TTFT/outputTps/estimatedModelTps/toolLatencyMs/agentSteps）；(2) `claude-code.ts` + `multica/engine.ts` 接入 collector，5 指标在 mock 阶段已能真实采集；(3) `cost(runId)` 改用 `getMetrics(runId).snapshot()` 返回真实用量，不再返回 null；(4) 新增 13 个单测覆盖 RunMetricsCollector 边界（TTFT 幂等、TPS 计算、toolLatency 取最大值、snapshot 不可变等）。**进度**：Phase 6 整体从 ~40% → ~60%。**未完成**：Provider 路由层（`providers.ts`）尚未建文件、ExecutionTrace 持久化到 `runtime_calls` 表待做、EngineAdapter 真实 CLI spawn（`claude-code.ts` 仍为 mock） |
 | 2026-06-02 | 2.3.2 | Claude | 收口 SPEC "下一步收口顺序" 前 4 步：(1) **Step 1 验证**：server 测试已统一 Vitest，30/30 通过（SPEC 旧记录"npm test 未通过"已过期）；(2) **Step 2 QA 复测**：TC-002/010/013/014/016/017 共 7 条纯 API 用例通过，TC-004 暴露 UUID 校验真实 bug；(3) **Step 4 UUID 修复**：补齐 blueprints 5 端点（GET/PUT/DELETE/clone/runs/:runId/cancel）+ traces 1 端点，统一 4 路由（projects/blueprints/memory/traces）对非法 UUID 返回 400 + `invalid id format`；(4) **Step 3 端到端链路**：Project→Task/Output/Memory→Blueprint(agent+summary)→Trace/Inbox 4 层全部联通，Blueprint Run 跑出 mock 输出。**附带清理**：(a) `.gitignore` 加固（`*.bak/.tmp/.swp/~` 备份+编辑器临时文件 + `pnpm-lock.yaml` 屏蔽）；(b) 清理工作树残留 `archive/20260521-101807-cleanup/code-legacy/web.20260429.bak/` 目录。**未完成**：Phase 6 收口（providers.ts / runtime_calls 持久化）、UI 用例需 Playwright 走一遍 |
 | 2026-06-02 | 2.3.3 | Claude | **Phase 6 收口完成**（SPEC v2.3.0 锁定的 3 项 WeSight 借鉴点全部落地）：(1) **`runtime_calls` 表 migration**（`005_runtime_calls.sql`）— 对齐 WeSight 5 指标字段（ttft_ms/output_tps/est_model_tps/tool_latency_ms/agent_steps）+ engine_id/model/provider 维度；(2) **`RunMetricsCollector.finish()` 持久化** — 在 `opts.persist=true` 时把 5 指标 + 计量写 `runtime_calls` 表（fire-and-forget，错误不影响主流程）；(3) **`providers.ts` 抽象层** — 5 个 provider 实现（anthropic / openai / deepseek / ollama / mock），纯 fetch 包装不引入 SDK，`resolveProvider(model)` 按前缀路由（claude-*/gpt-*/o[1-9]*/deepseek-*/ollama:*/llama/qwen/mistral）；(4) **EngineAdapter 接入** — `claude-code.ts` 和 `multica/engine.ts` 在 `startMetrics` 时设 `engineId` + `persist: true`，让每次真实跑 agent 都自动入库。**新增 17 个单测**（providers.test.ts 覆盖 resolveProvider/注册表/cost 估算/mock 流/缺 key 抛错），总测试数 47/47 通过。**配置要求**：用真实 provider 需在 env 设 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `DEEPSEEK_API_KEY`（Ollama 不需要 key，走 `OLLAMA_ENDPOINT` env）。**Phase 6 进度 60% → 100%** |
+| 2026-06-02 | 2.3.4 | Claude | **`/code-review` high-effort 扫 Phase 6 收口发现 10 个 findings，按严重性取 4 个 P0 + 2 个 P1 修复**：<br>**P0-1 修 gpt-4o-mini 16x 过账**（providers.ts:266）：抽 `costFromTable` helper（按 key 长度降序 + lowercase），3 个 `cost()` 改用 helper；OpenAI 表重排为 `gpt-4o-mini` 在前。<br>**P0-2 修默认 model 持久化全失败**（claude-code.ts:65 + engine.ts）：双保险——业务层把 `'sonnet'` 改为 `'claude-sonnet-4-5'` 命中 resolveProvider 前缀；持久化层 `persistRunMetrics` 给 `resolveProvider` 包 try/catch，未知 model 不再丢整行（provider 写 NULL）。<br>**P0-3 修 claude-code timeout 静默成功**（claude-code.ts:135）：`exitCode === -1`（SIGTERM 杀掉）也 yield `type:'error'` 消息含 `timeout` 关键字。<br>**P0-4 给 fetch 加超时**（providers.ts）：新增 `fetchWithTimeout` 公开 helper（默认 60s AbortController），openaiCompatStream + anthropic chat 都改用。<br>**P1-5/7 顺手修**（P1-5 cost() 大小写不一致 + P1-7 cost() 回退掩盖拼错）：3 个 cost() 都通过 `costFromTable` 自动 lowercase + 未知 model 返回 0 + console.warn，账单不再被静默污染。<br>**新增 2 单测**（P0-1 gpt-4o-mini + P0-4 fetchWithTimeout 含永不响应 server）。总测试数 53/53 通过。<br>**残留 5 个 P1/P2 已知缺口**（已落到 task #28/#30/#31/#32，不阻断当前发布）：toolLatencyMs/agentSteps 0 vs null、缺 Gemini/Qwen/Moonshot/custom-OpenAI 路由、clearMetrics 漏删 DB 行、Anthropic SSE 与 openai 重复未抽公共。 |

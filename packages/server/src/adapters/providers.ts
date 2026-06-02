@@ -62,6 +62,25 @@ export function getProvider(id: ProviderId): Provider {
 }
 
 // ---------------------------------------------------------------------
+// 公共 cost 表查找：按 key 长度降序匹配 + lowercase model 名
+// 返回 null 表示未命中（让调用方决定 fallback 策略）
+// ---------------------------------------------------------------------
+function costFromTable(
+  table: Record<string, { in: number; out: number }>,
+  model: string,
+): { in: number; out: number } | null {
+  const m = model.toLowerCase();
+  // 按 key 长度降序，避免 'gpt-4o-mini'.startsWith('gpt-4o') 误命中
+  const keys = Object.keys(table).sort((a, b) => b.length - a.length);
+  for (const k of keys) {
+    if (m.startsWith(k.toLowerCase())) {
+      return table[k];
+    }
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------
 // 解析 model 名前缀 → 路由到 provider
 // 规则：
 //   claude-*  → anthropic
@@ -101,6 +120,23 @@ interface OpenAICompatChunk {
   usage?: { prompt_tokens?: number; completion_tokens?: number };
 }
 
+// ---------------------------------------------------------------------
+// fetch with AbortController 超时（默认 60s）
+// 防上游半开连接（建连后无响应）耗光 worker 并发槽位
+// ---------------------------------------------------------------------
+const DEFAULT_FETCH_TIMEOUT_MS = 60_000;
+
+export function fetchWithTimeout(
+  url: string,
+  init: RequestInit,
+  timeoutMs: number = DEFAULT_FETCH_TIMEOUT_MS,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  timer.unref?.();
+  return fetch(url, { ...init, signal: controller.signal }).finally(() => clearTimeout(timer));
+}
+
 async function* openaiCompatStream(
   endpoint: string,
   apiKey: string,
@@ -115,7 +151,7 @@ async function* openaiCompatStream(
     stream: true,
     stream_options: { include_usage: true },
   };
-  const resp = await fetch(endpoint, {
+  const resp = await fetchWithTimeout(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -177,7 +213,7 @@ function makeAnthropic(): Provider {
       const msgs = req.messages
         .filter((m) => m.role !== 'system')
         .map((m) => ({ role: m.role, content: m.content }));
-      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      const resp = await fetchWithTimeout('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -237,12 +273,17 @@ function makeAnthropic(): Provider {
     },
     cost(model, inputTokens, outputTokens) {
       // 2026-06 简表（USD cents per 1k tokens）
+      // keys 显式按长前缀在前（防御性）：gpt-4o-mini 已在 gpt-4o 之前；这里 anthropic 无嵌套但保留习惯
       const table: Record<string, { in: number; out: number }> = {
         'claude-opus-4': { in: 15, out: 75 },
         'claude-sonnet-4': { in: 3, out: 15 },
         'claude-haiku-4': { in: 0.8, out: 4 },
       };
-      const m = Object.entries(table).find(([k]) => model.startsWith(k))?.[1] ?? { in: 3, out: 15 };
+      const m = costFromTable(table, model);
+      if (!m) {
+        console.warn(`[providers] anthropic cost(): unknown model "${model}"，返回 0 避免账单污染`);
+        return 0;
+      }
       return (inputTokens / 1000) * m.in + (outputTokens / 1000) * m.out;
     },
   };
@@ -257,13 +298,18 @@ function makeOpenAI(): Provider {
       return openaiCompatStream('https://api.openai.com/v1/chat/completions', apiKey, req);
     },
     cost(model, inputTokens, outputTokens) {
+      // 长前缀在前是 hard requirement：gpt-4o-mini 必须在 gpt-4o 之前
       const table: Record<string, { in: number; out: number }> = {
-        'gpt-4o': { in: 2.5, out: 10 },
         'gpt-4o-mini': { in: 0.15, out: 0.6 },
-        'o1': { in: 15, out: 60 },
         'o3-mini': { in: 1.1, out: 4.4 },
+        'gpt-4o': { in: 2.5, out: 10 },
+        'o1': { in: 15, out: 60 },
       };
-      const m = Object.entries(table).find(([k]) => model.startsWith(k))?.[1] ?? { in: 2.5, out: 10 };
+      const m = costFromTable(table, model);
+      if (!m) {
+        console.warn(`[providers] openai cost(): unknown model "${model}"，返回 0 避免账单污染`);
+        return 0;
+      }
       return (inputTokens / 1000) * m.in + (outputTokens / 1000) * m.out;
     },
   };
@@ -278,12 +324,15 @@ function makeDeepSeek(): Provider {
       return openaiCompatStream('https://api.deepseek.com/v1/chat/completions', apiKey, req);
     },
     cost(model, inputTokens, outputTokens) {
-      // 2026-06 简表（USD cents per 1k tokens）
       const table: Record<string, { in: number; out: number }> = {
-        'deepseek-chat': { in: 0.14, out: 0.28 },
         'deepseek-reasoner': { in: 0.55, out: 2.19 },
+        'deepseek-chat': { in: 0.14, out: 0.28 },
       };
-      const m = Object.entries(table).find(([k]) => model.startsWith(k))?.[1] ?? { in: 0.14, out: 0.28 };
+      const m = costFromTable(table, model);
+      if (!m) {
+        console.warn(`[providers] deepseek cost(): unknown model "${model}"，返回 0 避免账单污染`);
+        return 0;
+      }
       return (inputTokens / 1000) * m.in + (outputTokens / 1000) * m.out;
     },
   };
