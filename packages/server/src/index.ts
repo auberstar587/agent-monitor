@@ -20,7 +20,10 @@ import { taskRoutes } from "./routes/tasks.js";
 import { fsRoutes } from "./routes/fs.js";
 import { routes as engineRoutes } from "./routes/engines.js";
 import { routes as chatRoutes } from "./routes/chat.js";
+import { routes as skillApiRoutes } from "./routes/skill-api.js";
 import { initScheduler, stopAllSchedulers } from "./services/scheduler.js";
+import { syncRuntimes, startHealthCheck, stopHealthCheck } from "./services/runtime-service.js";
+import { syncAgentsFromRuntimes } from "./services/agent-registry.js";
 
 const config = loadConfig();
 
@@ -71,16 +74,22 @@ await fastify.register(schedulerRoutes);
 await fastify.register(decisionRoutes);
 await fastify.register(engineRoutes);
 await fastify.register(chatRoutes, { prefix: "/api/chat" });
+await fastify.register(skillApiRoutes);
 
 // Initialize scheduler
 await initScheduler();
 
-// Sync agents from adapter to DB on startup
-if (adapter) {
-  const { syncAgentsFromAdapter } = await import("./services/agent-registry.js");
-  const count = await syncAgentsFromAdapter(adapter);
-  console.log(`[server] synced ${count} agents from adapter`);
+// v2.4.0: 启动时先 sync runtimes（detectInstalled），再 sync agents
+try {
+  const runtimeCount = await syncRuntimes();
+  const agentCount = await syncAgentsFromRuntimes();
+  console.log(`[server] boot: synced ${runtimeCount} runtimes, ${agentCount} engine agents`);
+} catch (err) {
+  console.warn("[server] runtime/agent sync on boot failed:", err);
 }
+
+// 启动 30s 周期 runtime 健康检查
+startHealthCheck();
 
 // --- Register agent routes (replaces inline agent endpoints) ---
 await fastify.register(agentRoutes);
@@ -113,6 +122,7 @@ fastify.get("/api/health", async () => ({
 const shutdown = () => {
   console.log("[server] shutting down...");
   stopAllSchedulers();
+  stopHealthCheck();
   closePool();
   fastify.close().then(() => process.exit(0));
 };
