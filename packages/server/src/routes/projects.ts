@@ -63,6 +63,7 @@ export async function projectRoutes(fastify: FastifyInstance) {
 
   fastify.delete("/api/projects/relations/:relationId", async (req: FastifyRequest, reply: FastifyReply) => {
     const { relationId } = req.params as { relationId: string };
+    if (!requireUUID(relationId, reply)) return;
     const ok = await removeRelation(relationId);
     if (!ok) return reply.code(404).send({ error: "relation not found" });
     return { deleted: true };

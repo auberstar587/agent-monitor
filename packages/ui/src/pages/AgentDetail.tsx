@@ -6,13 +6,43 @@ import { ArrowLeft, Edit3, Check, X, Bot, Activity } from "lucide-react";
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
   const [agent, setAgent] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [editVal, setEditVal] = useState("");
 
   useEffect(() => {
     if (!id) return;
-    api.getAgent(id).then(setAgent);
+    setError(null);
+    api.getAgent(id)
+      .then(setAgent)
+      .catch((err) => {
+        const msg = err?.message || String(err);
+        if (/400|invalid id/i.test(msg)) {
+          setError("Agent ID 格式无效");
+        } else if (/404|not found/i.test(msg)) {
+          setError(`Agent "${id}" 不存在`);
+        } else {
+          setError(`加载失败: ${msg}`);
+        }
+      });
   }, [id]);
+
+  if (error) {
+    return (
+      <div className="p-6 max-w-4xl">
+        <Link to="/agents" className="flex items-center gap-1 text-xs mb-4" style={{ color: "var(--muted)" }}>
+          <ArrowLeft size={14} /> 返回 Agent 列表
+        </Link>
+        <div className="text-sm" style={{ color: "var(--danger)" }}>{error}</div>
+        <button
+          onClick={() => { setError(null); setAgent(null); api.getAgent(id!).then(setAgent).catch(() => {}); }}
+          className="mt-3 config-input text-xs"
+        >
+          重试
+        </button>
+      </div>
+    );
+  }
 
   if (!agent) return <div className="p-6 text-sm" style={{ color: "var(--muted)" }}>加载中...</div>;
 

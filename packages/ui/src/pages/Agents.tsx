@@ -171,15 +171,15 @@ export default function Agents() {
                     </div>
                     <div className="agent-stat">
                       <span className="agent-stat-label">LAST SEEN</span>
-                      <span className="agent-stat-value mono">{relTime(agent.lastSeen)}</span>
+                      <span className="agent-stat-value mono">{relTime(agent.last_seen_at)}</span>
                     </div>
                   </div>
 
                   {/* Current task strip */}
-                  {agent.currentTaskId && (
+                  {agent.current_task_id && (
                     <div className="agent-task">
                       <span className="agent-task-label">TASK</span>
-                      <span className="agent-task-value mono">{agent.currentTaskId}</span>
+                      <span className="agent-task-value mono">{agent.current_task_id}</span>
                     </div>
                   )}
                 </div>

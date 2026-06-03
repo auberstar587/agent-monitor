@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
-import { ArrowLeft, Edit3, Check, X, Play, CheckCircle, XCircle, RotateCcw } from "lucide-react";
+import { ArrowLeft, Edit3, Check, X, Play, CheckCircle, XCircle, RotateCcw, Ban } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "待处理", in_progress: "进行中", completed: "已完成", failed: "失败", cancelled: "已取消",
@@ -9,12 +9,16 @@ const STATUS_LABELS: Record<string, string> = {
 const PRIORITY_LABELS: Record<string, string> = { urgent: "紧急", high: "高", medium: "中", low: "低" };
 const TYPE_LABELS: Record<string, string> = { general: "通用", bug: "缺陷", feature: "功能", review: "审查", analysis: "分析" };
 
-// Valid transitions for each status
+// Valid transitions for each status (kept in sync with server task-manager.ts VALID_TRANSITIONS)
 const TRANSITIONS: Record<string, { status: string; label: string; icon: any; color: string }[]> = {
-  pending: [{ status: "in_progress", label: "开始执行", icon: Play, color: "var(--accent)" }],
+  pending: [
+    { status: "in_progress", label: "开始执行", icon: Play, color: "var(--accent)" },
+    { status: "cancelled", label: "取消", icon: Ban, color: "var(--muted)" },
+  ],
   in_progress: [
     { status: "completed", label: "完成", icon: CheckCircle, color: "var(--success)" },
     { status: "failed", label: "标记失败", icon: XCircle, color: "var(--danger)" },
+    { status: "cancelled", label: "取消", icon: Ban, color: "var(--muted)" },
   ],
   failed: [{ status: "in_progress", label: "重试", icon: RotateCcw, color: "var(--warning)" }],
   cancelled: [{ status: "in_progress", label: "重新打开", icon: Play, color: "var(--accent)" }],

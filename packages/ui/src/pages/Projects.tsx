@@ -71,7 +71,7 @@ export default function Projects() {
     return c;
   }, [projects]);
 
-  const lastSync = projects
+  const lastUpdate = projects
     .map((p) => p.updated_at || p.last_activity)
     .filter(Boolean)
     .sort()
@@ -123,8 +123,8 @@ export default function Projects() {
         </div>
         <div className="agents-telem-spacer" />
         <div className="agents-telem-cell">
-          <span className="agents-telem-label"><Radio size={11} /> LAST SYNC</span>
-          <span className="agents-telem-value mono">{relTime(lastSync)}</span>
+          <span className="agents-telem-label"><Radio size={11} /> LATEST UPDATE</span>
+          <span className="agents-telem-value mono">{relTime(lastUpdate)}</span>
         </div>
         <div className="agents-telem-cell">
           <span className="agents-telem-label">UPLINK</span>

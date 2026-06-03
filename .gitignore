@@ -40,3 +40,8 @@ tests/.test-tasks.json
 
 # Stray lockfiles (project uses package-lock.json)
 pnpm-lock.yaml
+
+# Agent/codex generated files
+AGENTS.md
+console-errors.md
+docs/DEVELOPMENT-WORKFLOW.md

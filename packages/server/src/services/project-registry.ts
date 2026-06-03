@@ -36,12 +36,23 @@ export async function registerProject(
     [resolved],
   );
   if (existing) {
+    const sets: string[] = [];
+    const params: unknown[] = [];
+    let idx = 1;
     if (name && name !== existing.name) {
-      await query("UPDATE local_projects SET name = $1, updated_at = now() WHERE id = $2", [
-        name,
-        existing.id,
-      ]);
+      sets.push(`name = $${idx++}`);
+      params.push(name);
       existing.name = name;
+    }
+    if (description && description !== existing.description) {
+      sets.push(`description = $${idx++}`);
+      params.push(description);
+      existing.description = description;
+    }
+    if (sets.length > 0) {
+      sets.push(`updated_at = now()`);
+      params.push(existing.id);
+      await query(`UPDATE local_projects SET ${sets.join(", ")} WHERE id = $${idx}`, params);
     }
     return existing;
   }
