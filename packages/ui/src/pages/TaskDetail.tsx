@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
-import { ArrowLeft, Edit3, Check, X, Play, CheckCircle, XCircle, RotateCcw, Ban, Rocket, Loader2 } from "lucide-react";
+import { ArrowLeft, Edit3, Check, X, Play, CheckCircle, XCircle, RotateCcw, Ban, Rocket, Loader2, Plus } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "待处理", in_progress: "进行中", completed: "已完成", failed: "失败", cancelled: "已取消",
@@ -36,6 +36,10 @@ export default function TaskDetail() {
   const [execEngine, setExecEngine] = useState("claude-code");
   const [execOutput, setExecOutput] = useState<string[]>([]);
   const [engines, setEngines] = useState<{id: string; label: string; installed: boolean}[]>([]);
+  // P8-13: labels 编辑态
+  const [editingLabels, setEditingLabels] = useState(false);
+  const [labelDraft, setLabelDraft] = useState<string[]>([]);
+  const [newLabel, setNewLabel] = useState("");
 
   useEffect(() => {
     if (!id) return;
@@ -142,6 +146,34 @@ export default function TaskDetail() {
     } finally {
       setExecuting(false);
     }
+  };
+
+  // P8-13: labels 编辑
+  const startEditLabels = () => {
+    setLabelDraft([...(task.labels || [])]);
+    setNewLabel("");
+    setEditingLabels(true);
+  };
+  const cancelEditLabels = () => {
+    setEditingLabels(false);
+    setLabelDraft([]);
+    setNewLabel("");
+  };
+  const saveLabels = async () => {
+    const cleaned = labelDraft.map((l) => l.trim()).filter(Boolean);
+    await api.updateTask(task.id, { labels: cleaned });
+    setTask({ ...task, labels: cleaned });
+    setEditingLabels(false);
+  };
+  const addLabelDraft = () => {
+    const v = newLabel.trim();
+    if (!v) return;
+    if (labelDraft.includes(v)) { setNewLabel(""); return; }
+    setLabelDraft([...labelDraft, v]);
+    setNewLabel("");
+  };
+  const removeLabelDraft = (l: string) => {
+    setLabelDraft(labelDraft.filter((x) => x !== l));
   };
 
   const transitions = TRANSITIONS[task.status] || [];
@@ -317,7 +349,9 @@ export default function TaskDetail() {
           )}
         </div>
         <div className="content-card p-4">
-          <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>元数据</div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>元数据</div>
+          </div>
           <div className="text-xs space-y-1.5" style={{ color: "var(--text-secondary)" }}>
             <div>创建: {new Date(task.created_at).toLocaleString("zh-CN")}</div>
             {task.started_at && <div>开始: {new Date(task.started_at).toLocaleString("zh-CN")}</div>}
@@ -336,37 +370,84 @@ export default function TaskDetail() {
                 ))}
               </select>
             </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span style={{ minWidth: 50 }}>标签:</span>
-              {task.labels?.map((l: string) => (
-                <span key={l} className="tech-badge flex items-center gap-1">
-                  {l}
+
+            {/* P8-13: labels 区域 */}
+            <div className="mt-2">
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>标签</span>
+                {!editingLabels && (
                   <button
                     type="button"
-                    onClick={() => handleUpdate({ labels: task.labels.filter((x: string) => x !== l) })}
+                    onClick={startEditLabels}
                     className="icon-btn"
-                    style={{ padding: 0 }}
-                    title="删除标签"
+                    style={{ width: 22, height: 22 }}
+                    title="编辑标签"
                   >
-                    <X size={9} />
+                    <Edit3 size={10} />
                   </button>
-                </span>
-              ))}
-              <input
-                type="text"
-                placeholder="+ 添加标签"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    const v = (e.target as HTMLInputElement).value.trim();
-                    if (v && !task.labels?.includes(v)) {
-                      handleUpdate({ labels: [...(task.labels || []), v] });
-                      (e.target as HTMLInputElement).value = "";
-                    }
-                  }
-                }}
-                className="form-input"
-                style={{ fontSize: 11, padding: "2px 6px", width: 100 }}
-              />
+                )}
+              </div>
+              {editingLabels ? (
+                <div>
+                  <div className="flex flex-wrap gap-1 mb-1.5">
+                    {labelDraft.length === 0 && (
+                      <span className="text-[11px]" style={{ color: "var(--muted)" }}>暂无标签</span>
+                    )}
+                    {labelDraft.map((l) => (
+                      <span key={l} className="tech-badge flex items-center gap-1">
+                        {l}
+                        <button
+                          type="button"
+                          onClick={() => { setLabelDraft(labelDraft.filter((x) => x !== l)); }}
+                          className="icon-btn"
+                          style={{ width: 16, height: 16, padding: 0 }}
+                          title="移除"
+                        >
+                          <X size={9} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      placeholder="新标签"
+                      value={newLabel}
+                      onChange={(e) => setNewLabel(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") { e.preventDefault(); const v = newLabel.trim(); if (v && !labelDraft.includes(v)) { setLabelDraft([...labelDraft, v]); setNewLabel(""); } }
+                      }}
+                      className="form-input"
+                      style={{ fontSize: 11, padding: "2px 6px", flex: 1 }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => { const v = newLabel.trim(); if (v && !labelDraft.includes(v)) { setLabelDraft([...labelDraft, v]); setNewLabel(""); } }}
+                      className="icon-btn"
+                      style={{ width: 24, height: 24, color: "var(--accent)" }}
+                      title="添加"
+                    >
+                      <Plus size={11} />
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-1 mt-2">
+                    <button type="button" onClick={saveLabels} className="button text-[11px]" style={{ padding: "2px 10px", height: 24 }}>
+                      <Check size={11} /> 保存
+                    </button>
+                    <button type="button" onClick={cancelEditLabels} className="button text-[11px]" style={{ padding: "2px 10px", height: 24 }}>
+                      <X size={11} /> 取消
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-1">
+                  {(!task.labels || task.labels.length === 0) ? (
+                    <span className="text-[11px]" style={{ color: "var(--muted)" }}>暂无标签</span>
+                  ) : (
+                    task.labels.map((l: string) => <span key={l} className="tech-badge">{l}</span>)
+                  )}
+                </div>
+              )}
             </div>
             <div className="flex items-center gap-1.5">
               <span style={{ minWidth: 50 }}>项目:</span>

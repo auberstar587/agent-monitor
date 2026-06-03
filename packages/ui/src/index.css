@@ -2482,6 +2482,42 @@ code, pre, .mono {
   text-overflow: ellipsis;
 }
 
+/* --- Project progress bar (P8-05) --- */
+.project-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 2px;
+}
+.project-progress-bar {
+  height: 3px;
+  border-radius: 2px;
+  background: var(--line);
+  overflow: hidden;
+}
+.project-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--success));
+  transition: width 280ms ease;
+  box-shadow: 0 0 6px var(--accent-soft);
+}
+.project-progress-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+}
+.project-progress-pct {
+  font-weight: 700;
+}
+.project-progress-stat {
+  display: inline-flex;
+  align-items: center;
+  font-weight: 600;
+}
+
 /* --- Empty state (no projects) --- */
 .projects-empty {
   position: relative;

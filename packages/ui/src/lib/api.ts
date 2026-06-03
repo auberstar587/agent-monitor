@@ -100,7 +100,7 @@ export const api = {
 
   listAgents: () => request<any[]>("/agents"),
   updateAgent: (id: string, data: any) => request<any>(`/agents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
-  deleteAgent: (id: string) => request<void>(`/agents/${id}`, { method: "DELETE" }),
+  deleteAgent: (id: string) => request<{ deleted: boolean }>(`/agents/${id}`, { method: "DELETE" }),
   syncAgents: () => request<{ synced: number }>("/agents/sync", { method: "POST" }),
   getAgent: (id: string) => request<any>(`/agents/${id}`),
 

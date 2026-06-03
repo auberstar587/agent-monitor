@@ -1,7 +1,20 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
-import { ArrowLeft, Edit3, Check, X, Bot, Activity, Trash2, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, Edit3, Check, X, Bot, Activity, Trash2, ArrowUpRight, Clock, Tag } from "lucide-react";
+
+/** 把毫秒格式化为人类可读时长 */
+function formatDuration(ms: number): string {
+  if (!ms || ms <= 0) return "—";
+  if (ms < 1000) return `${ms}ms`;
+  const s = Math.round(ms / 1000);
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  const rs = s % 60;
+  if (m < 60) return rs > 0 ? `${m}m${rs}s` : `${m}m`;
+  const h = Math.floor(m / 60);
+  return `${h}h${m % 60}m`;
+}
 
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
@@ -140,49 +153,50 @@ export default function AgentDetail() {
         </div>
       </div>
 
-      {/* Quality cards */}
-      <div className="grid grid-cols-4 gap-3 mb-6">
+      {/* P8-09 Quality 卡片：success_rate / avg_duration / total_tasks */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
         <div className="metric-card">
-          <Activity size={14} style={{ color: "var(--accent)" }} className="mb-1" />
           <p className="text-xl font-semibold" style={{ color: "var(--text)" }}>{totalOps}</p>
-          <p className="text-[10px]" style={{ color: "var(--muted)" }}>总执行次数</p>
+          <p className="text-[10px]" style={{ color: "var(--muted)" }}>TOTAL TASKS</p>
         </div>
         <div className="metric-card">
           <p className="text-xl font-semibold" style={{ color: "var(--success)" }}>{successRate}%</p>
-          <p className="text-[10px]" style={{ color: "var(--muted)" }}>成功率</p>
+          <p className="text-[10px]" style={{ color: "var(--muted)" }}>SUCCESS RATE</p>
         </div>
         <div className="metric-card">
-          <p className="text-xl font-semibold" style={{ color: "var(--text)" }}>{quality.successCount || 0}</p>
-          <p className="text-[10px]" style={{ color: "var(--muted)" }}>成功次数</p>
-        </div>
-        <div className="metric-card">
-          <p className="text-xl font-semibold" style={{ color: quality.failCount > 0 ? "var(--danger)" : "var(--text)" }}>{quality.failCount || 0}</p>
-          <p className="text-[10px]" style={{ color: "var(--muted)" }}>失败次数</p>
+          <p className="text-xl font-semibold" style={{ color: "var(--text)" }}>{formatDuration(quality.avgDurationMs || 0)}</p>
+          <p className="text-[10px]" style={{ color: "var(--muted)" }}>AVG DURATION</p>
         </div>
       </div>
 
-      {/* P8-10: Capabilities 卡片 */}
+      {/* P8-09: Capabilities 卡片 */}
       <div className="mb-6">
-        <h3 className="section-title mb-2">能力</h3>
+        <h3 className="section-title mb-2">CAPABILITIES</h3>
         {(!agent.capabilities || agent.capabilities.length === 0) ? (
           <div className="text-xs" style={{ color: "var(--muted)" }}>暂无能力记录</div>
         ) : (
           <div className="flex flex-wrap gap-1.5">
             {agent.capabilities.map((c: string, i: number) => (
-              <span key={i} className="tech-badge mono">{c}</span>
+              <span key={i} className="tech-badge mono">
+                <Tag size={9} style={{ marginRight: 3, verticalAlign: -1 }} />
+                {c}
+              </span>
             ))}
           </div>
         )}
       </div>
 
-      {/* 当前任务 */}
+      {/* P8-09: 当前任务（负载） */}
       {agent.current_task_id && (
         <div className="mb-6">
-          <h3 className="section-title mb-2">当前任务</h3>
+          <h3 className="section-title mb-2">CURRENT TASK</h3>
           <Link to={`/tasks/${agent.current_task_id}`} className="list-row no-underline cursor-pointer">
-            <span className="status-pill status-running">运行中</span>
+            <Activity size={14} style={{ color: "var(--info)" }} />
             <span className="text-sm flex-1" style={{ color: "var(--text)" }}>
               {currentTaskTitle || agent.current_task_id.slice(0, 8) + "…"}
+            </span>
+            <span className="status-pill status-running">
+              <Clock size={9} /> 运行中
             </span>
             <ArrowUpRight size={14} style={{ color: "var(--muted)" }} />
           </Link>
