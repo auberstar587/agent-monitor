@@ -51,6 +51,10 @@ export interface EngineAdapter {
 
   // 5. 获取最近一次运行的用量
   cost(runId: string): Promise<EngineUsage | null>;
+
+  // 6. (可选) 当前正在运行的进程数 — 用于 Presence 推导
+  //    维护 _runningChildren 的适配器（claude-code / reasonix）可实现
+  activeRunCount?(): number;
 }
 
 // --- 注册表（独立于 AgentPlatformAdapter 注册表）---

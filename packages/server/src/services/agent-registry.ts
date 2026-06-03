@@ -1,4 +1,5 @@
 import { query, queryOne, execute } from "../db/client.js";
+import { listRuntimes } from "./runtime-service.js";
 
 export interface RegisteredAgent {
   id: string;
@@ -14,8 +15,15 @@ export interface RegisteredAgent {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  // 新增字段（v2.4.0 Runtime/Agent 重构）
+  runtime_id?: string;
+  model?: string;
+  engine_id?: string;
+  session_id?: string;
+  agent_source?: string;
 }
 
+/** 注册一个 agent（upsert by id） */
 export async function registerAgent(agent: {
   id: string; name: string; platform?: string; role?: string; status?: string; capabilities?: string[];
 }): Promise<RegisteredAgent | null> {
@@ -78,7 +86,88 @@ export async function syncAgentsFromAdapter(adapter: any): Promise<number> {
   return agents.length;
 }
 
+/**
+ * v2.4.0 新增：从已同步的 agent_runtimes 自动生成 agent 记录
+ *  - 每个 installed=true 的 runtime，对应一个 agent_source='engine' 的 agent
+ *  - engine agent 的 id = `agent-${engine_id}`，runtime_id 指向对应 runtime
+ *  - runtime 不在线时，标记该 engine agent 为 offline（不删除）
+ */
+export async function syncAgentsFromRuntimes(): Promise<number> {
+  const runtimes = await listRuntimes();
+  let count = 0;
+  for (const rt of runtimes) {
+    if (!rt.installed) {
+      // runtime 不在线：标记该 engine agent 为 offline
+      await query(
+        `UPDATE registered_agents
+            SET status = 'offline', updated_at = now()
+          WHERE agent_source = 'engine' AND runtime_id = $1`,
+        [rt.id],
+      );
+      continue;
+    }
+    const agentId = `agent-${rt.engine_id}`;
+    await queryOne(
+      `INSERT INTO registered_agents (id, name, platform, role, status, runtime_id, engine_id, agent_source, last_seen_at)
+       VALUES ($1, $2, 'engine', 'developer', 'online', $3, $4, 'engine', now())
+       ON CONFLICT (id) DO UPDATE SET
+         status      = 'online',
+         runtime_id  = EXCLUDED.runtime_id,
+         engine_id   = EXCLUDED.engine_id,
+         last_seen_at= now(),
+         updated_at  = now()
+       RETURNING id`,
+      [agentId, rt.engine_id, rt.id, rt.engine_id],
+    );
+    count++;
+  }
+  return count;
+}
+
+/**
+ * v2.4.0 新增：手动注册 Agent（如 OpenClaw bot 等手动接入的 Bot）
+ */
+export async function registerManualAgent(input: {
+  id?: string;
+  name: string;
+  role?: string;
+  capabilities?: string[];
+  metadata?: Record<string, unknown>;
+}): Promise<RegisteredAgent | null> {
+  if (!input.name) {
+    throw new Error("name is required");
+  }
+  const id = input.id || `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+  return queryOne<RegisteredAgent>(
+    `INSERT INTO registered_agents (id, name, platform, role, status, capabilities, agent_source, metadata, last_seen_at)
+     VALUES ($1, $2, 'manual', $3, 'online', $4::jsonb, 'manual', $5::jsonb, now())
+     ON CONFLICT (id) DO UPDATE SET
+       name        = EXCLUDED.name,
+       role        = EXCLUDED.role,
+       capabilities= EXCLUDED.capabilities,
+       metadata    = EXCLUDED.metadata,
+       status      = 'online',
+       last_seen_at= now(),
+       updated_at  = now()
+     RETURNING *`,
+    [
+      id,
+      input.name,
+      input.role || 'developer',
+      JSON.stringify(input.capabilities || []),
+      JSON.stringify(input.metadata || {}),
+    ],
+  );
+}
+
+/**
+ * v2.4.0 新增：删除 Agent（只允许删除 agent_source='manual' 的）
+ *  - engine agent 禁止删除（会被 syncAgentsFromRuntimes 重新生成）
+ */
 export async function deleteAgent(id: string): Promise<boolean> {
-  const result = await execute("DELETE FROM registered_agents WHERE id = $1", [id]);
+  const result = await execute(
+    "DELETE FROM registered_agents WHERE id = $1 AND agent_source = 'manual'",
+    [id],
+  );
   return (result.rowCount ?? 0) > 0;
 }

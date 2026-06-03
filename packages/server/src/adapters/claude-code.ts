@@ -66,11 +66,19 @@ export async function createClaudeCodeAdapter(
       const model = (opts?.model as string) || 'claude-sonnet-4-5';
       const systemPrompt = opts?.systemPrompt as string | undefined;
       const extraArgs = (opts?.extraArgs as string[] | undefined) ?? [];
+      // CORE-06: 支持 resume 已有 session
+      const resumeSessionId = opts?.sessionId as string | undefined;
       const metrics = startMetrics(runId, { model, engineId: 'claude-code', persist: true });
 
       // 先把 runId 标"待启动"，让 cancel() 在 spawn 前也能识别
       // 用 null 占位，spawn 完成后替换为真实 child
       _runningChildren.set(runId, null as unknown as ChildProcess);
+
+      // sessionId 通过 deferred promise 暴露给调用方（done 事件前可拿到）
+      let sessionIdResolve: (v: string | undefined) => void;
+      const sessionIdPromise = new Promise<string | undefined>((resolve) => {
+        sessionIdResolve = resolve;
+      });
 
       async function* gen(): AsyncGenerator<EngineMessage> {
         let seq = 0;
@@ -81,6 +89,7 @@ export async function createClaudeCodeAdapter(
           '--print',
           '--output-format', 'stream-json',
           '--verbose',
+          ...(resumeSessionId ? ['--resume', resumeSessionId] : []),
           ...(systemPrompt ? ['--append-system-prompt', systemPrompt] : []),
           ...extraArgs,
           prompt,
@@ -114,6 +123,10 @@ export async function createClaudeCodeAdapter(
               // 忽略非 JSON 行（兼容性）
               continue;
             }
+
+            // 提取 session_id（CLI 可能在 init/result 事件携带）
+            const evtSessionId = (evt as any).session_id as string | undefined;
+            if (evtSessionId) sessionIdResolve(evtSessionId);
 
             yield* handleStreamEvent(evt, metrics, () => {
               if (!firstTokenReceived) {
@@ -149,8 +162,9 @@ export async function createClaudeCodeAdapter(
         }
       }
 
-      const it = gen() as AsyncGenerator<EngineMessage> & { runId: string };
+      const it = gen() as AsyncGenerator<EngineMessage> & { runId: string; sessionId: Promise<string | undefined> };
       (it as unknown as { runId: string }).runId = runId;
+      (it as unknown as { sessionId: Promise<string | undefined> }).sessionId = sessionIdPromise;
       return it;
     },
 
@@ -197,6 +211,15 @@ export async function createClaudeCodeAdapter(
       const m = getMetrics(runId);
       if (!m) return null;
       return m.snapshot();
+    },
+
+    activeRunCount() {
+      // 统计已 spawn 的子进程数（排除 pre-spawn 占位的 null）
+      let n = 0;
+      for (const child of _runningChildren.values()) {
+        if (child) n++;
+      }
+      return n;
     },
   };
 }

@@ -172,6 +172,15 @@ export async function createReasonixAdapter(
       if (!m) return null;
       return m.snapshot();
     },
+
+    activeRunCount() {
+      // 统计已 spawn 的子进程数（排除 pre-spawn 占位的 null）
+      let n = 0;
+      for (const child of _runningChildren.values()) {
+        if (child) n++;
+      }
+      return n;
+    },
   };
 }
 
