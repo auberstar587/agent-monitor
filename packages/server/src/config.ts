@@ -26,7 +26,7 @@ export function loadConfig(): Config {
     host: "127.0.0.1",
     databaseUrl: process.env.DATABASE_URL ?? "postgresql://localhost:5432/agent_monitor",
     corsOrigins: ["http://localhost:5173", "http://localhost:3000"],
-    adapter: "mock",
+    adapter: "manual",
     adapters: {
       multica: {
         enabled: false,
@@ -104,7 +104,7 @@ function generateConfigYaml(config: Config): string {
   return `# Agent Monitor v2 Configuration
 # Edit and restart to apply changes
 
-# Default adapter: mock | multica | openclaw
+# Default adapter: manual | multica
 adapter: ${config.adapter}
 
 server:

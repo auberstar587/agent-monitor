@@ -60,7 +60,7 @@ const adapter = await getAdapter(config.adapter);
 if (adapter) {
   console.log(`[server] adapter "${adapter.name}" initialized, capabilities:`, adapter.capabilities);
 } else {
-  console.warn(`[server] adapter "${config.adapter}" not found, available: mock, manual, multica`);
+  console.warn(`[server] adapter "${config.adapter}" not found, available: manual, multica`);
 }
 
 // --- Register routes ---
@@ -96,18 +96,17 @@ await fastify.register(agentRoutes);
 await fastify.register(taskRoutes);
 await fastify.register(fsRoutes);
 
-// --- Adapter-backed routes ---
-fastify.get("/api/adapter/tasks", async (req) => {
-  if (!adapter) return [];
-  const { project_id } = req.query as { project_id?: string };
-  return adapter.getTasks(project_id);
-});
-
-fastify.get("/api/adapter/tasks/:taskId/messages", async (req) => {
-  if (!adapter) return [];
-  const { taskId } = req.params as { taskId: string };
-  return adapter.getTaskMessages(taskId);
-});
+// --- Adapter-backed routes (legacy) ---
+if (adapter) {
+  fastify.get("/api/adapter/tasks", async (req) => {
+    const { project_id } = req.query as { project_id?: string };
+    return adapter.getTasks(project_id);
+  });
+  fastify.get("/api/adapter/tasks/:taskId/messages", async (req) => {
+    const { taskId } = req.params as { taskId: string };
+    return adapter.getTaskMessages(taskId);
+  });
+}
 
 // Health check
 fastify.get("/api/health", async () => ({

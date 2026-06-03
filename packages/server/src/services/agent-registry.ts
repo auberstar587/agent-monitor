@@ -78,14 +78,6 @@ export async function updateAgentQuality(agentId: string, success: boolean, dura
   );
 }
 
-export async function syncAgentsFromAdapter(adapter: any): Promise<number> {
-  const agents = await adapter.getAgents();
-  for (const a of agents) {
-    await registerAgent({ id: a.id, name: a.name, platform: a.platform, role: a.role, status: a.status, capabilities: a.capabilities });
-  }
-  return agents.length;
-}
-
 /**
  * v2.4.0 新增：从已同步的 agent_runtimes 自动生成 agent 记录
  *  - 每个 installed=true 的 runtime，对应一个 agent_source='engine' 的 agent

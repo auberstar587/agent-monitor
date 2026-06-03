@@ -532,25 +532,26 @@ async function executeAgentNode(node: BlueprintNode, context: RunContext): Promi
 
   // === Path 2: AgentPlatformAdapter（multica / openclaw / codex-platform）===
   try {
-    const adapter = getAdapter(cfg.adapter || 'mock');
+    const adapterName = cfg.adapter || 'manual';
+    const adapter = getAdapter(adapterName);
     const a = await adapter;
-    if (a && cfg.adapter && cfg.adapter !== 'mock') {
+    if (a) {
       const task = await a.createTask({
         title: cfg.agentId ? `任务: ${node.name}` : node.name,
         description: prompt,
         projectId: cfg.projectId || '',
         assigneeId: cfg.agentId,
       });
-      return { status: 'completed', output: `[${cfg.adapter}] task ${task.id}` };
+      return { status: 'completed', output: `[${adapterName}] task ${task.id}` };
     }
   } catch {
-    // Fall through to mock
+    // Fall through to inline fallback
   }
 
-  // === Path 3: Mock fallback（保证蓝图 run 永远有输出）===
+  // === Path 3: Inline fallback（保证蓝图 run 永远有输出）===
   return {
     status: 'completed',
-    output: `[Mock] Agent "${node.name}" 执行: ${prompt.slice(0, 100)}${prompt.length > 100 ? '...' : ''}`
+    output: `[Fallback] Agent "${node.name}" 执行: ${prompt.slice(0, 100)}${prompt.length > 100 ? '...' : ''}`
   };
 }
 

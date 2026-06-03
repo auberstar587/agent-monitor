@@ -42,9 +42,6 @@ export async function getEngine(name: string): Promise<import('./engine.js').Eng
 
 // --- Auto-register platform adapters ---
 
-import { createMockAdapter } from './mock/index.js';
-registerAdapter('mock', async () => createMockAdapter());
-
 import { createManualAdapter } from './manual/index.js';
 registerAdapter('manual', async () => createManualAdapter());
 
