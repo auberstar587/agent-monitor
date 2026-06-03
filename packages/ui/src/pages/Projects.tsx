@@ -4,7 +4,8 @@ import { useNavigate } from "react-router-dom";
 import {
   FolderKanban, Plus, Trash2, MapPin, Folder, FolderOpen,
   Home, Briefcase, Monitor, Download, FileText, X, ChevronUp,
-  CornerDownLeft, Search, Clock, Hash, Cpu, Radio, Zap,
+  CornerDownLeft, Search, Clock, Hash, Cpu, Radio, Zap, Filter,
+  AlertTriangle, Activity,
 } from "lucide-react";
 
 /* ── Relative time helper ── */
@@ -44,6 +45,13 @@ const SHORTCUT_ICON: Record<string, any> = {
 /* ════════════════════════════════════════════════════════
    MAIN PAGE
    ════════════════════════════════════════════════════════ */
+const STATUS_FILTERS = [
+  { key: "",          label: "ALL",      color: "var(--muted)" },
+  { key: "active",    label: "ACTIVE",   color: "var(--success)" },
+  { key: "paused",    label: "PAUSED",   color: "var(--warning)" },
+  { key: "archived",  label: "ARCHIVED", color: "var(--muted)" },
+] as const;
+
 export default function Projects() {
   const [projects, setProjects] = useState<any[]>([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -51,11 +59,38 @@ export default function Projects() {
   const [name, setName] = useState("");
   const [browseOpen, setBrowseOpen] = useState(false);
   const [tick, setTick] = useState(0);
+  const [statusFilter, setStatusFilter] = useState<string>("");
+  const [statsMap, setStatsMap] = useState<Record<string, { tasks: Record<string, number>; agents: { assigned: number } }>>({});
   const navigate = useNavigate();
 
-  const load = () => api.listProjects().then(setProjects);
+  const load = (status?: string) => {
+    const s = status ?? statusFilter;
+    return api.listProjects(s || undefined).then(setProjects);
+  };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(""); }, []);
+  // 切换状态筛选时重新加载
+  useEffect(() => { load(statusFilter); }, [statusFilter]);
+
+  // 加载每个项目的 stats（P8-05 进度看板）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        projects.map(async (p) => {
+          try {
+            const s = await api.getProjectStats(p.id);
+            return [p.id, s] as const;
+          } catch { return [p.id, null] as const; }
+        }),
+      );
+      if (cancelled) return;
+      const next: typeof statsMap = {};
+      for (const [id, s] of entries) if (s) next[id] = s;
+      setStatsMap(next);
+    })();
+    return () => { cancelled = true; };
+  }, [projects]);
 
   // 1 Hz heartbeat
   useEffect(() => {
@@ -138,6 +173,20 @@ export default function Projects() {
           <span className="projects-actions-dot" />
           REGISTRY · {projects.length} ENTRIES · SCANNING
         </span>
+        {/* 状态筛选器（P8-03） */}
+        <div className="agents-filters">
+          <Filter size={11} style={{ color: "var(--muted)", marginRight: 4 }} />
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.key || "all"}
+              onClick={() => setStatusFilter(f.key)}
+              className={`agents-filter-btn ${statusFilter === f.key ? "active" : ""}`}
+              style={statusFilter === f.key ? { color: f.color } : undefined}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
         {showAdd ? (
           <button className="button" onClick={() => setShowAdd(false)}>
             <X size={13} /> 取消
@@ -294,6 +343,41 @@ export default function Projects() {
                       STACK · NOT DETECTED
                     </span>
                   )}
+
+                  {/* P8-05: 进度看板 */}
+                  {(() => {
+                    const s = statsMap[p.id];
+                    if (!s) return null;
+                    const tasks = s.tasks || {};
+                    const total = tasks.total || 0;
+                    const completed = tasks.completed || 0;
+                    const failed = tasks.failed || 0;
+                    const active = tasks.in_progress || 0;
+                    const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+                    return (
+                      <div className="project-progress">
+                        <div className="project-progress-bar">
+                          <div
+                            className="project-progress-fill"
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <div className="project-progress-meta mono">
+                          <span className="project-progress-pct" style={{ color: pct >= 80 ? "var(--success)" : pct >= 40 ? "var(--accent)" : "var(--muted)" }}>
+                            {total > 0 ? `${pct}%` : "—"}
+                          </span>
+                          <span className="project-progress-stat" style={{ color: active > 0 ? "var(--info)" : "var(--muted)" }}>
+                            <Activity size={9} style={{ display: "inline", verticalAlign: -1, marginRight: 2 }} />
+                            {active} active
+                          </span>
+                          <span className="project-progress-stat" style={{ color: failed > 0 ? "var(--danger)" : "var(--muted)" }}>
+                            <AlertTriangle size={9} style={{ display: "inline", verticalAlign: -1, marginRight: 2 }} />
+                            {failed} fail
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             );
