@@ -1,4 +1,4 @@
-import { query, queryOne } from "../db/client.js";
+import { query, queryOne, execute } from "../db/client.js";
 
 export interface RegisteredAgent {
   id: string;
@@ -76,4 +76,9 @@ export async function syncAgentsFromAdapter(adapter: any): Promise<number> {
     await registerAgent({ id: a.id, name: a.name, platform: a.platform, role: a.role, status: a.status, capabilities: a.capabilities });
   }
   return agents.length;
+}
+
+export async function deleteAgent(id: string): Promise<boolean> {
+  const result = await execute("DELETE FROM registered_agents WHERE id = $1", [id]);
+  return (result.rowCount ?? 0) > 0;
 }

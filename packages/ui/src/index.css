@@ -151,8 +151,8 @@ body {
   height: 100vh;
   min-width: 0;
   overflow: hidden;
-  padding: 12px;
-  gap: 12px;
+  padding: 6px;        /* 改：app-shell 外边距从 12→6 */
+  gap: 4px;            /* 改：sidebar 和 workspace 之间 gap 从 12→4 */
   background: var(--bg-app);
 }
 
@@ -325,18 +325,24 @@ body {
 .workspace-main {
   flex: 1;
   min-height: 0;
-  overflow: auto;
-  padding: 16px 20px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* 改：外层不滚，让各 page 的内容区自己内层滚 */
+  padding: 12px 4px 16px 4px; /* 收紧：主区域到 menu 的间距 */
 }
 
 /* === Inner content card (小页面, nested inside workspace-shell) === */
 .workspace-content {
-  min-height: 100%;
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
   background: var(--bg-content);
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: inset 0 1px 0 rgba(255,255,255,0.02), var(--shadow-sm);
-  padding: 24px 28px;
+  padding: 16px 20px; /* 收紧：白框到白框内内容间距 */
+  overflow: hidden; /* 让子 page 接管滚动 */
 }
 
 /* Consistent section spacing inside all pages */
@@ -1197,6 +1203,11 @@ code, pre, .mono {
   transition: all 120ms ease;
 }
 .agents-filter-btn:hover { color: var(--text-secondary); }
+.agents-filter-btn--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
 .agents-filter-btn.active {
   background: var(--accent-soft);
   color: var(--accent);
@@ -3270,4 +3281,88 @@ code, pre, .mono {
   color: var(--muted);
   letter-spacing: 0.06em;
   font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
+}
+.task-card-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+  justify-content: flex-end;
+}
+
+/* === Spin animation for sync button (Phase 8) === */
+@keyframes agents-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* === 通用 page wrapper：顶栏 + 内层滚（Phase 8 外框稳定 + 紧凑布局） === */
+.blueprints-page,
+.projects-page,
+.tasks-page,
+.agents-page,
+.outputs-page,
+.memory-page,
+.inbox-page,
+.settings-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  width: 100%;
+}
+
+/* === 通用 page scroll container：内层独立滚 + 滚动条贴右 === */
+.blueprints-scroll,
+.projects-scroll,
+.tasks-scroll,
+.agents-scroll,
+.outputs-scroll,
+.memory-scroll,
+.inbox-scroll,
+.settings-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* overlay 让滚动条不占内容空间（webkit） + 窄滚动条（标准） */
+  overflow-y: overlay;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+  /* 滚动条再往右 20px：右边 negative margin 突出 content 边界，滚动条自然贴视口边 */
+  margin-right: -20px;
+  padding-right: 20px; /* 抵消负 margin 防止内容被视口边切 */
+}
+.blueprints-scroll::-webkit-scrollbar,
+.projects-scroll::-webkit-scrollbar,
+.tasks-scroll::-webkit-scrollbar,
+.agents-scroll::-webkit-scrollbar,
+.outputs-scroll::-webkit-scrollbar,
+.memory-scroll::-webkit-scrollbar,
+.inbox-scroll::-webkit-scrollbar,
+.settings-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.blueprints-scroll::-webkit-scrollbar-track,
+.projects-scroll::-webkit-scrollbar-track,
+.tasks-scroll::-webkit-scrollbar-track,
+.agents-scroll::-webkit-scrollbar-track,
+.outputs-scroll::-webkit-scrollbar-track,
+.memory-scroll::-webkit-scrollbar-track,
+.inbox-scroll::-webkit-scrollbar-track,
+.settings-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.blueprints-scroll::-webkit-scrollbar-thumb,
+.projects-scroll::-webkit-scrollbar-thumb,
+.tasks-scroll::-webkit-scrollbar-thumb,
+.agents-scroll::-webkit-scrollbar-thumb,
+.outputs-scroll::-webkit-scrollbar-thumb,
+.memory-scroll::-webkit-scrollbar-thumb,
+.inbox-scroll::-webkit-scrollbar-thumb,
+.settings-scroll::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 3px;
+}
+.blueprints-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--muted);
 }

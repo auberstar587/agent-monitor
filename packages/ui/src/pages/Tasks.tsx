@@ -10,11 +10,11 @@ import {
 const STATUS_GROUPS = ["pending", "in_progress", "completed", "failed", "cancelled"] as const;
 
 const STATUS_STYLE: Record<string, { color: string; label: string; code: string; icon: any }> = {
-  pending:     { color: "var(--warning)", label: "PENDING",     code: "00", icon: Clock },
-  in_progress: { color: "var(--info)",    label: "IN_PROGRESS", code: "01", icon: Play },
-  completed:   { color: "var(--success)", label: "COMPLETED",   code: "02", icon: CheckCircle },
-  failed:      { color: "var(--danger)",  label: "FAILED",      code: "03", icon: XCircle },
-  cancelled:   { color: "var(--muted)",   label: "CANCELLED",   code: "04", icon: Pause },
+  pending:     { color: "var(--warning)", label: "待处理",     code: "00", icon: Clock },
+  in_progress: { color: "var(--info)",    label: "进行中", code: "01", icon: Play },
+  completed:   { color: "var(--success)", label: "已完成",   code: "02", icon: CheckCircle },
+  failed:      { color: "var(--danger)",  label: "失败",      code: "03", icon: XCircle },
+  cancelled:   { color: "var(--muted)",   label: "已取消",   code: "04", icon: Pause },
 };
 
 const PRIORITY_STYLE: Record<string, { color: string; label: string }> = {
@@ -35,24 +35,48 @@ export default function Tasks() {
   const [showAdd, setShowAdd] = useState(false);
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("medium");
-  const [tick, setTick] = useState(0);
+  // 筛选
+  const [filterProject, setFilterProject] = useState("");
+  const [filterPriority, setFilterPriority] = useState("");
+  const [projects, setProjects] = useState<any[]>([]);
+  const [newProjectId, setNewProjectId] = useState("");
+  const [agents, setAgents] = useState<any[]>([]);
   const navigate = useNavigate();
 
-  const load = () => api.listTasks().then(setTasks).finally(() => setLoading(false));
-  useEffect(() => { load(); }, []);
-
-  // 1 Hz heartbeat
-  useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
+  const load = (extra?: { project_id?: string; priority?: string }) => {
+    const f: Record<string, string> = {};
+    if (extra?.project_id) f.project_id = extra.project_id;
+    else if (filterProject) f.project_id = filterProject;
+    if (extra?.priority) f.priority = extra.priority;
+    else if (filterPriority) f.priority = filterPriority;
+    return api.listTasks(Object.keys(f).length > 0 ? f : undefined).then(setTasks).finally(() => setLoading(false));
+  };
+  useEffect(() => { load(); }, [filterProject, filterPriority]);
+  useEffect(() => { api.listProjects().then(setProjects).catch(() => {}); }, []);
+  useEffect(() => { api.listAgents().then(setAgents).catch(() => {}); }, []);
 
   const handleAdd = async () => {
     if (!title.trim()) return;
-    await api.createTask({ title, priority });
+    await api.createTask({ title, priority, project_id: newProjectId || undefined });
     setTitle("");
+    setNewProjectId("");
     setShowAdd(false);
     load();
+  };
+
+  // 看板上直接转换状态（卡在 e.preventDefault() 阻止 Link 跳转）
+  const [transitioning, setTransitioning] = useState<Set<string>>(new Set());
+  const handleTransition = async (taskId: string, newStatus: string) => {
+    setTransitioning((s) => new Set(s).add(taskId));
+    try {
+      await api.transitionTask(taskId, newStatus);
+      await load();
+    } catch {
+      // 错误显示由 P8-16 在 TaskDetail 处理；看板简化用 alert
+      alert("状态转换失败，请到详情页查看详情");
+    } finally {
+      setTransitioning((s) => { const n = new Set(s); n.delete(taskId); return n; });
+    }
   };
 
   const counts = useMemo(() => {
@@ -75,42 +99,69 @@ export default function Tasks() {
       {/* ═══ Telemetry bar ═══ */}
       <div className="agents-telemetry">
         <div className="agents-telem-cell">
-          <span className="agents-telem-label"><ListTodo size={11} /> TOTAL</span>
+          <span className="agents-telem-label"><ListTodo size={11} /> 全部</span>
           <span className="agents-telem-value mono">{String(tasks.length).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--warning)" }}><Clock size={11} /> PENDING</span>
+          <span className="agents-telem-label" style={{ color: "var(--warning)" }}><Clock size={11} /> 待处理</span>
           <span className="agents-telem-value mono" style={{ color: "var(--warning)" }}>{String(counts.pending).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--info)" }}><Play size={11} /> ACTIVE</span>
+          <span className="agents-telem-label" style={{ color: "var(--info)" }}><Play size={11} /> 进行中</span>
           <span className="agents-telem-value mono" style={{ color: "var(--info)" }}>{String(counts.in_progress).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--success)" }}><CheckCircle size={11} /> DONE</span>
+          <span className="agents-telem-label" style={{ color: "var(--success)" }}><CheckCircle size={11} /> 已完成</span>
           <span className="agents-telem-value mono" style={{ color: "var(--success)" }}>{String(counts.completed).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--danger)" }}><XCircle size={11} /> FAILED</span>
+          <span className="agents-telem-label" style={{ color: "var(--danger)" }}><XCircle size={11} /> 失败</span>
           <span className="agents-telem-value mono" style={{ color: "var(--danger)" }}>{String(counts.failed).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-spacer" />
-        <div className="agents-telem-cell">
-          <span className="agents-telem-label"><Radio size={11} /> TICK</span>
-          <span className="agents-telem-value mono">{String(tick % 1000).padStart(3, "0")}<span className="agents-telem-unit">s</span></span>
-        </div>
-        <div className="agents-telem-cell">
-          <span className="agents-telem-label">UPLINK</span>
-          <span className="agents-telem-value mono" style={{ color: "var(--success)" }}>SYNC</span>
-        </div>
       </div>
 
       {/* ═══ Action bar ═══ */}
       <div className="projects-actions">
         <span className="projects-actions-meta">
           <span className="projects-actions-dot" />
-          TASK QUEUE · {tasks.length} ENTRIES · {counts.pending} AWAITING
+          任务队列 · {tasks.length} 个任务 · {counts.pending} 个待处理
         </span>
+        {/* 项目筛选 */}
+        <select
+          value={filterProject}
+          onChange={(e) => setFilterProject(e.target.value)}
+          className="projects-add-input"
+          style={{ width: 140, height: 28, fontSize: 11 }}
+        >
+          <option value="">全部项目</option>
+          {projects.map((p: any) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
+        {/* 优先级筛选 */}
+        <select
+          value={filterPriority}
+          onChange={(e) => setFilterPriority(e.target.value)}
+          className="projects-add-input"
+          style={{ width: 120, height: 28, fontSize: 11 }}
+        >
+          <option value="">全部优先级</option>
+          <option value="urgent">紧急</option>
+          <option value="high">高</option>
+          <option value="medium">中</option>
+          <option value="low">低</option>
+        </select>
+        {(filterProject || filterPriority) && (
+          <button
+            type="button"
+            onClick={() => { setFilterProject(""); setFilterPriority(""); }}
+            className="button"
+            style={{ fontSize: 11, padding: "0 10px", height: 28 }}
+          >
+            清除筛选
+          </button>
+        )}
         <button
           className="button button-primary"
           onClick={() => setShowAdd((s) => !s)}
@@ -125,7 +176,7 @@ export default function Tasks() {
           <div className="projects-add-cell" style={{ gridColumn: "1 / -1" }}>
             <span className="projects-add-label">
               <Hash size={9} style={{ display: "inline", marginRight: 3, verticalAlign: -1 }} />
-              TITLE · 任务标题
+              标题 · 输入任务标题
             </span>
             <div className="flex items-center gap-2">
               <input
@@ -148,6 +199,17 @@ export default function Tasks() {
                 <option value="medium">中</option>
                 <option value="low">低</option>
               </select>
+              <select
+                value={newProjectId}
+                onChange={(e) => setNewProjectId(e.target.value)}
+                className="projects-add-input"
+                style={{ width: 140, cursor: "pointer" }}
+              >
+                <option value="">未指定项目</option>
+                {projects.map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
               <button
                 onClick={handleAdd}
                 disabled={!title.trim()}
@@ -164,7 +226,7 @@ export default function Tasks() {
       {/* ═══ Kanban columns ═══ */}
       {loading ? (
         <div className="dashboard-feed-empty" style={{ minHeight: 200 }}>
-          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>LOADING · AWAITING DATA...</span>
+          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>加载中…</span>
         </div>
       ) : tasks.length === 0 ? (
         <div className="agents-empty">
@@ -172,10 +234,10 @@ export default function Tasks() {
           <div className="agents-empty-body">
             <div className="flex items-center gap-2 mb-3">
               <Radio size={14} style={{ color: "var(--muted)" }} />
-              <span className="agents-eyebrow">NO SIGNAL · QUEUE EMPTY</span>
+              <span className="agents-eyebrow">暂无任务</span>
             </div>
-            <p className="agents-empty-title">No tasks in the queue</p>
-            <p className="agents-empty-sub">Create your first task to start tracking.</p>
+            <p className="agents-empty-title">创建第一个任务开始追踪</p>
+            <p className="agents-empty-sub"></p>
           </div>
         </div>
       ) : (
@@ -199,10 +261,11 @@ export default function Tasks() {
                 {/* Column body */}
                 <div className="tasks-column-body">
                   {groupTasks.length === 0 ? (
-                    <div className="tasks-column-empty mono">— EMPTY —</div>
+                    <div className="tasks-column-empty mono">— 空 —</div>
                   ) : (
                     groupTasks.map((task: any) => {
                       const pri = PRIORITY_STYLE[task.priority] || PRIORITY_STYLE.medium;
+                      const busy = transitioning.has(task.id);
                       return (
                         <Link
                           key={task.id}
@@ -218,8 +281,62 @@ export default function Tasks() {
                               </span>
                             </div>
                             <p className="task-card-title">{task.title}</p>
-                            {task.assignee_id && (
-                              <span className="task-card-assignee mono">{task.assignee_id}</span>
+                            {task.project_id && (() => {
+                              const proj = projects.find((p: any) => p.id === task.project_id);
+                              return proj ? (
+                                <span className="mono" style={{ fontSize: 9, color: "var(--muted)", display: "block", marginTop: 2 }}>
+                                  📁 {proj.name}
+                                </span>
+                              ) : null;
+                            })()}
+                            {task.assignee_id && (() => {
+                              const a = agents.find((ag: any) => ag.id === task.assignee_id);
+                              return (
+                                <span className="task-card-assignee mono">
+                                  {a ? a.name : task.assignee_id}
+                                </span>
+                              );
+                            })()}
+                            {/* 看板快捷操作（阻止 Link 跳转） */}
+                            {(task.status === "pending" || task.status === "in_progress") && (
+                              <div
+                                className="task-card-actions"
+                                onClick={(e) => e.preventDefault()}
+                              >
+                                {task.status === "pending" && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => { e.preventDefault(); handleTransition(task.id, "in_progress"); }}
+                                    disabled={busy}
+                                    className="icon-btn"
+                                    title="开始执行"
+                                  >
+                                    <Play size={11} />
+                                  </button>
+                                )}
+                                {task.status === "in_progress" && (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.preventDefault(); handleTransition(task.id, "completed"); }}
+                                      disabled={busy}
+                                      className="icon-btn"
+                                      title="完成"
+                                    >
+                                      <CheckCircle size={11} />
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={(e) => { e.preventDefault(); handleTransition(task.id, "failed"); }}
+                                      disabled={busy}
+                                      className="icon-btn"
+                                      title="标记失败"
+                                    >
+                                      <XCircle size={11} />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
                             )}
                           </div>
                         </Link>

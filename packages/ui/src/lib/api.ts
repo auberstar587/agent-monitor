@@ -57,6 +57,8 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ target_id: targetId, relation_type: type, description }),
     }),
+  removeRelation: (relationId: string) =>
+    request<void>(`/projects/relations/${relationId}`, { method: "DELETE" }),
 
   listOutputs: (filter?: Record<string, any>) => {
     const qs = filter
@@ -98,6 +100,7 @@ export const api = {
 
   listAgents: () => request<any[]>("/agents"),
   updateAgent: (id: string, data: any) => request<any>(`/agents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
+  deleteAgent: (id: string) => request<void>(`/agents/${id}`, { method: "DELETE" }),
   syncAgents: () => request<{ synced: number }>("/agents/sync", { method: "POST" }),
   getAgent: (id: string) => request<any>(`/agents/${id}`),
 
@@ -138,6 +141,14 @@ export const api = {
   transitionTask: (id: string, status: string) =>
     request<any>(`/tasks/${id}/transition`, { method: "POST", body: JSON.stringify({ status }) }),
   deleteTask: (id: string) => request<{ deleted: boolean }>(`/tasks/${id}`, { method: "DELETE" }),
+  executeTask: (id: string, engine: string) =>
+    fetch(`${BASE}/tasks/${id}/execute`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ engine }),
+    }),
+  getProjectStats: (id: string) =>
+    request<{ tasks: Record<string, number>; agents: { assigned: number } }>(`/projects/${id}/stats`),
 
   // Phase 5
   listScheduled: () => request<any[]>("/scheduler"),

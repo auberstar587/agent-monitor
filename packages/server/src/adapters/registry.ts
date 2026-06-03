@@ -68,6 +68,9 @@ registerAdapter('multica', async () => {
 import { createClaudeCodeAdapter } from './claude-code.js';
 registerEngine('claude-code', async () => createClaudeCodeAdapter());
 
+import { createReasonixAdapter } from './reasonix.js';
+registerEngine('reasonix', async () => createReasonixAdapter());
+
 import { createMulticaEngineAdapter } from './multica/engine.js';
 registerEngine('multica', async () => {
   const { loadConfig } = await import('../config.js');

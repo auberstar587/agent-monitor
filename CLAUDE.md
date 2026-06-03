@@ -55,7 +55,8 @@
 - **技术栈**：Fastify 5 + TypeScript（后端）、Vite + React 19 + Tailwind v4（前端）
 - **存储**：PostgreSQL 17（独立数据库 `agent_monitor`）
 - **前端风格 / 布局规范**：见 `MEMORY.md` 末尾"前端约定"小节（不在此重复，避免漂移）
-- **当前进度**：v2 功能骨架已实施，类型检查通过，测试与端到端验收仍在收口
+- **当前进度**：Phase 6 完成（2 引擎 + 8 Provider + Chat 对话），v2 功能骨架已实施，60 测试全绿
+- **下一阶段**：Agent 系统重构（Runtime→Agent→Presence 模型，详见 `docs/AGENT-SYSTEM-REDESIGN.md`），由子 Agent 并行实施（后端→Reasonix / 前端→Hermes）
 
 ### 3.1 借鉴与方向（SPEC v2.3.0 锁定）
 
@@ -64,11 +65,13 @@
   - HiveWard（Blueprint 多 Agent 决策编排）
   - PilotDeck（白盒跨工具记忆 + Always-on 离线执行）
   - WeSight（EngineAdapter 协议 + Provider 路由 + 运行时 5 指标）
-- **当前阶段目标**：**Phase 6 — 多引擎适配层**
-  - 抽 `EngineAdapter` interface（5 方法：`detectInstalled` / `run` / `approve` / `cancel` / `cost`）
-  - 落地 `claude-code.ts` 适配器 + `multica.ts` 改造
-  - `providers.ts` 抽象层（OpenAI / Anthropic / Gemini / DeepSeek / Qwen / Moonshot / Ollama / 自定义 OpenAI 兼容）
-  - ExecutionTrace 补齐 5 指标（TTFT / output-phase TPS / estimated model TPS / tool latency / agent steps）
+- **当前阶段目标**：**Phase 6 — 多引擎适配层（已完成）**
+  - ✅ 抽 `EngineAdapter` interface（5 方法：`detectInstalled` / `run` / `approve` / `cancel` / `cost`）
+  - ✅ 落地 `claude-code.ts` 适配器 + `reasonix.ts` 适配器 + `multica.ts` 改造
+  - ✅ `providers.ts` 抽象层（8 个 Provider：Anthropic / OpenAI / DeepSeek / Ollama / Gemini / Qwen / Moonshot / 自定义 OpenAI 兼容）
+  - ✅ ExecutionTrace 补齐 5 指标（TTFT / output-phase TPS / estimated model TPS / tool latency / agent steps）
+  - ✅ Chat 对话界面（SSE 流式 + 引擎选择 + 项目上下文）
+  - ✅ 60 测试全绿
 - **暂缓**：飞书 IM 网关 / SkillHub 市场 / Studio 视图 / Redux slice 切分
 - **保持基座**：Multica 不变（局部移植 WeSight 协议，不切基座）
 
@@ -117,6 +120,9 @@ pnpm test
 | `SPEC.md` | 项目规范（定位 / 技术战略 / 借鉴 / 信息架构 / 核心对象 / 功能需求 / 开发阶段 / 更新记录） |
 | `MEMORY.md` | 项目长期记忆 + 前端 CSS 约定 |
 | `COLLABORATION-MODEL.md` | 协作模型（角色 / 流程 / 决策机制） |
+| `docs/AGENT-SYSTEM-REDESIGN.md` | Agent 系统重构设计（Runtime→Agent→Presence 模型，借鉴 Multica） |
+| `docs/PRODUCT-REQUIREMENTS.md` | 需求文档 |
+| `docs/DESIGN.md` | 设计文档 |
 | `archive/20260529-old-requirements/` | 旧版需求 / 设计文档（不再维护） |
 | `.workbuddy/memory/YYYY-MM-DD.md` | 每日工作日志（append-only） |
 | `.workbuddy/memory/MEMORY.md` | 跨项目长期记忆（仅 Auber 视角） |

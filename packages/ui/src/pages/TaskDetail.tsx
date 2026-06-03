@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
-import { ArrowLeft, Edit3, Check, X, Play, CheckCircle, XCircle, RotateCcw, Ban } from "lucide-react";
+import { ArrowLeft, Edit3, Check, X, Play, CheckCircle, XCircle, RotateCcw, Ban, Rocket, Loader2 } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "待处理", in_progress: "进行中", completed: "已完成", failed: "失败", cancelled: "已取消",
@@ -31,11 +31,21 @@ export default function TaskDetail() {
   const [task, setTask] = useState<any>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [editVal, setEditVal] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [executing, setExecuting] = useState(false);
+  const [execEngine, setExecEngine] = useState("claude-code");
+  const [execOutput, setExecOutput] = useState<string[]>([]);
+  const [engines, setEngines] = useState<{id: string; label: string; installed: boolean}[]>([]);
 
   useEffect(() => {
     if (!id) return;
     api.getTask(id).then(setTask);
   }, [id]);
+
+  // 加载引擎列表
+  useEffect(() => {
+    api.listEngines().then(setEngines).catch(() => {});
+  }, []);
 
   if (!task) return <div className="p-6 text-sm" style={{ color: "var(--muted)" }}>加载中...</div>;
 
@@ -49,8 +59,13 @@ export default function TaskDetail() {
   };
 
   const handleTransition = async (status: string) => {
-    const updated = await api.transitionTask(task.id, status);
-    setTask(updated);
+    setError(null);
+    try {
+      const updated = await api.transitionTask(task.id, status);
+      setTask(updated);
+    } catch (err: any) {
+      setError(err?.message || "状态转换失败");
+    }
   };
 
   const handleDelete = async () => {
@@ -59,13 +74,97 @@ export default function TaskDetail() {
     navigate("/tasks");
   };
 
+  // P8-14: 直接编辑 type/priority/assignee（P8-16 错误提示通用此 handler）
+  const [agents, setAgents] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
+  useEffect(() => {
+    api.listAgents().then(setAgents).catch(() => {});
+  }, []);
+  // 加载项目列表
+  useEffect(() => {
+    api.listProjects().then(setProjects).catch(() => {});
+  }, []);
+  const handleUpdate = async (patch: Record<string, any>) => {
+    setError(null);
+    try {
+      const updated = await api.updateTask(task.id, patch);
+      setTask(updated);
+    } catch (err: any) {
+      setError(err?.message || "保存失败");
+    }
+  };
+
+  // SSE 执行处理
+  const handleExecute = async () => {
+    setExecuting(true);
+    setExecOutput([]);
+    try {
+      const res = await api.executeTask(task.id, execEngine);
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        throw new Error(text);
+      }
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const parts = buffer.split("\n\n");
+        buffer = parts.pop() ?? "";
+        for (const part of parts) {
+          if (!part.trim()) continue;
+          let eventType = "message";
+          let dataStr = "";
+          for (const line of part.split("\n")) {
+            if (line.startsWith("event:")) eventType = line.slice(6).trim();
+            else if (line.startsWith("data:")) dataStr = line.slice(5).trim();
+          }
+          if (!dataStr) continue;
+          try {
+            const data = JSON.parse(dataStr);
+            if (eventType === "message" && data.type === "text" && data.content) {
+              setExecOutput(prev => [...prev, data.content]);
+            } else if (eventType === "message" && data.type === "tool_use") {
+              setExecOutput(prev => [...prev, `▸ ${data.tool || "tool"}(${data.input ? JSON.stringify(data.input).slice(0, 80) : ""})`]);
+            } else if (eventType === "done") {
+              const updated = await api.getTask(task.id);
+              setTask(updated);
+            } else if (eventType === "error") {
+              setExecOutput(prev => [...prev, `❌ ${data.error}`]);
+            }
+          } catch {}
+        }
+      }
+    } catch (err: any) {
+      setExecOutput(prev => [...prev, `❌ ${err?.message || "执行失败"}`]);
+    } finally {
+      setExecuting(false);
+    }
+  };
+
   const transitions = TRANSITIONS[task.status] || [];
 
   return (
     <div className="p-6 max-w-3xl">
-      <Link to="/tasks" className="flex items-center gap-1 text-xs mb-4" style={{ color: "var(--muted)" }}>
-        <ArrowLeft size={14} /> 返回任务列表
-      </Link>
+      <div className="flex items-center mb-4">
+        <Link to="/tasks" className="flex items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
+          <ArrowLeft size={14} /> 返回任务列表
+        </Link>
+        {task.project_id && (() => {
+          const proj = projects.find((p: any) => p.id === task.project_id);
+          return proj ? (
+            <Link
+              to={`/projects/${task.project_id}`}
+              className="flex items-center gap-1 text-xs ml-4"
+              style={{ color: "var(--accent)" }}
+            >
+              📁 {proj.name}
+            </Link>
+          ) : null;
+        })()}
+      </div>
 
       {/* Title + actions */}
       <div className="flex items-start gap-3 mb-4">
@@ -87,18 +186,52 @@ export default function TaskDetail() {
             <span className={`status-pill ${task.status === 'completed' ? 'status-succeeded' : task.status === 'failed' ? 'status-failed' : task.status === 'in_progress' ? 'status-running' : 'status-queued'}`}>
               {STATUS_LABELS[task.status] || task.status}
             </span>
-            <span className="type-badge" style={{
-              color: task.priority === 'urgent' ? 'var(--danger)' : task.priority === 'high' ? 'var(--warning)' : 'var(--muted)',
-              background: task.priority === 'urgent' ? 'var(--danger-bg)' : task.priority === 'high' ? 'var(--warning-bg)' : 'transparent',
-            }}>
-              {PRIORITY_LABELS[task.priority] || task.priority}
-            </span>
-            <span className="text-xs" style={{ color: "var(--muted)" }}>{TYPE_LABELS[task.type] || task.type}</span>
+            <select
+              className="type-badge"
+              style={{
+                color: task.priority === 'urgent' ? 'var(--danger)' : task.priority === 'high' ? 'var(--warning)' : 'var(--muted)',
+                background: task.priority === 'urgent' ? 'var(--danger-bg)' : task.priority === 'high' ? 'var(--warning-bg)' : 'transparent',
+                border: "none",
+                cursor: "pointer",
+                padding: "2px 6px",
+              }}
+              value={task.priority}
+              onChange={(e) => handleUpdate({ priority: e.target.value })}
+              title="优先级"
+            >
+              {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+            <select
+              className="text-xs px-1.5 py-0.5 rounded"
+              style={{ color: "var(--muted)", border: "1px solid var(--line)", background: "transparent", cursor: "pointer" }}
+              value={task.type}
+              onChange={(e) => handleUpdate({ type: e.target.value })}
+              title="类型"
+            >
+              {Object.entries(TYPE_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
           </div>
         </div>
       </div>
 
       {/* Transition buttons */}
+      {error && (
+        <div className="chat-error mb-3" role="alert">
+          {error}
+          <button
+            type="button"
+            onClick={() => setError(null)}
+            className="ml-2 opacity-70 hover:opacity-100"
+            style={{ fontSize: 10 }}
+          >
+            ✕
+          </button>
+        </div>
+      )}
       {transitions.length > 0 && (
         <div className="flex items-center gap-2 mb-6">
           {transitions.map((t) => {
@@ -114,6 +247,52 @@ export default function TaskDetail() {
           <button onClick={handleDelete} className="button text-xs" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
             <XCircle size={13} /> 删除
           </button>
+        </div>
+      )}
+
+      {/* 执行面板 — pending/failed 状态显示 */}
+      {(task.status === "pending" || task.status === "failed") && (
+        <div className="content-card p-4 mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Rocket size={14} style={{ color: "var(--accent)" }} />
+            <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>执行任务</span>
+            <select
+              value={execEngine}
+              onChange={(e) => setExecEngine(e.target.value)}
+              className="form-input"
+              style={{ fontSize: 11, padding: "2px 6px", minWidth: 120 }}
+            >
+              {engines.length === 0 && <option value="claude-code">Claude Code</option>}
+              {engines.map((eng) => (
+                <option key={eng.id} value={eng.id}>{eng.label}{!eng.installed ? " (未安装)" : ""}</option>
+              ))}
+            </select>
+            <button
+              onClick={handleExecute}
+              disabled={executing}
+              className="button button-primary text-xs flex items-center gap-1"
+              style={{ padding: "4px 12px" }}
+            >
+              {executing ? <><Loader2 size={12} style={{ animation: "agents-spin 1s linear infinite" }} /> 执行中…</> : <><Play size={12} /> 开始执行</>}
+            </button>
+          </div>
+          {execOutput.length > 0 && (
+            <div style={{
+              background: "var(--paper-strong)",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-sm)",
+              padding: "8px 12px",
+              maxHeight: 300,
+              overflowY: "auto",
+              fontFamily: "var(--mono)",
+              fontSize: 12,
+              whiteSpace: "pre-wrap",
+              color: "var(--text-secondary)",
+            }}>
+              {execOutput.map((line, i) => <div key={i}>{line}</div>)}
+              {executing && <span style={{ opacity: 0.6 }}>▊</span>}
+            </div>
+          )}
         </div>
       )}
 
@@ -140,16 +319,69 @@ export default function TaskDetail() {
         <div className="content-card p-4">
           <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>元数据</div>
           <div className="text-xs space-y-1.5" style={{ color: "var(--text-secondary)" }}>
-            <div>类型: {TYPE_LABELS[task.type] || task.type}</div>
-            <div>指派人: {task.assignee_id || "未分配"}</div>
             <div>创建: {new Date(task.created_at).toLocaleString("zh-CN")}</div>
             {task.started_at && <div>开始: {new Date(task.started_at).toLocaleString("zh-CN")}</div>}
             {task.completed_at && <div>完成: {new Date(task.completed_at).toLocaleString("zh-CN")}</div>}
-            {task.labels?.length > 0 && (
-              <div className="flex gap-1 mt-1.5">
-                {task.labels.map((l: string) => <span key={l} className="tech-badge">{l}</span>)}
-              </div>
-            )}
+            <div className="flex items-center gap-1.5">
+              <span style={{ minWidth: 50 }}>指派人:</span>
+              <select
+                value={task.assignee_id || ""}
+                onChange={(e) => handleUpdate({ assignee_id: e.target.value || null })}
+                className="form-input"
+                style={{ fontSize: 11, padding: "2px 6px", flex: 1 }}
+              >
+                <option value="">未分配</option>
+                {agents.map((a: any) => (
+                  <option key={a.id} value={a.id}>{a.name} ({a.platform})</option>
+                ))}
+              </select>
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span style={{ minWidth: 50 }}>标签:</span>
+              {task.labels?.map((l: string) => (
+                <span key={l} className="tech-badge flex items-center gap-1">
+                  {l}
+                  <button
+                    type="button"
+                    onClick={() => handleUpdate({ labels: task.labels.filter((x: string) => x !== l) })}
+                    className="icon-btn"
+                    style={{ padding: 0 }}
+                    title="删除标签"
+                  >
+                    <X size={9} />
+                  </button>
+                </span>
+              ))}
+              <input
+                type="text"
+                placeholder="+ 添加标签"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    const v = (e.target as HTMLInputElement).value.trim();
+                    if (v && !task.labels?.includes(v)) {
+                      handleUpdate({ labels: [...(task.labels || []), v] });
+                      (e.target as HTMLInputElement).value = "";
+                    }
+                  }
+                }}
+                className="form-input"
+                style={{ fontSize: 11, padding: "2px 6px", width: 100 }}
+              />
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span style={{ minWidth: 50 }}>项目:</span>
+              <select
+                value={task.project_id || ""}
+                onChange={(e) => handleUpdate({ project_id: e.target.value || null })}
+                className="form-input"
+                style={{ fontSize: 11, padding: "2px 6px", flex: 1 }}
+              >
+                <option value="">未指定</option>
+                {projects.map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       </div>

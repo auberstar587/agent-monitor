@@ -1,0 +1,2027 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Board — 协作白板</title>
+<style>
+  :root {
+    --toolbar-bg: #14181f;
+    --toolbar-hover: #242b38;
+    --toolbar-active: #2d3545;
+    --accent: #6979f8;
+    --accent-glow: rgba(105,121,248,0.25);
+    --canvas-bg: #f8f9fb;
+    --grid-color: rgba(0,0,0,0.04);
+    --text-primary: #e4e7ec;
+    --text-dim: #8b91a0;
+    --border: #2a3040;
+    --shadow-sm: 0 1px 2px rgba(0,0,0,0.06);
+    --shadow-md: 0 4px 14px rgba(0,0,0,0.1);
+    --shadow-lg: 0 12px 36px rgba(0,0,0,0.15);
+    --radius-sm: 6px;
+    --radius: 10px;
+    --radius-lg: 14px;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", system-ui, sans-serif; }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    width: 100%; height: 100%;
+  }
+
+  /* ===== TOOLBAR ===== */
+  #toolbar {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    height: 50px;
+    padding: 0 14px;
+    background: var(--toolbar-bg);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-app-region: drag;
+  }
+
+  .tb-logo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding-right: 16px;
+    margin-right: 8px;
+    border-right: 1px solid var(--border);
+  }
+  .tb-logo svg { width: 24px; height: 24px; }
+  .tb-logo span { font-size: 14px; font-weight: 600; color: var(--text-primary); letter-spacing: -0.02em; }
+
+  .tb-sep {
+    width: 1px; height: 24px; background: var(--border); margin: 0 6px;
+  }
+
+  .tb-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    border: none; background: transparent; border-radius: var(--radius-sm);
+    cursor: pointer; color: var(--text-dim);
+    transition: all 0.15s ease;
+    position: relative;
+    -webkit-app-region: no-drag;
+  }
+  .tb-btn:hover { background: var(--toolbar-hover); color: var(--text-primary); }
+  .tb-btn.active { background: var(--accent); color: #fff; }
+  .tb-btn svg { width: 18px; height: 18px; }
+
+  .tb-color {
+    -webkit-appearance: none; width: 26px; height: 26px;
+    border: 2px solid var(--border); border-radius: 50%; cursor: pointer;
+    padding: 0; background: transparent;
+    -webkit-app-region: no-drag;
+  }
+  .tb-color::-webkit-color-swatch-wrapper { padding: 0; }
+  .tb-color::-webkit-color-swatch { border-radius: 50%; border: none; }
+
+  .tb-width { -webkit-app-region: no-drag; }
+  .tb-width input {
+    width: 60px; -webkit-appearance: none; height: 4px;
+    background: var(--border); border-radius: 2px; outline: none; cursor: pointer;
+  }
+  .tb-width input::-webkit-slider-thumb {
+    -webkit-appearance: none; width: 14px; height: 14px;
+    background: var(--accent); border-radius: 50%; cursor: pointer;
+  }
+  .tb-width span {
+    font-size: 11px; color: var(--text-dim); min-width: 28px; text-align: center;
+  }
+
+  .tb-shape-select {
+    -webkit-appearance: none; appearance: none;
+    background: var(--toolbar-bg); color: var(--text-primary); border: 1px solid var(--border);
+    border-radius: var(--radius-sm); padding: 4px 24px 4px 8px; font-size: 12px;
+    cursor: pointer; outline: none; height: 30px;
+    -webkit-app-region: no-drag;
+  }
+  .tb-shape-select:focus { border-color: var(--accent); }
+
+  .tb-note-colors {
+    display: flex; gap: 3px; align-items: center; -webkit-app-region: no-drag;
+  }
+  .tb-note-color {
+    width: 18px; height: 18px; border-radius: 4px; cursor: pointer;
+    border: 2px solid transparent; transition: all 0.15s;
+  }
+  .tb-note-color:hover { transform: scale(1.2); }
+  .tb-note-color.active { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+  /* ===== CANVAS AREA ===== */
+  #viewport {
+    flex: 1; position: relative; overflow: hidden;
+    background: var(--canvas-bg);
+    cursor: default;
+  }
+  #viewport.panning { cursor: grabbing; }
+  #viewport.drawing { cursor: crosshair; }
+  #viewport.erasing { cursor: none; }
+  #viewport.noting { cursor: cell; }
+
+  #whiteboard {
+    position: absolute; top: 0; left: 0;
+    transform-origin: 0 0;
+    will-change: transform;
+  }
+
+  #drawCanvas {
+    position: absolute; top: 0; left: 0;
+    pointer-events: none;
+  }
+  #drawCanvas.active { pointer-events: all; }
+
+  /* ===== NOTES ===== */
+  .wb-note {
+    position: absolute; min-width: 140px; max-width: 280px; min-height: 100px;
+    border-radius: 6px; padding: 14px 16px; box-shadow: var(--shadow-sm);
+    cursor: move; outline: none; font-size: 14px; line-height: 1.5;
+    color: #2d2d3f; transition: box-shadow 0.15s;
+    overflow-wrap: break-word; word-break: break-word;
+    user-select: none; -webkit-user-select: none;
+  }
+  .wb-note:hover { box-shadow: var(--shadow-md); }
+  .wb-note.editing { cursor: text; user-select: text; -webkit-user-select: text; }
+  .wb-note.selected { box-shadow: 0 0 0 2px var(--accent), var(--shadow-md); }
+
+  .wb-text {
+    position: absolute; min-width: 100px; min-height: 30px;
+    padding: 4px 6px; border-radius: 4px;
+    cursor: move; outline: none; font-size: 16px; line-height: 1.4;
+    color: #2d2d3f; user-select: none; -webkit-user-select: none;
+  }
+  .wb-text:hover { background: rgba(0,0,0,0.03); }
+  .wb-text.editing { cursor: text; user-select: text; -webkit-user-select: text; background: rgba(105,121,248,0.06); }
+  .wb-text.selected { box-shadow: 0 0 0 1.5px var(--accent); border-radius: 4px; }
+
+  /* ===== SELECTION HANDLES ===== */
+  .sel-handle {
+    position: absolute; width: 10px; height: 10px;
+    background: white; border: 2px solid var(--accent); border-radius: 2px;
+    pointer-events: all; z-index: 10;
+  }
+  .sel-handle.nw { top: -5px; left: -5px; cursor: nw-resize; }
+  .sel-handle.ne { top: -5px; right: -5px; cursor: ne-resize; }
+  .sel-handle.sw { bottom: -5px; left: -5px; cursor: sw-resize; }
+  .sel-handle.se { bottom: -5px; right: -5px; cursor: se-resize; }
+  .sel-handle.n { top: -5px; left: 50%; margin-left: -5px; cursor: n-resize; }
+  .sel-handle.s { bottom: -5px; left: 50%; margin-left: -5px; cursor: s-resize; }
+  .sel-handle.w { top: 50%; left: -5px; margin-top: -5px; cursor: w-resize; }
+  .sel-handle.e { top: 50%; right: -5px; margin-top: -5px; cursor: e-resize; }
+
+  /* ===== CONTEXT MENU ===== */
+  #contextMenu {
+    display: none; position: fixed; z-index: 200;
+    background: #fff; border-radius: var(--radius); box-shadow: var(--shadow-lg);
+    padding: 4px 0; min-width: 160px; overflow: hidden;
+  }
+  #contextMenu.show { display: block; }
+  .ctx-item {
+    padding: 8px 16px; font-size: 13px; cursor: pointer; color: #2d2d3f;
+    display: flex; align-items: center; gap: 10px; transition: background 0.1s;
+  }
+  .ctx-item:hover { background: #f0f1f5; }
+  .ctx-item.danger { color: #e5484d; }
+  .ctx-item.danger:hover { background: #fef2f2; }
+  .ctx-sep { height: 1px; background: #e8e9ed; margin: 4px 0; }
+  .ctx-color-dot { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
+
+  /* ===== MINIMAP ===== */
+  #minimap {
+    position: fixed; bottom: 20px; right: 20px;
+    width: 200px; height: 140px;
+    background: #fff; border: 1px solid #e0e2e8; border-radius: 10px;
+    box-shadow: var(--shadow-md); cursor: pointer; z-index: 90;
+    opacity: 0.92; transition: opacity 0.2s;
+  }
+  #minimap:hover { opacity: 1; }
+
+  /* ===== ERASER CURSOR ===== */
+  .eraser-dot {
+    position: fixed; pointer-events: none; z-index: 999;
+    border-radius: 50%; border: 2px solid rgba(0,0,0,0.3);
+    background: rgba(255,255,255,0.4);
+    transform: translate(-50%, -50%);
+    display: none;
+  }
+  .eraser-dot.show { display: block; }
+
+  /* ===== TOAST ===== */
+  #toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    padding: 10px 22px; background: #2d2d3f; color: #fff;
+    border-radius: 20px; font-size: 13px; opacity: 0; z-index: 300;
+    transition: opacity 0.3s; pointer-events: none;
+  }
+  #toast.show { opacity: 1; }
+
+  /* ===== EXPORT MODAL ===== */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.55);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal-box {
+    background: #1c2030; border: 1px solid #2a3040; border-radius: 14px;
+    width: 640px; max-width: 90vw; max-height: 80vh;
+    display: flex; flex-direction: column; overflow: hidden;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.4);
+  }
+  .modal-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px; border-bottom: 1px solid #2a3040;
+  }
+  .modal-header h3 { font-size: 15px; font-weight: 600; color: #e4e7ec; margin: 0; }
+  .modal-close {
+    width: 30px; height: 30px; border: none; background: transparent;
+    color: #8b91a0; cursor: pointer; border-radius: 6px; display: flex;
+    align-items: center; justify-content: center; font-size: 18px;
+  }
+  .modal-close:hover { background: #242b38; color: #e4e7ec; }
+  .modal-body {
+    padding: 16px 20px; flex: 1; overflow: auto;
+  }
+  .modal-body pre {
+    background: #14181f; color: #c8cdd8; padding: 14px; border-radius: 8px;
+    font-size: 12px; line-height: 1.55; white-space: pre-wrap; word-break: break-all;
+    margin: 0; max-height: 48vh; overflow: auto; font-family: "SF Mono", "Fira Code", Menlo, monospace;
+  }
+  .modal-footer {
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+    padding: 12px 20px; border-top: 1px solid #2a3040;
+  }
+  .modal-btn {
+    padding: 7px 16px; border-radius: 7px; font-size: 13px; font-weight: 500;
+    cursor: pointer; border: 1px solid #2a3040; transition: all 0.15s ease;
+  }
+  .modal-btn.secondary { background: transparent; color: #8b91a0; }
+  .modal-btn.secondary:hover { background: #242b38; color: #e4e7ec; }
+  .modal-btn.primary { background: #6979f8; color: #fff; border-color: #6979f8; }
+  .modal-btn.primary:hover { background: #5a68e0; }
+  .modal-info {
+    font-size: 12px; color: #8b91a0; margin-bottom: 10px; line-height: 1.5;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- TOOLBAR -->
+  <div id="toolbar">
+    <div class="tb-logo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#6979f8" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+      <span>Board</span>
+    </div>
+
+    <button class="tb-btn active" data-tool="select" title="选择 / 拖拽 (V)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="M13 13l6 6"/></svg>
+    </button>
+    <button class="tb-btn" data-tool="note" title="便签 (N)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="9" x2="20" y2="9"/><line x1="4" y1="14" x2="14" y2="14"/></svg>
+    </button>
+    <button class="tb-btn" data-tool="text" title="文本 (T)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9.5" y1="20" x2="14.5" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+    </button>
+    <button class="tb-btn" data-tool="pen" title="画笔 (P)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/></svg>
+    </button>
+    <button class="tb-btn" data-tool="eraser" title="橡皮擦 (E)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16c-.8-.8-.8-2 0-2.8L14.5 1.7c.8-.8 2-.8 2.8 0L21 5.5c.8.8.8 2 0 2.8L12 17"/><line x1="18" y1="14" x2="10" y2="22"/><line x1="18" y1="20" x2="22" y2="20"/></svg>
+    </button>
+
+    <div class="tb-sep"></div>
+
+    <button class="tb-btn" data-tool="shape" title="图形 (S)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+    </button>
+    <select class="tb-shape-select" id="shapeType" title="图形类型">
+      <option value="rect">矩形</option>
+      <option value="circle">圆形</option>
+      <option value="triangle">三角</option>
+      <option value="diamond">菱形</option>
+    </select>
+
+    <div class="tb-sep"></div>
+
+    <button class="tb-btn" data-tool="connect" title="连线 (L)">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="5" cy="5" r="2"/><circle cx="19" cy="19" r="2"/><path d="M5 5l14 14"/></svg>
+    </button>
+
+    <div class="tb-sep"></div>
+
+    <button class="tb-btn" id="btnUndo" title="撤销 (Ctrl+Z)" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.5 16A9 9 0 1 0 2 10"/></svg>
+    </button>
+    <button class="tb-btn" id="btnRedo" title="重做 (Ctrl+Y)" disabled>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.5 16A9 9 0 1 1 22 10"/></svg>
+    </button>
+
+    <div class="tb-sep"></div>
+
+    <button class="tb-btn" id="btnExportPNG" title="导出 PNG 截图">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    </button>
+    <button class="tb-btn" id="btnExportJSON" title="导出 JSON 数据">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/><line x1="14" y1="4" x2="10" y2="20"/></svg>
+    </button>
+
+    <div class="tb-sep"></div>
+
+    <div style="display:flex;align-items:center;gap:8px;-webkit-app-region:no-drag;">
+      <input type="color" class="tb-color" id="penColor" value="#1a1a2e" title="画笔颜色">
+      <div class="tb-width" style="display:flex;align-items:center;gap:6px;">
+        <input type="range" id="penWidth" min="1" max="12" value="2" title="画笔粗细">
+        <span id="penWidthVal">2px</span>
+      </div>
+    </div>
+
+    <div class="tb-sep"></div>
+
+    <div class="tb-note-colors" id="noteColors">
+      <div class="tb-note-color active" data-color="#FEF3C7" style="background:#FEF3C7" title="黄色"></div>
+      <div class="tb-note-color" data-color="#FCE7F3" style="background:#FCE7F3" title="粉色"></div>
+      <div class="tb-note-color" data-color="#DBEAFE" style="background:#DBEAFE" title="蓝色"></div>
+      <div class="tb-note-color" data-color="#D1FAE5" style="background:#D1FAE5" title="绿色"></div>
+      <div class="tb-note-color" data-color="#FED7AA" style="background:#FED7AA" title="橙色"></div>
+      <div class="tb-note-color" data-color="#E9D5FF" style="background:#E9D5FF" title="紫色"></div>
+    </div>
+  </div>
+
+  <!-- VIEWPORT -->
+  <div id="viewport">
+    <div id="whiteboard"></div>
+    <canvas id="drawCanvas"></canvas>
+  </div>
+
+  <!-- MINIMAP -->
+  <canvas id="minimap" width="200" height="140"></canvas>
+
+  <!-- ERASER DOT -->
+  <div class="eraser-dot" id="eraserDot"></div>
+
+  <!-- CONTEXT MENU -->
+  <div id="contextMenu"></div>
+
+  <!-- TOAST -->
+  <div id="toast"></div>
+
+  <!-- EXPORT MODAL -->
+  <div class="modal-overlay hidden" id="exportModal">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 id="modalTitle">导出数据</h3>
+        <button class="modal-close" id="modalClose">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-info" id="modalInfo"></div>
+        <pre id="modalPre"></pre>
+      </div>
+      <div class="modal-footer">
+        <button class="modal-btn secondary" id="modalDownload">下载文件</button>
+        <button class="modal-btn primary" id="modalCopy">复制到剪贴板</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================================
+// STATE
+// ============================================================================
+const V = document.getElementById('viewport');
+const WB = document.getElementById('whiteboard');
+const DC = document.getElementById('drawCanvas');
+const DCTX = DC.getContext('2d');
+const MM = document.getElementById('minimap');
+const MMCTX = MM.getContext('2d');
+const ERASER = document.getElementById('eraserDot');
+const CTX_MENU = document.getElementById('contextMenu');
+const TOAST = document.getElementById('toast');
+
+const state = {
+  tool: 'select',
+  elements: [],       // { id, type: 'note'|'text', x, y, w, h, color?, text, fontSize? }
+  drawings: [],       // { id, type: 'freehand'|'shape', points?, shapeType?, x, y, w, h, color, width, fill? }
+  connections: [],    // { id, fromId, toId, color, width }
+  selectedId: null,
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+  undoStack: [],
+  redoStack: [],
+  penColor: '#1a1a2e',
+  penWidth: 2,
+  shapeType: 'rect',
+  noteColor: '#FEF3C7',
+  // transient
+  panStart: null,
+  drawStart: null,
+  currentPath: null,
+  shapeDraft: null,
+  connectFrom: null,
+  connectLine: null,
+  dragTarget: null,
+  dragStart: null,
+  dragOrig: null,
+  resizeTarget: null,
+  resizeStart: null,
+  resizeOrig: null,
+  resizeHandle: null,
+  idCounter: 0,
+};
+
+// ============================================================================
+// UTILS
+// ============================================================================
+function uid() { return 'el_' + (++state.idCounter); }
+
+function screenToWorld(sx, sy) {
+  const r = V.getBoundingClientRect();
+  return {
+    x: (sx - r.left - state.offsetX) / state.scale,
+    y: (sy - r.top - state.offsetY) / state.scale,
+  };
+}
+
+function worldToScreen(wx, wy) {
+  const r = V.getBoundingClientRect();
+  return {
+    x: wx * state.scale + state.offsetX + r.left,
+    y: wy * state.scale + state.offsetY + r.top,
+  };
+}
+
+function cloneState() {
+  return {
+    elements: state.elements.map(e => ({...e})),
+    drawings: state.drawings.map(d => ({...d, points: d.points ? d.points.map(p => ({...p})) : undefined})),
+    connections: state.connections.map(c => ({...c})),
+  };
+}
+
+function restoreState(snapshot) {
+  state.elements = snapshot.elements.map(e => ({...e}));
+  state.drawings = snapshot.drawings.map(d => ({...d, points: d.points ? d.points.map(p => ({...p})) : undefined}));
+  state.connections = snapshot.connections.map(c => ({...c}));
+}
+
+function pushUndo() {
+  state.undoStack.push(cloneState());
+  if (state.undoStack.length > 5) state.undoStack.shift();
+  state.redoStack = [];
+  updateUndoRedoBtns();
+}
+
+function findElementById(id) {
+  return state.elements.find(e => e.id === id);
+}
+
+function findDrawingsAt(wx, wy, radius) {
+  const r = radius || 8 / state.scale;
+  return state.drawings.filter(d => {
+    if (d.type === 'freehand') {
+      return d.points.some(p => Math.hypot(p.x - wx, p.y - wy) < r);
+    }
+    // shapes
+    if (d.shapeType === 'circle') {
+      const cx = d.x + d.w / 2, cy = d.y + d.h / 2, rr = d.w / 2;
+      return Math.hypot(wx - cx, wy - cy) < rr + r;
+    }
+    // rect/triangle/diamond
+    return wx >= d.x - r && wx <= d.x + d.w + r && wy >= d.y - r && wy <= d.y + d.h + r;
+  });
+}
+
+function findElementAt(wx, wy) {
+  // reverse to pick topmost
+  for (let i = state.elements.length - 1; i >= 0; i--) {
+    const el = state.elements[i];
+    if (wx >= el.x && wx <= el.x + el.w && wy >= el.y && wy <= el.y + el.h) return el;
+  }
+  return null;
+}
+
+// ============================================================================
+// TOAST
+// ============================================================================
+let toastTimer;
+function showToast(msg) {
+  TOAST.textContent = msg;
+  TOAST.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => TOAST.classList.remove('show'), 1800);
+}
+
+// ============================================================================
+// TRANSFORM
+// ============================================================================
+function updateTransform() {
+  WB.style.transform = `translate(${state.offsetX}px, ${state.offsetY}px) scale(${state.scale})`;
+  resizeCanvas();
+  renderAll();
+  renderMinimap();
+}
+
+function resizeCanvas() {
+  const w = V.clientWidth, h = V.clientHeight;
+  if (DC.width !== w || DC.height !== h) {
+    DC.width = w; DC.height = h;
+  }
+}
+
+// ============================================================================
+// RENDER
+// ============================================================================
+function renderAll() {
+  DCTX.clearRect(0, 0, DC.width, DC.height);
+  drawGrid();
+  drawConnections();
+  drawShapes();
+  drawFreehand();
+}
+
+function drawGrid() {
+  const ctx = DCTX;
+  const s = state.scale;
+  const ox = state.offsetX, oy = state.offsetY;
+  const vw = DC.width, vh = DC.height;
+
+  // Determine grid step
+  let step = 20;
+  if (s < 0.2) step = 200;
+  else if (s < 0.4) step = 100;
+  else if (s < 0.7) step = 50;
+  else if (s < 1.5) step = 20;
+  else step = 10;
+
+  const left = -ox / s;
+  const top = -oy / s;
+  const right = (vw - ox) / s;
+  const bottom = (vh - oy) / s;
+
+  const sx = Math.floor(left / step) * step;
+  const sy = Math.floor(top / step) * step;
+
+  ctx.save();
+  ctx.setTransform(s, 0, 0, s, ox, oy);
+
+  // Minor grid
+  ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+  ctx.lineWidth = 0.5 / s;
+  ctx.beginPath();
+  for (let x = sx; x <= right; x += step) {
+    ctx.moveTo(x, top); ctx.lineTo(x, bottom);
+  }
+  for (let y = sy; y <= bottom; y += step) {
+    ctx.moveTo(left, y); ctx.lineTo(right, y);
+  }
+  ctx.stroke();
+
+  // Major grid (every 5 steps) — slightly darker
+  const majorStep = step * 5;
+  const msx = Math.floor(left / majorStep) * majorStep;
+  const msy = Math.floor(top / majorStep) * majorStep;
+  ctx.strokeStyle = 'rgba(0,0,0,0.06)';
+  ctx.lineWidth = 1 / s;
+  ctx.beginPath();
+  for (let x = msx; x <= right; x += majorStep) {
+    ctx.moveTo(x, top); ctx.lineTo(x, bottom);
+  }
+  for (let y = msy; y <= bottom; y += majorStep) {
+    ctx.moveTo(left, y); ctx.lineTo(right, y);
+  }
+  ctx.stroke();
+
+  ctx.restore();
+}
+
+function drawFreehand() {
+  const ctx = DCTX;
+  ctx.save();
+  ctx.setTransform(state.scale, 0, 0, state.scale, state.offsetX, state.offsetY);
+
+  for (const d of state.drawings) {
+    if (d.type !== 'freehand' || !d.points || d.points.length < 2) continue;
+    ctx.beginPath();
+    ctx.strokeStyle = d.color;
+    ctx.lineWidth = d.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.moveTo(d.points[0].x, d.points[0].y);
+    for (let i = 1; i < d.points.length; i++) {
+      ctx.lineTo(d.points[i].x, d.points[i].y);
+    }
+    ctx.stroke();
+  }
+
+  // Draw in-progress path
+  if (state.currentPath && state.currentPath.points.length >= 2) {
+    const p = state.currentPath;
+    ctx.beginPath();
+    ctx.strokeStyle = p.color;
+    ctx.lineWidth = p.width;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.moveTo(p.points[0].x, p.points[0].y);
+    for (let i = 1; i < p.points.length; i++) {
+      ctx.lineTo(p.points[i].x, p.points[i].y);
+    }
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
+function drawShapes() {
+  const ctx = DCTX;
+  ctx.save();
+  ctx.setTransform(state.scale, 0, 0, state.scale, state.offsetX, state.offsetY);
+
+  for (const d of state.drawings) {
+    if (d.type !== 'shape') continue;
+    ctx.beginPath();
+    ctx.strokeStyle = d.color;
+    ctx.fillStyle = d.fill || 'transparent';
+    ctx.lineWidth = d.width;
+    ctx.lineJoin = 'round';
+
+    if (d.shapeType === 'rect') {
+      ctx.rect(d.x, d.y, d.w, d.h);
+    } else if (d.shapeType === 'circle') {
+      ctx.ellipse(d.x + d.w/2, d.y + d.h/2, d.w/2, d.h/2, 0, 0, Math.PI*2);
+    } else if (d.shapeType === 'triangle') {
+      ctx.moveTo(d.x + d.w/2, d.y);
+      ctx.lineTo(d.x + d.w, d.y + d.h);
+      ctx.lineTo(d.x, d.y + d.h);
+      ctx.closePath();
+    } else if (d.shapeType === 'diamond') {
+      ctx.moveTo(d.x + d.w/2, d.y);
+      ctx.lineTo(d.x + d.w, d.y + d.h/2);
+      ctx.lineTo(d.x + d.w/2, d.y + d.h);
+      ctx.lineTo(d.x, d.y + d.h/2);
+      ctx.closePath();
+    }
+    if (d.fill && d.fill !== 'transparent') ctx.fill();
+    ctx.stroke();
+  }
+
+  // Draft shape
+  if (state.shapeDraft) {
+    const d = state.shapeDraft;
+    ctx.beginPath();
+    ctx.strokeStyle = d.color;
+    ctx.fillStyle = d.fill || 'transparent';
+    ctx.lineWidth = d.width;
+    ctx.lineJoin = 'round';
+    ctx.setLineDash([4, 4]);
+
+    if (d.shapeType === 'rect') ctx.rect(d.x, d.y, d.w, d.h);
+    else if (d.shapeType === 'circle') ctx.ellipse(d.x+d.w/2, d.y+d.h/2, d.w/2, d.h/2, 0, 0, Math.PI*2);
+    else if (d.shapeType === 'triangle') {
+      ctx.moveTo(d.x+d.w/2, d.y); ctx.lineTo(d.x+d.w, d.y+d.h); ctx.lineTo(d.x, d.y+d.h); ctx.closePath();
+    } else if (d.shapeType === 'diamond') {
+      ctx.moveTo(d.x+d.w/2, d.y); ctx.lineTo(d.x+d.w, d.y+d.h/2); ctx.lineTo(d.x+d.w/2, d.y+d.h); ctx.lineTo(d.x, d.y+d.h/2); ctx.closePath();
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Connection preview
+  if (state.connectLine) {
+    ctx.beginPath();
+    ctx.strokeStyle = '#6979f8';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.moveTo(state.connectLine.x1, state.connectLine.y1);
+    ctx.lineTo(state.connectLine.x2, state.connectLine.y2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  ctx.restore();
+}
+
+function drawConnections() {
+  const ctx = DCTX;
+  ctx.save();
+  ctx.setTransform(state.scale, 0, 0, state.scale, state.offsetX, state.offsetY);
+
+  for (const c of state.connections) {
+    const from = findElementById(c.fromId);
+    const to = findElementById(c.toId);
+    if (!from || !to) continue;
+
+    ctx.beginPath();
+    ctx.strokeStyle = c.color || '#6979f8';
+    ctx.lineWidth = c.width || 2;
+    ctx.lineCap = 'round';
+
+    const fx = from.x + from.w / 2, fy = from.y + from.h / 2;
+    const tx = to.x + to.w / 2, ty = to.y + to.h / 2;
+    ctx.moveTo(fx, fy);
+    ctx.lineTo(tx, ty);
+    ctx.stroke();
+
+    // arrowhead
+    const angle = Math.atan2(ty - fy, tx - fx);
+    const arrowSize = 8;
+    ctx.fillStyle = c.color || '#6979f8';
+    ctx.beginPath();
+    ctx.moveTo(tx, ty);
+    ctx.lineTo(
+      tx - arrowSize * Math.cos(angle - 0.5),
+      ty - arrowSize * Math.sin(angle - 0.5)
+    );
+    ctx.lineTo(
+      tx - arrowSize * Math.cos(angle + 0.5),
+      ty - arrowSize * Math.sin(angle + 0.5)
+    );
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  ctx.restore();
+}
+
+// ============================================================================
+// MINIMAP
+// ============================================================================
+function renderMinimap() {
+  const ctx = MMCTX;
+  const mw = MM.width, mh = MM.height;
+  ctx.clearRect(0, 0, mw, mh);
+
+  // Background
+  ctx.fillStyle = '#f8f9fb';
+  ctx.fillRect(0, 0, mw, mh);
+
+  // Compute world bounds
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const el of state.elements) {
+    minX = Math.min(minX, el.x); minY = Math.min(minY, el.y);
+    maxX = Math.max(maxX, el.x + el.w); maxY = Math.max(maxY, el.y + el.h);
+  }
+  for (const d of state.drawings) {
+    if (d.type === 'freehand' && d.points) {
+      for (const p of d.points) {
+        minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+      }
+    } else if (d.type === 'shape') {
+      minX = Math.min(minX, d.x); minY = Math.min(minY, d.y);
+      maxX = Math.max(maxX, d.x + d.w); maxY = Math.max(maxY, d.y + d.h);
+    }
+  }
+
+  if (!isFinite(minX)) { minX = -500; minY = -500; maxX = 500; maxY = 500; }
+
+  const pad = 60;
+  minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const worldW = maxX - minX, worldH = maxY - minY;
+  const scaleX = mw / worldW, scaleY = mh / worldH;
+  const mmScale = Math.min(scaleX, scaleY);
+  const offX = (mw - worldW * mmScale) / 2;
+  const offY = (mh - worldH * mmScale) / 2;
+
+  function wx(wx) { return offX + (wx - minX) * mmScale; }
+  function wy(wy) { return offY + (wy - minY) * mmScale; }
+
+  // Draw shapes/drawings
+  ctx.fillStyle = 'rgba(105,121,248,0.15)';
+  ctx.strokeStyle = 'rgba(105,121,248,0.4)';
+  ctx.lineWidth = 1;
+  for (const el of state.elements) {
+    ctx.fillRect(wx(el.x), wy(el.y), el.w * mmScale, el.h * mmScale);
+    ctx.strokeRect(wx(el.x), wy(el.y), el.w * mmScale, el.h * mmScale);
+  }
+
+  for (const d of state.drawings) {
+    if (d.type === 'shape') {
+      ctx.fillStyle = 'rgba(0,0,0,0.06)';
+      ctx.fillRect(wx(d.x), wy(d.y), d.w * mmScale, d.h * mmScale);
+      ctx.strokeStyle = 'rgba(0,0,0,0.2)';
+      ctx.strokeRect(wx(d.x), wy(d.y), d.w * mmScale, d.h * mmScale);
+    } else if (d.type === 'freehand' && d.points && d.points.length > 1) {
+      ctx.beginPath();
+      ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+      ctx.lineWidth = 0.5;
+      ctx.moveTo(wx(d.points[0].x), wy(d.points[0].y));
+      for (let i = 1; i < d.points.length; i++) {
+        ctx.lineTo(wx(d.points[i].x), wy(d.points[i].y));
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Connections
+  for (const c of state.connections) {
+    const from = findElementById(c.fromId), to = findElementById(c.toId);
+    if (!from || !to) continue;
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(105,121,248,0.35)';
+    ctx.lineWidth = 0.8;
+    ctx.moveTo(wx(from.x + from.w/2), wy(from.y + from.h/2));
+    ctx.lineTo(wx(to.x + to.w/2), wy(to.y + to.h/2));
+    ctx.stroke();
+  }
+
+  // Viewport rect
+  const r = V.getBoundingClientRect();
+  const vpLeft = -state.offsetX / state.scale;
+  const vpTop = -state.offsetY / state.scale;
+  const vpW = r.width / state.scale;
+  const vpH = r.height / state.scale;
+
+  ctx.strokeStyle = '#6979f8';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(wx(vpLeft), wy(vpTop), vpW * mmScale, vpH * mmScale);
+  ctx.fillStyle = 'rgba(105,121,248,0.08)';
+  ctx.fillRect(wx(vpLeft), wy(vpTop), vpW * mmScale, vpH * mmScale);
+}
+
+// ============================================================================
+// DOM ELEMENT MANAGEMENT
+// ============================================================================
+function createNoteElement(el) {
+  const div = document.createElement('div');
+  div.className = 'wb-note';
+  div.id = el.id;
+  div.style.left = el.x + 'px';
+  div.style.top = el.y + 'px';
+  div.style.width = el.w + 'px';
+  div.style.height = el.h + 'px';
+  div.style.background = el.color;
+  div.textContent = el.text || '';
+  div.contentEditable = 'false';
+  div.setAttribute('data-id', el.id);
+  div.addEventListener('mousedown', onNoteMouseDown);
+  div.addEventListener('dblclick', onNoteDblClick);
+  div.addEventListener('contextmenu', onNoteContextMenu);
+  div.addEventListener('blur', onNoteBlur);
+  return div;
+}
+
+function createTextElement(el) {
+  const div = document.createElement('div');
+  div.className = 'wb-text';
+  div.id = el.id;
+  div.style.left = el.x + 'px';
+  div.style.top = el.y + 'px';
+  div.style.width = el.w + 'px';
+  div.style.minHeight = el.h + 'px';
+  div.style.fontSize = (el.fontSize || 16) + 'px';
+  div.textContent = el.text || '';
+  div.contentEditable = 'false';
+  div.setAttribute('data-id', el.id);
+  div.addEventListener('mousedown', onTextMouseDown);
+  div.addEventListener('dblclick', onTextDblClick);
+  div.addEventListener('contextmenu', onTextContextMenu);
+  div.addEventListener('blur', onTextBlur);
+  return div;
+}
+
+function syncDOM() {
+  const existing = new Set();
+  WB.querySelectorAll('[data-id]').forEach(el => existing.add(el.getAttribute('data-id')));
+
+  for (const el of state.elements) {
+    if (document.getElementById(el.id)) {
+      const dom = document.getElementById(el.id);
+      dom.style.left = el.x + 'px';
+      dom.style.top = el.y + 'px';
+      dom.style.width = el.w + 'px';
+      if (el.type === 'note') dom.style.height = el.h + 'px';
+      if (el.type === 'note') dom.style.background = el.color;
+      if (el.type === 'text') dom.style.fontSize = (el.fontSize || 16) + 'px';
+      if (!dom.isContentEditable) dom.textContent = el.text || '';
+      existing.delete(el.id);
+    } else {
+      const dom = el.type === 'note' ? createNoteElement(el) : createTextElement(el);
+      WB.appendChild(dom);
+    }
+  }
+
+  // Remove stale DOM
+  for (const id of existing) {
+    const dom = document.getElementById(id);
+    if (dom) { dom.remove(); }
+  }
+
+  // Update selection visuals
+  WB.querySelectorAll('.wb-note.selected, .wb-text.selected').forEach(el => {
+    el.classList.remove('selected');
+  });
+  WB.querySelectorAll('.sel-handle').forEach(h => h.remove());
+
+  if (state.selectedId) {
+    const el = findElementById(state.selectedId);
+    if (el) {
+      const dom = document.getElementById(el.id);
+      if (dom) {
+        dom.classList.add('selected');
+        addHandles(dom, el);
+      }
+    }
+  }
+}
+
+function addHandles(dom, el) {
+  const handles = [
+    { cls: 'nw', x: el.x - 5, y: el.y - 5 },
+    { cls: 'n', x: el.x + el.w / 2 - 5, y: el.y - 5 },
+    { cls: 'ne', x: el.x + el.w - 5, y: el.y - 5 },
+    { cls: 'w', x: el.x - 5, y: el.y + el.h / 2 - 5 },
+    { cls: 'e', x: el.x + el.w - 5, y: el.y + el.h / 2 - 5 },
+    { cls: 'sw', x: el.x - 5, y: el.y + el.h - 5 },
+    { cls: 's', x: el.x + el.w / 2 - 5, y: el.y + el.h - 5 },
+    { cls: 'se', x: el.x + el.w - 5, y: el.y + el.h - 5 },
+  ];
+  for (const h of handles) {
+    const div = document.createElement('div');
+    div.className = 'sel-handle ' + h.cls;
+    div.style.left = h.x + 'px';
+    div.style.top = h.y + 'px';
+    div.setAttribute('data-handle', h.cls);
+    div.addEventListener('mousedown', onHandleMouseDown);
+    WB.appendChild(div);
+  }
+}
+
+function clearSelection() {
+  state.selectedId = null;
+  syncDOM();
+}
+
+function selectElement(id) {
+  state.selectedId = id;
+  syncDOM();
+}
+
+function removeElement(id) {
+  // Remove connections involving this element
+  state.connections = state.connections.filter(c => c.fromId !== id && c.toId !== id);
+  state.elements = state.elements.filter(e => e.id !== id);
+  if (state.selectedId === id) state.selectedId = null;
+  syncDOM();
+  renderAll();
+  renderMinimap();
+}
+
+// ============================================================================
+// NOTE EVENTS
+// ============================================================================
+function onNoteMouseDown(e) {
+  if (e.button !== 0) return;
+  if (state.tool === 'connect') {
+    e.preventDefault();
+    const el = findElementById(e.currentTarget.getAttribute('data-id'));
+    if (state.connectFrom) {
+      if (state.connectFrom !== el.id) {
+        pushUndo();
+        state.connections.push({
+          id: uid(), fromId: state.connectFrom, toId: el.id,
+          color: '#6979f8', width: 2
+        });
+      }
+      state.connectFrom = null;
+      state.connectLine = null;
+      renderAll();
+      renderMinimap();
+    } else {
+      state.connectFrom = el.id;
+      showToast('已选择源节点，点击目标节点连线');
+    }
+    return;
+  }
+  if (state.tool !== 'select') return;
+
+  e.stopPropagation();
+  const el = findElementById(e.currentTarget.getAttribute('data-id'));
+  selectElement(el.id);
+
+  // Start drag
+  state.dragTarget = el;
+  state.dragStart = screenToWorld(e.clientX, e.clientY);
+  state.dragOrig = { x: el.x, y: el.y, w: el.w, h: el.h };
+
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+}
+
+function onNoteDblClick(e) {
+  e.stopPropagation();
+  const dom = e.currentTarget;
+  const el = findElementById(dom.getAttribute('data-id'));
+  if (!el) return;
+  dom.contentEditable = 'true';
+  dom.classList.add('editing');
+  dom.focus();
+  // Select all text
+  const range = document.createRange();
+  range.selectNodeContents(dom);
+  const sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(range);
+}
+
+function onNoteBlur(e) {
+  const dom = e.currentTarget;
+  dom.contentEditable = 'false';
+  dom.classList.remove('editing');
+  const el = findElementById(dom.getAttribute('data-id'));
+  if (el && el.text !== dom.textContent) {
+    pushUndo();
+    el.text = dom.textContent;
+  }
+}
+
+function onNoteContextMenu(e) {
+  e.preventDefault();
+  const el = findElementById(e.currentTarget.getAttribute('data-id'));
+  selectElement(el.id);
+  showContextMenu(e.clientX, e.clientY, el);
+}
+
+// ============================================================================
+// TEXT EVENTS
+// ============================================================================
+function onTextMouseDown(e) {
+  if (e.button !== 0) return;
+  if (state.tool === 'connect') {
+    e.preventDefault();
+    const el = findElementById(e.currentTarget.getAttribute('data-id'));
+    if (state.connectFrom) {
+      if (state.connectFrom !== el.id) {
+        pushUndo();
+        state.connections.push({
+          id: uid(), fromId: state.connectFrom, toId: el.id,
+          color: '#6979f8', width: 2
+        });
+      }
+      state.connectFrom = null;
+      state.connectLine = null;
+      renderAll();
+      renderMinimap();
+    } else {
+      state.connectFrom = el.id;
+      showToast('已选择源节点，点击目标节点连线');
+    }
+    return;
+  }
+  if (state.tool !== 'select') return;
+  e.stopPropagation();
+  const el = findElementById(e.currentTarget.getAttribute('data-id'));
+  selectElement(el.id);
+  state.dragTarget = el;
+  state.dragStart = screenToWorld(e.clientX, e.clientY);
+  state.dragOrig = { x: el.x, y: el.y, w: el.w, h: el.h };
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+}
+
+function onTextDblClick(e) {
+  e.stopPropagation();
+  const dom = e.currentTarget;
+  dom.contentEditable = 'true';
+  dom.classList.add('editing');
+  dom.focus();
+}
+
+function onTextBlur(e) {
+  const dom = e.currentTarget;
+  dom.contentEditable = 'false';
+  dom.classList.remove('editing');
+  const el = findElementById(dom.getAttribute('data-id'));
+  if (el && el.text !== dom.textContent) {
+    pushUndo();
+    el.text = dom.textContent;
+  }
+}
+
+function onTextContextMenu(e) {
+  e.preventDefault();
+  const el = findElementById(e.currentTarget.getAttribute('data-id'));
+  selectElement(el.id);
+  showContextMenu(e.clientX, e.clientY, el);
+}
+
+// ============================================================================
+// DRAG / RESIZE
+// ============================================================================
+function onDragMove(e) {
+  if (!state.dragTarget) return;
+  const cur = screenToWorld(e.clientX, e.clientY);
+  const dx = cur.x - state.dragStart.x;
+  const dy = cur.y - state.dragStart.y;
+  state.dragTarget.x = state.dragOrig.x + dx;
+  state.dragTarget.y = state.dragOrig.y + dy;
+  syncDOM();
+  renderAll();
+  renderMinimap();
+}
+
+function onDragEnd() {
+  if (state.dragTarget) {
+    const moved = state.dragTarget.x !== state.dragOrig.x || state.dragTarget.y !== state.dragOrig.y;
+    if (moved) pushUndo();
+    state.dragTarget = null;
+  }
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+}
+
+function onHandleMouseDown(e) {
+  e.stopPropagation();
+  e.preventDefault();
+  const handle = e.currentTarget.getAttribute('data-handle');
+  const el = findElementById(state.selectedId);
+  if (!el) return;
+  state.resizeTarget = el;
+  state.resizeStart = screenToWorld(e.clientX, e.clientY);
+  state.resizeOrig = { x: el.x, y: el.y, w: el.w, h: el.h };
+  state.resizeHandle = handle;
+  document.addEventListener('mousemove', onResizeMove);
+  document.addEventListener('mouseup', onResizeEnd);
+}
+
+function onResizeMove(e) {
+  if (!state.resizeTarget) return;
+  const cur = screenToWorld(e.clientX, e.clientY);
+  const dx = cur.x - state.resizeStart.x;
+  const dy = cur.y - state.resizeStart.y;
+  const el = state.resizeTarget;
+  const o = state.resizeOrig;
+  const h = state.resizeHandle;
+
+  if (h.includes('e')) { el.w = Math.max(40, o.w + dx); }
+  if (h.includes('w')) { el.w = Math.max(40, o.w - dx); el.x = o.x + dx; }
+  if (h.includes('s')) { el.h = Math.max(30, o.h + dy); }
+  if (h.includes('n')) { el.h = Math.max(30, o.h - dy); el.y = o.y + dy; }
+
+  syncDOM();
+  renderAll();
+  renderMinimap();
+}
+
+function onResizeEnd() {
+  if (state.resizeTarget) {
+    const changed = state.resizeTarget.x !== state.resizeOrig.x ||
+                    state.resizeTarget.y !== state.resizeOrig.y ||
+                    state.resizeTarget.w !== state.resizeOrig.w ||
+                    state.resizeTarget.h !== state.resizeOrig.h;
+    if (changed) pushUndo();
+    state.resizeTarget = null;
+    state.resizeHandle = null;
+  }
+  document.removeEventListener('mousemove', onResizeMove);
+  document.removeEventListener('mouseup', onResizeEnd);
+}
+
+// ============================================================================
+// CONTEXT MENU
+// ============================================================================
+function showContextMenu(sx, sy, el) {
+  const colors = [
+    { color: '#FEF3C7', label: '黄色' }, { color: '#FCE7F3', label: '粉色' },
+    { color: '#DBEAFE', label: '蓝色' }, { color: '#D1FAE5', label: '绿色' },
+    { color: '#FED7AA', label: '橙色' }, { color: '#E9D5FF', label: '紫色' },
+    { color: '#FFFFFF', label: '白色' }, { color: '#F3F4F6', label: '灰色' },
+  ];
+
+  let html = '';
+  if (el.type === 'note') {
+    html += '<div style="padding:4px 16px;font-size:11px;color:#8b91a0;">切换颜色</div>';
+    html += '<div style="display:flex;flex-wrap:wrap;gap:4px;padding:2px 16px 8px;">';
+    for (const c of colors) {
+      html += `<div class="ctx-color-dot" style="background:${c.color};cursor:pointer;border:1px solid #e0e2e8" data-color="${c.color}" title="${c.label}"></div>`;
+    }
+    html += '</div>';
+    html += '<div class="ctx-sep"></div>';
+  }
+  html += `<div class="ctx-item danger" data-action="delete">删除</div>`;
+
+  CTX_MENU.innerHTML = html;
+  CTX_MENU.style.left = Math.min(sx, window.innerWidth - 180) + 'px';
+  CTX_MENU.style.top = Math.min(sy, window.innerHeight - 240) + 'px';
+  CTX_MENU.classList.add('show');
+
+  // Color dots
+  CTX_MENU.querySelectorAll('.ctx-color-dot').forEach(dot => {
+    dot.addEventListener('click', () => {
+      const color = dot.getAttribute('data-color');
+      pushUndo();
+      el.color = color;
+      syncDOM();
+      hideContextMenu();
+    });
+  });
+
+  // Delete
+  CTX_MENU.querySelector('[data-action="delete"]').addEventListener('click', () => {
+    pushUndo();
+    removeElement(el.id);
+    hideContextMenu();
+  });
+
+  document.addEventListener('click', hideContextMenu, { once: true });
+}
+
+function hideContextMenu() {
+  CTX_MENU.classList.remove('show');
+}
+
+// ============================================================================
+// ERASER
+// ============================================================================
+function eraseAt(wx, wy) {
+  const radius = 12 / state.scale;
+  const hit = findDrawingsAt(wx, wy, radius);
+  if (hit.length > 0) {
+    pushUndo();
+    state.drawings = state.drawings.filter(d => !hit.includes(d));
+    renderAll();
+    renderMinimap();
+  }
+}
+
+// ============================================================================
+// VIEWPORT PAN & ZOOM
+// ============================================================================
+function startPan(ex, ey) {
+  state.panStart = { x: ex - state.offsetX, y: ey - state.offsetY };
+  V.classList.add('panning');
+}
+
+function movePan(ex, ey) {
+  if (!state.panStart) return;
+  state.offsetX = ex - state.panStart.x;
+  state.offsetY = ey - state.panStart.y;
+  updateTransform();
+}
+
+function endPan() {
+  state.panStart = null;
+  V.classList.remove('panning');
+}
+
+function zoomAt(ex, ey, delta) {
+  const factor = delta > 0 ? 0.92 : 1.085;
+  const newScale = Math.max(0.08, Math.min(8, state.scale * factor));
+  if (newScale === state.scale) return;
+
+  const r = V.getBoundingClientRect();
+  const mx = ex - r.left;
+  const my = ey - r.top;
+  const wx = (mx - state.offsetX) / state.scale;
+  const wy = (my - state.offsetY) / state.scale;
+
+  state.scale = newScale;
+  state.offsetX = mx - wx * state.scale;
+  state.offsetY = my - wy * state.scale;
+  updateTransform();
+}
+
+// ============================================================================
+// VIEWPORT MOUSE EVENTS
+// ============================================================================
+V.addEventListener('mousedown', (e) => {
+  if (e.target !== V && e.target !== DC) return; // Only on viewport or canvas bg
+
+  const w = screenToWorld(e.clientX, e.clientY);
+
+  // Close context menu
+  hideContextMenu();
+
+  if (state.tool === 'select') {
+    clearSelection();
+    if (e.button === 0 || e.button === 1) {
+      startPan(e.clientX, e.clientY);
+    }
+    return;
+  }
+
+  if (state.tool === 'note') {
+    pushUndo();
+    const el = {
+      id: uid(), type: 'note', x: w.x - 100, y: w.y - 62,
+      w: 200, h: 125, color: state.noteColor, text: ''
+    };
+    state.elements.push(el);
+    selectElement(el.id);
+    // Enter edit mode
+    setTimeout(() => {
+      const dom = document.getElementById(el.id);
+      if (dom) {
+        dom.contentEditable = 'true';
+        dom.classList.add('editing');
+        dom.focus();
+      }
+    }, 50);
+    syncDOM();
+    renderMinimap();
+    return;
+  }
+
+  if (state.tool === 'text') {
+    pushUndo();
+    const el = {
+      id: uid(), type: 'text', x: w.x, y: w.y,
+      w: 200, h: 30, text: '', fontSize: 16
+    };
+    state.elements.push(el);
+    selectElement(el.id);
+    setTimeout(() => {
+      const dom = document.getElementById(el.id);
+      if (dom) {
+        dom.contentEditable = 'true';
+        dom.classList.add('editing');
+        dom.focus();
+      }
+    }, 50);
+    syncDOM();
+    renderMinimap();
+    return;
+  }
+
+  if (state.tool === 'connect') {
+    // Check if clicked on an element
+    const el = findElementAt(w.x, w.y);
+    if (el) {
+      if (state.connectFrom) {
+        if (state.connectFrom !== el.id) {
+          pushUndo();
+          state.connections.push({
+            id: uid(), fromId: state.connectFrom, toId: el.id,
+            color: '#6979f8', width: 2
+          });
+        }
+        state.connectFrom = null;
+        state.connectLine = null;
+        renderAll();
+        renderMinimap();
+      } else {
+        state.connectFrom = el.id;
+        selectElement(el.id);
+        showToast('已选择源节点，点击目标节点连线');
+      }
+    }
+    return;
+  }
+
+  // Drawing tools
+  if (e.button !== 0) return;
+  clearSelection();
+  state.drawStart = w;
+
+  if (state.tool === 'pen') {
+    state.currentPath = { points: [{ x: w.x, y: w.y }], color: state.penColor, width: state.penWidth };
+    V.classList.add('drawing');
+  } else if (state.tool === 'shape') {
+    state.shapeDraft = {
+      type: 'shape', shapeType: state.shapeType,
+      x: w.x, y: w.y, w: 0, h: 0,
+      color: state.penColor, width: state.penWidth, fill: 'transparent'
+    };
+    V.classList.add('drawing');
+  } else if (state.tool === 'eraser') {
+    eraseAt(w.x, w.y);
+    V.classList.add('erasing');
+  }
+});
+
+V.addEventListener('mousemove', (e) => {
+  const w = screenToWorld(e.clientX, e.clientY);
+
+  // Panning
+  if (state.panStart) {
+    movePan(e.clientX, e.clientY);
+    return;
+  }
+
+  // Eraser
+  if (state.tool === 'eraser') {
+    ERASER.style.left = e.clientX + 'px';
+    ERASER.style.top = e.clientY + 'px';
+    if (e.buttons === 1) eraseAt(w.x, w.y);
+    return;
+  }
+
+  // Connect preview
+  if (state.tool === 'connect' && state.connectFrom) {
+    const from = findElementById(state.connectFrom);
+    if (from) {
+      state.connectLine = {
+        x1: from.x + from.w / 2, y1: from.y + from.h / 2,
+        x2: w.x, y2: w.y
+      };
+      renderAll();
+    }
+  }
+
+  // Pen
+  if (state.currentPath && e.buttons === 1) {
+    state.currentPath.points.push({ x: w.x, y: w.y });
+    renderAll();
+  }
+
+  // Shape
+  if (state.shapeDraft && e.buttons === 1) {
+    state.shapeDraft.w = w.x - state.shapeDraft.x;
+    state.shapeDraft.h = w.y - state.shapeDraft.y;
+    renderAll();
+  }
+});
+
+V.addEventListener('mouseup', (e) => {
+  if (state.panStart) { endPan(); return; }
+  V.classList.remove('drawing', 'erasing');
+
+  if (state.currentPath && state.currentPath.points.length >= 2) {
+    pushUndo();
+    state.drawings.push({
+      id: uid(), type: 'freehand',
+      points: state.currentPath.points,
+      color: state.currentPath.color, width: state.currentPath.width,
+    });
+    renderMinimap();
+  }
+  state.currentPath = null;
+
+  if (state.shapeDraft) {
+    const d = state.shapeDraft;
+    // Normalize negative size
+    if (d.w < 0) { d.x += d.w; d.w = -d.w; }
+    if (d.h < 0) { d.y += d.h; d.h = -d.h; }
+    if (Math.abs(d.w) > 2 || Math.abs(d.h) > 2) {
+      pushUndo();
+      state.drawings.push({
+        id: uid(), type: 'shape', shapeType: d.shapeType,
+        x: d.x, y: d.y, w: d.w, h: d.h,
+        color: d.color, width: d.width, fill: d.fill,
+      });
+      renderMinimap();
+    }
+  }
+  state.shapeDraft = null;
+  renderAll();
+});
+
+V.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  zoomAt(e.clientX, e.clientY, e.deltaY);
+}, { passive: false });
+
+// Context menu on viewport bg
+V.addEventListener('contextmenu', (e) => {
+  if (state.tool === 'select') {
+    e.preventDefault();
+    hideContextMenu();
+  }
+});
+
+// ============================================================================
+// MINIMAP CLICK
+// ============================================================================
+MM.addEventListener('mousedown', (e) => {
+  // Navigate to minimap click position
+  const rect = MM.getBoundingClientRect();
+  const mx = e.clientX - rect.left;
+  const my = e.clientY - rect.top;
+
+  // Same logic as renderMinimap
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const el of state.elements) {
+    minX = Math.min(minX, el.x); minY = Math.min(minY, el.y);
+    maxX = Math.max(maxX, el.x + el.w); maxY = Math.max(maxY, el.y + el.h);
+  }
+  for (const d of state.drawings) {
+    if (d.type === 'freehand' && d.points) {
+      for (const p of d.points) {
+        minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x); maxY = Math.max(maxY, p.y);
+      }
+    } else if (d.type === 'shape') {
+      minX = Math.min(minX, d.x); minY = Math.min(minY, d.y);
+      maxX = Math.max(maxX, d.x + d.w); maxY = Math.max(maxY, d.y + d.h);
+    }
+  }
+  if (!isFinite(minX)) { minX = -500; minY = -500; maxX = 500; maxY = 500; }
+  const pad = 60; minX -= pad; minY -= pad; maxX += pad; maxY += pad;
+  const worldW = maxX - minX, worldH = maxY - minY;
+  const mmScale = Math.min(MM.width / worldW, MM.height / worldH);
+  const offX = (MM.width - worldW * mmScale) / 2;
+  const offY = (MM.height - worldH * mmScale) / 2;
+
+  const worldCX = (mx - offX) / mmScale + minX;
+  const worldCY = (my - offY) / mmScale + minY;
+
+  const vr = V.getBoundingClientRect();
+  state.offsetX = vr.width / 2 - worldCX * state.scale;
+  state.offsetY = vr.height / 2 - worldCY * state.scale;
+  updateTransform();
+});
+
+// ============================================================================
+// KEYBOARD SHORTCUTS
+// ============================================================================
+document.addEventListener('keydown', (e) => {
+  // Tool shortcuts (don't fire when editing content)
+  if (document.activeElement && document.activeElement.isContentEditable) return;
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT' || e.target.tagName === 'TEXTAREA') return;
+
+  const key = e.key.toLowerCase();
+  if (key === 'v') setTool('select');
+  else if (key === 'n') setTool('note');
+  else if (key === 't') setTool('text');
+  else if (key === 'p') setTool('pen');
+  else if (key === 'e') setTool('eraser');
+  else if (key === 's') setTool('shape');
+  else if (key === 'l') setTool('connect');
+  else if (key === 'escape') {
+    clearSelection();
+    state.connectFrom = null;
+    state.connectLine = null;
+    renderAll();
+    setTool('select');
+  }
+  else if (key === 'delete' || key === 'backspace') {
+    if (state.selectedId) {
+      pushUndo();
+      removeElement(state.selectedId);
+    }
+  }
+  else if ((e.ctrlKey || e.metaKey) && key === 'z') {
+    e.preventDefault();
+    undo();
+  }
+  else if ((e.ctrlKey || e.metaKey) && key === 'y') {
+    e.preventDefault();
+    redo();
+  }
+  else if (key === ' ' && state.tool === 'select') {
+    e.preventDefault();
+    V.classList.add('panning');
+  }
+});
+
+document.addEventListener('keyup', (e) => {
+  if (e.key === ' ') V.classList.remove('panning');
+});
+
+// ============================================================================
+// TOOL SWITCHING
+// ============================================================================
+function setTool(tool) {
+  state.tool = tool;
+  state.connectFrom = null;
+  state.connectLine = null;
+  state.currentPath = null;
+  state.shapeDraft = null;
+  state.panStart = null;
+  V.classList.remove('panning', 'drawing', 'erasing', 'noting');
+
+  document.querySelectorAll('.tb-btn[data-tool]').forEach(b => b.classList.remove('active'));
+  const btn = document.querySelector(`.tb-btn[data-tool="${tool}"]`);
+  if (btn) btn.classList.add('active');
+
+  if (tool === 'select') {
+    DC.classList.remove('active');
+  } else if (tool === 'note') {
+    DC.classList.remove('active');
+  } else if (tool === 'text') {
+    DC.classList.remove('active');
+  } else if (tool === 'connect') {
+    DC.classList.remove('active');
+  } else {
+    DC.classList.add('active');
+  }
+
+  if (tool === 'eraser') {
+    ERASER.classList.add('show');
+    ERASER.style.width = (24) + 'px';
+    ERASER.style.height = (24) + 'px';
+    V.style.cursor = 'none';
+  } else {
+    ERASER.classList.remove('show');
+    V.style.cursor = '';
+  }
+
+  renderAll();
+}
+
+// ============================================================================
+// UNDO / REDO
+// ============================================================================
+function undo() {
+  if (state.undoStack.length === 0) return;
+  state.redoStack.push(cloneState());
+  restoreState(state.undoStack.pop());
+  syncDOM();
+  renderAll();
+  renderMinimap();
+  updateUndoRedoBtns();
+}
+
+function redo() {
+  if (state.redoStack.length === 0) return;
+  state.undoStack.push(cloneState());
+  restoreState(state.redoStack.pop());
+  syncDOM();
+  renderAll();
+  renderMinimap();
+  updateUndoRedoBtns();
+}
+
+function updateUndoRedoBtns() {
+  document.getElementById('btnUndo').disabled = state.undoStack.length === 0;
+  document.getElementById('btnRedo').disabled = state.redoStack.length === 0;
+}
+
+// ============================================================================
+// TOOLBAR EVENT BINDINGS
+// ============================================================================
+document.querySelectorAll('.tb-btn[data-tool]').forEach(btn => {
+  btn.addEventListener('click', () => setTool(btn.dataset.tool));
+});
+
+document.getElementById('btnUndo').addEventListener('click', undo);
+document.getElementById('btnRedo').addEventListener('click', redo);
+
+document.getElementById('penColor').addEventListener('input', (e) => {
+  state.penColor = e.target.value;
+});
+
+document.getElementById('penWidth').addEventListener('input', (e) => {
+  state.penWidth = parseInt(e.target.value);
+  document.getElementById('penWidthVal').textContent = state.penWidth + 'px';
+  const ers = 8 + state.penWidth * 2;
+  ERASER.style.width = ers + 'px';
+  ERASER.style.height = ers + 'px';
+});
+
+document.getElementById('shapeType').addEventListener('change', (e) => {
+  state.shapeType = e.target.value;
+});
+
+document.querySelectorAll('.tb-note-color').forEach(dot => {
+  dot.addEventListener('click', () => {
+    document.querySelectorAll('.tb-note-color').forEach(d => d.classList.remove('active'));
+    dot.classList.add('active');
+    state.noteColor = dot.dataset.color;
+  });
+});
+
+// ============================================================================
+// GLOBAL EVENTS
+// ============================================================================
+document.addEventListener('mousemove', (e) => {
+  if (state.tool === 'eraser') {
+    ERASER.style.left = e.clientX + 'px';
+    ERASER.style.top = e.clientY + 'px';
+  }
+});
+
+// ============================================================================
+// EXPORT FUNCTIONS
+// ============================================================================
+
+function getContentBounds() {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const el of state.elements) {
+    minX = Math.min(minX, el.x);
+    minY = Math.min(minY, el.y);
+    maxX = Math.max(maxX, el.x + el.w);
+    maxY = Math.max(maxY, el.y + el.h);
+  }
+  for (const d of state.drawings) {
+    if (d.type === 'freehand' && d.points && d.points.length > 0) {
+      for (const p of d.points) {
+        minX = Math.min(minX, p.x);
+        minY = Math.min(minY, p.y);
+        maxX = Math.max(maxX, p.x);
+        maxY = Math.max(maxY, p.y);
+      }
+    } else if (d.type === 'shape') {
+      minX = Math.min(minX, d.x);
+      minY = Math.min(minY, d.y);
+      maxX = Math.max(maxX, d.x + d.w);
+      maxY = Math.max(maxY, d.y + d.h);
+    }
+  }
+  if (minX === Infinity) {
+    // No content — use viewport center area
+    const vr = V.getBoundingClientRect();
+    return { x: -vr.width/2, y: -vr.height/2, w: vr.width, h: vr.height };
+  }
+  const pad = 40;
+  return { x: minX - pad, y: minY - pad, w: maxX - minX + pad*2, h: maxY - minY + pad*2 };
+}
+
+function exportPNG() {
+  const bounds = getContentBounds();
+  const dpr = 2; // 2x for retina quality
+  const cw = Math.max(1, Math.ceil(bounds.w * dpr));
+  const ch = Math.max(1, Math.ceil(bounds.h * dpr));
+
+  const offscreen = document.createElement('canvas');
+  offscreen.width = cw;
+  offscreen.height = ch;
+  const ctx = offscreen.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  // Background
+  ctx.fillStyle = '#f8f9fb';
+  ctx.fillRect(0, 0, bounds.w, bounds.h);
+
+  // Grid
+  ctx.strokeStyle = 'rgba(0,0,0,0.04)';
+  ctx.lineWidth = 1;
+  const gridSize = 20;
+  const startX = bounds.x - (bounds.x % gridSize);
+  const startY = bounds.y - (bounds.y % gridSize);
+  ctx.beginPath();
+  for (let gx = startX; gx <= bounds.x + bounds.w; gx += gridSize) {
+    const px = gx - bounds.x;
+    ctx.moveTo(px, 0);
+    ctx.lineTo(px, bounds.h);
+  }
+  for (let gy = startY; gy <= bounds.y + bounds.h; gy += gridSize) {
+    const py = gy - bounds.y;
+    ctx.moveTo(0, py);
+    ctx.lineTo(bounds.w, py);
+  }
+  ctx.stroke();
+
+  // Helper: world coords to offscreen coords
+  function tx(wx) { return wx - bounds.x; }
+  function ty(wy) { return wy - bounds.y; }
+
+  // Draw connections
+  for (const c of state.connections) {
+    const from = findElementById(c.fromId) || state.drawings.find(d => d.id === c.fromId);
+    const to = findElementById(c.toId) || state.drawings.find(d => d.id === c.toId);
+    if (!from || !to) continue;
+    const fcx = from.x + (from.w || 0) / 2, fcy = from.y + (from.h || 0) / 2;
+    const tcx = to.x + (to.w || 0) / 2, tcy = to.y + (to.h || 0) / 2;
+    ctx.strokeStyle = c.color || '#6979f8';
+    ctx.lineWidth = c.width || 2;
+    ctx.beginPath();
+    ctx.moveTo(tx(fcx), ty(fcy));
+    ctx.lineTo(tx(tcx), ty(tcy));
+    ctx.stroke();
+    // Arrow
+    const angle = Math.atan2(tcy - fcy, tcx - fcx);
+    const aLen = 10;
+    ctx.beginPath();
+    ctx.moveTo(tx(tcx), ty(tcy));
+    ctx.lineTo(tx(tcx - aLen * Math.cos(angle - 0.4)), ty(tcy - aLen * Math.sin(angle - 0.4)));
+    ctx.moveTo(tx(tcx), ty(tcy));
+    ctx.lineTo(tx(tcx - aLen * Math.cos(angle + 0.4)), ty(tcy - aLen * Math.sin(angle + 0.4)));
+    ctx.stroke();
+  }
+
+  // Draw shapes & freehand
+  for (const d of state.drawings) {
+    if (d.type === 'freehand' && d.points && d.points.length > 1) {
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = d.width;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.beginPath();
+      ctx.moveTo(tx(d.points[0].x), ty(d.points[0].y));
+      for (let i = 1; i < d.points.length; i++) {
+        ctx.lineTo(tx(d.points[i].x), ty(d.points[i].y));
+      }
+      ctx.stroke();
+    } else if (d.type === 'shape') {
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = d.width;
+      const sx = tx(d.x), sy = ty(d.y), sw = d.w, sh = d.h;
+      ctx.beginPath();
+      if (d.shapeType === 'rect') {
+        ctx.rect(sx, sy, sw, sh);
+      } else if (d.shapeType === 'circle') {
+        ctx.ellipse(sx + sw/2, sy + sh/2, Math.abs(sw/2), Math.abs(sh/2), 0, 0, Math.PI*2);
+      } else if (d.shapeType === 'triangle') {
+        ctx.moveTo(sx + sw/2, sy);
+        ctx.lineTo(sx + sw, sy + sh);
+        ctx.lineTo(sx, sy + sh);
+        ctx.closePath();
+      } else if (d.shapeType === 'diamond') {
+        ctx.moveTo(sx + sw/2, sy);
+        ctx.lineTo(sx + sw, sy + sh/2);
+        ctx.lineTo(sx + sw/2, sy + sh);
+        ctx.lineTo(sx, sy + sh/2);
+        ctx.closePath();
+      }
+      ctx.stroke();
+    }
+  }
+
+  // Draw elements (notes & textboxes)
+  for (const el of state.elements) {
+    const ex = tx(el.x), ey = ty(el.y);
+    if (el.type === 'note') {
+      // Note background
+      ctx.fillStyle = el.color || '#FEF3C7';
+      ctx.shadowColor = 'rgba(0,0,0,0.08)';
+      ctx.shadowBlur = 8;
+      ctx.shadowOffsetY = 2;
+      roundRect(ctx, ex, ey, el.w, el.h, 6);
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+      // Note text
+      ctx.fillStyle = '#1a1a2e';
+      ctx.font = '13px -apple-system, BlinkMacSystemFont, sans-serif';
+      wrapText(ctx, el.text || '', ex + 12, ey + 28, el.w - 24, 18);
+    } else if (el.type === 'text') {
+      ctx.fillStyle = el.color || '#1a1a2e';
+      const fs = el.fontSize || 16;
+      ctx.font = fs + 'px -apple-system, BlinkMacSystemFont, sans-serif';
+      wrapText(ctx, el.text || '', ex + 8, ey + fs + 4, el.w - 16, fs * 1.4);
+    }
+  }
+
+  // Download
+  const link = document.createElement('a');
+  link.download = 'board-export-' + Date.now() + '.png';
+  link.href = offscreen.toDataURL('image/png');
+  link.click();
+  showToast('PNG 已导出');
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function wrapText(ctx, text, x, y, maxW, lineH) {
+  const lines = text.split('\n');
+  let cy = y;
+  for (const line of lines) {
+    let remain = line;
+    while (remain.length > 0) {
+      let cut = remain.length;
+      while (cut > 0 && ctx.measureText(remain.substring(0, cut)).width > maxW) cut--;
+      if (cut === 0) cut = 1;
+      ctx.fillText(remain.substring(0, cut), x, cy);
+      remain = remain.substring(cut);
+      cy += lineH;
+    }
+    if (line === '') cy += lineH;
+  }
+}
+
+function exportJSON() {
+  const data = {
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    elements: state.elements.map(e => ({...e})),
+    drawings: state.drawings.map(d => ({
+      ...d,
+      points: d.points ? d.points.map(p => ({...p})) : undefined
+    })),
+    connections: state.connections.map(c => ({...c})),
+  };
+
+  // Enrich with text descriptions for agent consumption
+  const summary = [];
+  for (const el of state.elements) {
+    if (el.type === 'note') {
+      summary.push(`便签(${el.color}, ${Math.round(el.x)},${Math.round(el.y)}): "${el.text || ''}"`);
+    } else if (el.type === 'text') {
+      summary.push(`文本框(${Math.round(el.x)},${Math.round(el.y)}): "${el.text || ''}"`);
+    }
+  }
+  for (const d of state.drawings) {
+    if (d.type === 'freehand') {
+      summary.push(`画笔(${d.color}, ${d.width}px, ${d.points ? d.points.length : 0}点)`);
+    } else if (d.type === 'shape') {
+      summary.push(`图形-${d.shapeType}(${d.color}, ${Math.round(d.x)},${Math.round(d.y)}, ${Math.round(d.w)}x${Math.round(d.h)})`);
+    }
+  }
+  for (const c of state.connections) {
+    const from = findElementById(c.fromId);
+    const to = findElementById(c.toId);
+    summary.push(`连线: ${(from?.text || c.fromId).substring(0,20)} → ${(to?.text || c.toId).substring(0,20)}`);
+  }
+
+  const fullJSON = JSON.stringify(data, null, 2);
+  const summaryJSON = JSON.stringify({ ...data, _summary: summary }, null, 2);
+
+  showModal(
+    '导出 JSON 数据',
+    `共 ${state.elements.length} 个元素，${state.drawings.length} 条画笔/图形，${state.connections.length} 条连线。可复制后粘贴给 Agent 使用。`,
+    summaryJSON,
+    () => {
+      // Copy
+      navigator.clipboard.writeText(summaryJSON).then(() => {
+        showToast('JSON 已复制到剪贴板');
+      }).catch(() => {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = summaryJSON;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        showToast('JSON 已复制到剪贴板');
+      });
+    },
+    () => {
+      // Download
+      const blob = new Blob([fullJSON], { type: 'application/json' });
+      const link = document.createElement('a');
+      link.download = 'board-export-' + Date.now() + '.json';
+      link.href = URL.createObjectURL(blob);
+      link.click();
+      URL.revokeObjectURL(link.href);
+      showToast('JSON 文件已下载');
+    }
+  );
+}
+
+// ===== MODAL =====
+let _modalCopyFn = null;
+let _modalDownloadFn = null;
+
+function showModal(title, info, content, copyFn, downloadFn) {
+  document.getElementById('modalTitle').textContent = title;
+  document.getElementById('modalInfo').textContent = info;
+  document.getElementById('modalPre').textContent = content;
+  _modalCopyFn = copyFn;
+  _modalDownloadFn = downloadFn;
+  document.getElementById('exportModal').classList.remove('hidden');
+}
+
+function hideModal() {
+  document.getElementById('exportModal').classList.add('hidden');
+  _modalCopyFn = null;
+  _modalDownloadFn = null;
+}
+
+document.getElementById('modalClose').addEventListener('click', hideModal);
+document.getElementById('exportModal').addEventListener('click', (e) => {
+  if (e.target === e.currentTarget) hideModal();
+});
+document.getElementById('modalCopy').addEventListener('click', () => { if (_modalCopyFn) _modalCopyFn(); });
+document.getElementById('modalDownload').addEventListener('click', () => { if (_modalDownloadFn) _modalDownloadFn(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !document.getElementById('exportModal').classList.contains('hidden')) {
+    hideModal();
+  }
+});
+
+// ===== EXPORT BUTTON BINDINGS =====
+document.getElementById('btnExportPNG').addEventListener('click', exportPNG);
+document.getElementById('btnExportJSON').addEventListener('click', exportJSON);
+
+// ============================================================================
+// INIT
+// ============================================================================
+function init() {
+  resizeCanvas();
+
+  // Set initial viewport to center
+  const vr = V.getBoundingClientRect();
+  state.offsetX = vr.width / 2;
+  state.offsetY = vr.height / 2;
+  state.scale = 1;
+
+  updateTransform();
+  setTool('select');
+}
+
+// Handle window resize
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  renderAll();
+  renderMinimap();
+});
+
+init();
+
+console.log('Board 白板已就绪');
+console.log('快捷键: V-选择 N-便签 T-文本 P-画笔 E-橡皮 S-图形 L-连线');
+console.log('操作: 滚轮缩放 | 拖拽平移 | 右键便签换色/删除 | 双击编辑 | Ctrl+Z/Y 撤销/重做');
+</script>
+</body>
+</html>

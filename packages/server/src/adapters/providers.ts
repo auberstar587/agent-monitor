@@ -12,7 +12,7 @@
 //
 // 借鉴：WeSight libs/agentEngine/providers/ 设计思想
 
-export type ProviderId = 'anthropic' | 'openai' | 'deepseek' | 'ollama' | 'mock';
+export type ProviderId = 'anthropic' | 'openai' | 'deepseek' | 'ollama' | 'gemini' | 'qwen' | 'moonshot' | 'custom-openai' | 'mock';
 
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool';
@@ -81,12 +81,48 @@ function costFromTable(
 }
 
 // ---------------------------------------------------------------------
+// 公共 SSE 流解析器 — 从 fetch Response 中提取 JSON data 事件
+// P2-10：从 Anthropic / openaiCompatStream 内联代码抽出
+// ---------------------------------------------------------------------
+async function parseSSEResponse(
+  response: Response,
+  handler: (data: any) => void,
+): Promise<void> {
+  const reader = response.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() ?? '';
+    for (const part of parts) {
+      if (!part.trim()) continue;
+      for (const line of part.split('\n')) {
+        if (!line.startsWith('data:')) continue;
+        const raw = line.slice(5).trim();
+        if (raw === '[DONE]') continue;
+        try {
+          handler(JSON.parse(raw));
+        } catch {
+          // 忽略解析错误（心跳/SSE 注释）
+        }
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------
 // 解析 model 名前缀 → 路由到 provider
 // 规则：
 //   claude-*  → anthropic
 //   gpt-* / o1-* / o3-* / o4-*  → openai
 //   deepseek-*  → deepseek
-//   ollama:* 或 llama* / qwen* / mistral*（无前缀） → ollama
+//   gemini-*  → gemini
+//   qwen-*  → qwen
+//   moonshot-*  → moonshot
+//   ollama:* 或 llama* / mistral*（无前缀） → ollama
 //   其余 → 抛错
 // ---------------------------------------------------------------------
 
@@ -101,6 +137,9 @@ export function resolveProvider(model: string): Provider {
     return getProvider('openai');
   }
   if (m.startsWith('deepseek-')) return getProvider('deepseek');
+  if (m.startsWith('gemini-')) return getProvider('gemini');
+  if (m.startsWith('qwen-')) return getProvider('qwen');
+  if (m.startsWith('moonshot-')) return getProvider('moonshot');
   if (m.startsWith('ollama:') || m.includes('llama') || m.includes('qwen') || m.includes('mistral')) {
     return getProvider('ollama');
   }
@@ -164,38 +203,27 @@ async function* openaiCompatStream(
     const text = await resp.text().catch(() => '');
     throw new Error(`[providers] ${req.model} HTTP ${resp.status}: ${text.slice(0, 200)}`);
   }
-  const reader = resp.body.getReader();
-  const decoder = new TextDecoder();
-  let buf = '';
-  for (;;) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buf += decoder.decode(value, { stream: true });
-    const lines = buf.split('\n');
-    buf = lines.pop() ?? '';
-    for (const line of lines) {
-      const t = line.trim();
-      if (!t.startsWith('data:')) continue;
-      const payload = t.slice(5).trim();
-      if (payload === '[DONE]') {
-        return;
-      }
-      try {
-        const json = JSON.parse(payload) as OpenAICompatChunk;
-        const delta = json.choices?.[0]?.delta?.content ?? '';
-        const usage = json.usage
-          ? {
-              inputTokens: json.usage.prompt_tokens ?? 0,
-              outputTokens: json.usage.completion_tokens ?? 0,
-            }
-          : undefined;
-        yield { delta, done: false, usage };
-        if (usage) yield { delta: '', done: true, usage };
-      } catch {
-        // 忽略解析错误（心跳/SSE 注释）
-      }
+  // P2-10: 用 parseSSEResponse 替代内联 SSE 解析
+  const chunks: ChatChunk[] = [];
+  let settled = false;
+  await parseSSEResponse(resp, (json: OpenAICompatChunk) => {
+    const delta = json.choices?.[0]?.delta?.content ?? '';
+    const usage = json.usage
+      ? {
+          inputTokens: json.usage.prompt_tokens ?? 0,
+          outputTokens: json.usage.completion_tokens ?? 0,
+        }
+      : undefined;
+    chunks.push({ delta, done: false, usage });
+    if (usage) {
+      chunks.push({ delta: '', done: true, usage });
+      settled = true;
     }
+  });
+  if (!settled) {
+    chunks.push({ delta: '', done: true });
   }
+  yield* chunks;
 }
 
 // ---------------------------------------------------------------------
@@ -232,44 +260,23 @@ function makeAnthropic(): Provider {
         const text = await resp.text().catch(() => '');
         throw new Error(`[providers] anthropic ${req.model} HTTP ${resp.status}: ${text.slice(0, 200)}`);
       }
-      const reader = resp.body.getReader();
-      const decoder = new TextDecoder();
-      let buf = '';
+      // P2-10: 用 parseSSEResponse 替代内联 SSE 解析
+      const chunks: ChatChunk[] = [];
       let inputTokens = 0;
       let outputTokens = 0;
-      for (;;) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buf += decoder.decode(value, { stream: true });
-        const lines = buf.split('\n');
-        buf = lines.pop() ?? '';
-        for (const line of lines) {
-          const t = line.trim();
-          if (!t.startsWith('data:')) continue;
-          const payload = t.slice(5).trim();
-          if (!payload) continue;
-          try {
-            const ev = JSON.parse(payload) as {
-              type: string;
-              delta?: { type: string; text?: string };
-              message?: { usage?: { input_tokens: number; output_tokens: number } };
-            };
-            if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
-              yield { delta: ev.delta.text ?? '', done: false };
-            } else if (ev.type === 'message_start' && ev.message?.usage) {
-              inputTokens = ev.message.usage.input_tokens ?? 0;
-            } else if (ev.type === 'message_delta') {
-              const u = (ev as unknown as { usage?: { output_tokens: number } }).usage;
-              if (u?.output_tokens !== undefined) outputTokens = u.output_tokens;
-            } else if (ev.type === 'message_stop') {
-              yield { delta: '', done: true, usage: { inputTokens, outputTokens } };
-              return;
-            }
-          } catch {
-            // 忽略
-          }
+      await parseSSEResponse(resp, (ev: any) => {
+        if (ev.type === 'content_block_delta' && ev.delta?.type === 'text_delta') {
+          chunks.push({ delta: ev.delta.text ?? '', done: false });
+        } else if (ev.type === 'message_start' && ev.message?.usage) {
+          inputTokens = ev.message.usage.input_tokens ?? 0;
+        } else if (ev.type === 'message_delta') {
+          const u = (ev as { usage?: { output_tokens: number } }).usage;
+          if (u?.output_tokens !== undefined) outputTokens = u.output_tokens;
+        } else if (ev.type === 'message_stop') {
+          chunks.push({ delta: '', done: true, usage: { inputTokens, outputTokens } });
         }
-      }
+      });
+      yield* chunks;
     },
     cost(model, inputTokens, outputTokens) {
       // 2026-06 简表（USD cents per 1k tokens）
@@ -355,6 +362,150 @@ function makeOllama(): Provider {
   };
 }
 
+// ---------------------------------------------------------------------
+// P2-8: 新增 Gemini / Qwen / Moonshot / Custom OpenAI Compatible
+// ---------------------------------------------------------------------
+
+function makeGemini(): Provider {
+  return {
+    id: 'gemini',
+    async *chat(req) {
+      const apiKey = process.env.GOOGLE_API_KEY ?? process.env.GEMINI_API_KEY;
+      if (!apiKey) throw new Error('[providers] GOOGLE_API_KEY or GEMINI_API_KEY not set');
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/${req.model}:streamGenerateContent?key=${apiKey}&alt=sse`;
+      // Gemini messages 格式：转成 contents 数组
+      const contents = req.messages
+        .filter((m) => m.role !== 'system')
+        .map((m) => ({
+          role: m.role === 'assistant' ? 'model' : 'user',
+          parts: [{ text: m.content }],
+        }));
+      const systemInstruction = req.messages.find((m) => m.role === 'system');
+      const body: Record<string, unknown> = {
+        contents,
+        generationConfig: {
+          temperature: req.temperature ?? 1.0,
+          maxOutputTokens: req.maxTokens ?? 4096,
+        },
+      };
+      if (systemInstruction) {
+        body.systemInstruction = { parts: [{ text: systemInstruction.content }] };
+      }
+      const resp = await fetchWithTimeout(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok || !resp.body) {
+        const text = await resp.text().catch(() => '');
+        throw new Error(`[providers] gemini ${req.model} HTTP ${resp.status}: ${text.slice(0, 200)}`);
+      }
+      // Gemini SSE 格式：每块 data 是 {"candidates":[{"content":{"parts":[{"text":"..."}]}}]}
+      // 复用 parseSSEResponse
+      const chunks: ChatChunk[] = [];
+      await parseSSEResponse(resp, (data: any) => {
+        const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (text !== undefined) {
+          chunks.push({ delta: text, done: false });
+        }
+        // 流结束标记：finishReason 存在或没有更多 candidates
+        if (data?.candidates?.[0]?.finishReason) {
+          chunks.push({ delta: '', done: true, usage: { inputTokens: 0, outputTokens: 0 } });
+        }
+      });
+      // 如果没有明确的结束标记，手动追加
+      if (chunks.length > 0 && !chunks[chunks.length - 1].done) {
+        chunks.push({ delta: '', done: true });
+      }
+      yield* chunks;
+    },
+    cost(model, inputTokens, outputTokens) {
+      // 定价 per 1M tokens（USD cents per 1k tokens）
+      const table: Record<string, { in: number; out: number }> = {
+        'gemini-2.5-pro': { in: 1.25, out: 10 },
+        'gemini-2.0-flash': { in: 0.075, out: 0.30 },
+      };
+      const m = costFromTable(table, model);
+      if (!m) {
+        console.warn(`[providers] gemini cost(): unknown model "${model}"，返回 0 避免账单污染`);
+        return 0;
+      }
+      return (inputTokens / 1000) * m.in + (outputTokens / 1000) * m.out;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------
+// OpenAI 兼容工厂 — Qwen / Moonshot / Custom 共用
+// ---------------------------------------------------------------------
+function makeOpenAICompatible(
+  providerId: ProviderId,
+  baseURL: string,
+  apiKey: string | undefined,
+  defaultModel: string,
+  pricing: Record<string, { in: number; out: number }> | null,
+): Provider {
+  return {
+    id: providerId,
+    chat(req) {
+      if (!apiKey) {
+        throw new Error(`[providers] ${providerId} API key not set`);
+      }
+      const actualReq = { ...req, model: req.model || defaultModel };
+      return openaiCompatStream(`${baseURL}/chat/completions`, apiKey, actualReq);
+    },
+    cost(model, inputTokens, outputTokens) {
+      if (!pricing) {
+        console.warn(`[providers] ${providerId} cost(): no pricing table，返回 0`);
+        return 0;
+      }
+      const m = costFromTable(pricing, model);
+      if (!m) {
+        console.warn(`[providers] ${providerId} cost(): unknown model "${model}"，返回 0 避免账单污染`);
+        return 0;
+      }
+      return (inputTokens / 1000) * m.in + (outputTokens / 1000) * m.out;
+    },
+  };
+}
+
+function makeQwen(): Provider {
+  return makeOpenAICompatible(
+    'qwen',
+    'https://dashscope.aliyuncs.com/compatible-mode/v1',
+    process.env.DASHSCOPE_API_KEY,
+    'qwen-plus',
+    {
+      'qwen-max': { in: 2.40, out: 9.60 },
+      'qwen-plus': { in: 0.80, out: 2.40 },
+      'qwen-turbo': { in: 0.30, out: 0.60 },
+    },
+  );
+}
+
+function makeMoonshot(): Provider {
+  return makeOpenAICompatible(
+    'moonshot',
+    'https://api.moonshot.cn/v1',
+    process.env.MOONSHOT_API_KEY,
+    'moonshot-v1-8k',
+    {
+      'moonshot-v1-32k': { in: 1.0, out: 1.0 },
+      'moonshot-v1-8k': { in: 1.0, out: 1.0 },
+    },
+  );
+}
+
+function makeCustomOpenAI(): Provider {
+  return makeOpenAICompatible(
+    'custom-openai',
+    process.env.CUSTOM_OPENAI_BASE_URL ?? '',
+    process.env.CUSTOM_OPENAI_API_KEY,
+    process.env.CUSTOM_OPENAI_MODEL ?? 'gpt-4o',
+    null, // 定价未知
+  );
+}
+
 function makeMock(): Provider {
   // 给单测用：永远不调真实 API
   return {
@@ -368,9 +519,13 @@ function makeMock(): Provider {
   };
 }
 
-// 启动时注册 5 个 provider
+// 启动时注册 9 个 provider
 registerProvider('anthropic', makeAnthropic);
 registerProvider('openai', makeOpenAI);
 registerProvider('deepseek', makeDeepSeek);
 registerProvider('ollama', makeOllama);
+registerProvider('gemini', makeGemini);
+registerProvider('qwen', makeQwen);
+registerProvider('moonshot', makeMoonshot);
+registerProvider('custom-openai', makeCustomOpenAI);
 registerProvider('mock', makeMock);

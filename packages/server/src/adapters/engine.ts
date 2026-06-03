@@ -129,8 +129,8 @@ export function startMetrics(
     ttftMs: undefined,
     outputTps: undefined,
     estimatedModelTps: undefined,
-    toolLatencyMs: 0,
-    agentSteps: 0,
+    toolLatencyMs: undefined,
+    agentSteps: undefined,
     costCents: undefined,
     model: opts.model,
   };
@@ -205,6 +205,13 @@ export function getMetrics(runId: string): RunMetricsHandle | null {
 
 export function clearMetrics(runId: string): void {
   _metricsStore.delete(runId);
+  // 同步删除 DB 行（fire-and-forget，与 persistRunMetrics 保持一致的动态 import 风格）
+  void (async () => {
+    try {
+      const { query } = await import('../db/client.js');
+      await query('DELETE FROM runtime_calls WHERE run_id = $1', [runId]);
+    } catch { /* 删除失败不影响主流程 */ }
+  })();
 }
 
 // ---------------------------------------------------------------------

@@ -1,20 +1,27 @@
 import { useEffect, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
-import { ArrowLeft, Edit3, Check, X, Bot, Activity } from "lucide-react";
+import { ArrowLeft, Edit3, Check, X, Bot, Activity, Trash2, ArrowUpRight } from "lucide-react";
 
 export default function AgentDetail() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [agent, setAgent] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<string | null>(null);
   const [editVal, setEditVal] = useState("");
+  const [currentTaskTitle, setCurrentTaskTitle] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
     setError(null);
     api.getAgent(id)
-      .then(setAgent)
+      .then((a) => {
+        setAgent(a);
+        if (a.current_task_id) {
+          api.getTask(a.current_task_id).then((t) => setCurrentTaskTitle(t?.title || null)).catch(() => {});
+        }
+      })
       .catch((err) => {
         const msg = err?.message || String(err);
         if (/400|invalid id/i.test(msg)) {
@@ -62,11 +69,31 @@ export default function AgentDetail() {
   const totalOps = (quality.successCount || 0) + (quality.failCount || 0);
   const successRate = totalOps > 0 ? Math.round((quality.successCount / totalOps) * 100) : 0;
 
+  const handleDelete = async () => {
+    if (!confirm(`确定移除 Agent "${agent.name}"？`)) return;
+    try {
+      await api.deleteAgent(agent.id);
+      navigate("/agents");
+    } catch (err: any) {
+      alert(`删除失败：${err?.message || err}`);
+    }
+  };
+
   return (
     <div className="p-6 max-w-4xl">
-      <Link to="/agents" className="flex items-center gap-1 text-xs mb-4" style={{ color: "var(--muted)" }}>
-        <ArrowLeft size={14} /> 返回 Agent 列表
-      </Link>
+      <div className="flex items-center mb-4">
+        <Link to="/agents" className="flex items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
+          <ArrowLeft size={14} /> 返回 Agent 列表
+        </Link>
+        <button
+          onClick={handleDelete}
+          className="icon-btn ml-auto"
+          style={{ color: "var(--danger)" }}
+          title="删除该 Agent"
+        >
+          <Trash2 size={14} />
+        </button>
+      </div>
 
       {/* Header */}
       <div className="flex items-center gap-3 mb-6">
@@ -133,6 +160,34 @@ export default function AgentDetail() {
           <p className="text-[10px]" style={{ color: "var(--muted)" }}>失败次数</p>
         </div>
       </div>
+
+      {/* P8-10: Capabilities 卡片 */}
+      <div className="mb-6">
+        <h3 className="section-title mb-2">能力</h3>
+        {(!agent.capabilities || agent.capabilities.length === 0) ? (
+          <div className="text-xs" style={{ color: "var(--muted)" }}>暂无能力记录</div>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
+            {agent.capabilities.map((c: string, i: number) => (
+              <span key={i} className="tech-badge mono">{c}</span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 当前任务 */}
+      {agent.current_task_id && (
+        <div className="mb-6">
+          <h3 className="section-title mb-2">当前任务</h3>
+          <Link to={`/tasks/${agent.current_task_id}`} className="list-row no-underline cursor-pointer">
+            <span className="status-pill status-running">运行中</span>
+            <span className="text-sm flex-1" style={{ color: "var(--text)" }}>
+              {currentTaskTitle || agent.current_task_id.slice(0, 8) + "…"}
+            </span>
+            <ArrowUpRight size={14} style={{ color: "var(--muted)" }} />
+          </Link>
+        </div>
+      )}
 
       {/* Traces */}
       <div>

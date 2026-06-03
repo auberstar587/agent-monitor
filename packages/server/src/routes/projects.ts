@@ -5,6 +5,7 @@ import {
   addRelation, getRelations, removeRelation,
 } from "../services/project-registry.js";
 import { buildContext } from "../services/context-injector.js";
+import { query } from "../db/client.js";
 
 export async function projectRoutes(fastify: FastifyInstance) {
   fastify.get("/api/projects", async (req: FastifyRequest) => {
@@ -76,5 +77,25 @@ export async function projectRoutes(fastify: FastifyInstance) {
     const ctx = await buildContext(id);
     if (!ctx.project) return reply.code(404).send({ error: "project not found" });
     return ctx;
+  });
+
+  // P8-05: 项目统计端点
+  fastify.get("/api/projects/:id/stats", async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as { id: string };
+    if (!requireUUID(id, reply)) return;
+
+    // 聚合 tasks 各状态数量
+    const rows = await query<{ status: string; count: number }>("SELECT status, COUNT(*)::int as count FROM tasks WHERE project_id = $1 GROUP BY status", [id]);
+    const tasks: Record<string, number> = { total: 0, pending: 0, in_progress: 0, completed: 0, failed: 0, cancelled: 0 };
+    for (const r of rows) {
+      tasks[r.status] = r.count;
+      tasks.total += r.count;
+    }
+
+    // 活跃 agent 数（有 assignee_id 且 status = in_progress）
+    const activeRows = await query<{ count: number }>("SELECT COUNT(DISTINCT assignee_id)::int as count FROM tasks WHERE project_id = $1 AND status = 'in_progress' AND assignee_id IS NOT NULL", [id]);
+    const agents = { assigned: activeRows[0]?.count ?? 0 };
+
+    return { tasks, agents };
   });
 }

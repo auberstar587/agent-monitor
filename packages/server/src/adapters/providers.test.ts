@@ -27,6 +27,22 @@ describe('providers: resolveProvider', () => {
     expect(resolveProvider('mistral-7b').id).toBe('ollama');
   });
 
+  it('gemini-* → gemini', () => {
+    expect(resolveProvider('gemini-2.0-flash').id).toBe('gemini');
+    expect(resolveProvider('gemini-2.5-pro').id).toBe('gemini');
+  });
+
+  it('qwen-* → qwen（带连字符走阿里云 API）', () => {
+    expect(resolveProvider('qwen-plus').id).toBe('qwen');
+    expect(resolveProvider('qwen-max').id).toBe('qwen');
+    expect(resolveProvider('qwen-turbo').id).toBe('qwen');
+  });
+
+  it('moonshot-* → moonshot', () => {
+    expect(resolveProvider('moonshot-v1-8k').id).toBe('moonshot');
+    expect(resolveProvider('moonshot-v1-32k').id).toBe('moonshot');
+  });
+
   it('未知 model 抛错', () => {
     expect(() => resolveProvider('foobar-xyz')).toThrow(/cannot resolve provider/);
   });
@@ -38,11 +54,15 @@ describe('providers: resolveProvider', () => {
 });
 
 describe('providers: 注册表', () => {
-  it('5 个内置 provider 全部注册', () => {
+  it('9 个内置 provider 全部注册', () => {
     expect(getProvider('anthropic').id).toBe('anthropic');
     expect(getProvider('openai').id).toBe('openai');
     expect(getProvider('deepseek').id).toBe('deepseek');
     expect(getProvider('ollama').id).toBe('ollama');
+    expect(getProvider('gemini').id).toBe('gemini');
+    expect(getProvider('qwen').id).toBe('qwen');
+    expect(getProvider('moonshot').id).toBe('moonshot');
+    expect(getProvider('custom-openai').id).toBe('custom-openai');
     expect(getProvider('mock').id).toBe('mock');
   });
 
@@ -104,6 +124,32 @@ describe('providers: cost 估算（不调 API）', () => {
   it('mock cost=0', () => {
     const p = getProvider('mock');
     expect(p.cost('anything', 100, 100)).toBe(0);
+  });
+
+  it('gemini-2.0-flash 估算 cost', () => {
+    const p = getProvider('gemini');
+    const cents = p.cost('gemini-2.0-flash', 1000, 1000);
+    // 1k * 0.075/1000 + 1k * 0.30/1000 = 0.075 + 0.30 = 0.375 cents
+    expect(cents).toBeCloseTo(0.375, 3);
+  });
+
+  it('qwen-plus 估算 cost', () => {
+    const p = getProvider('qwen');
+    const cents = p.cost('qwen-plus', 1000, 1000);
+    // 1k * 0.80/1000 + 1k * 2.40/1000 = 0.80 + 2.40 = 3.2 cents
+    expect(cents).toBeCloseTo(3.2, 1);
+  });
+
+  it('moonshot-v1-8k 估算 cost', () => {
+    const p = getProvider('moonshot');
+    const cents = p.cost('moonshot-v1-8k', 1000, 1000);
+    // 1k * 1.0/1000 + 1k * 1.0/1000 = 1.0 + 1.0 = 2.0 cents
+    expect(cents).toBeCloseTo(2.0, 1);
+  });
+
+  it('custom-openai 无定价返回 0', () => {
+    const p = getProvider('custom-openai');
+    expect(p.cost('gpt-4o', 1000, 1000)).toBe(0);
   });
 });
 

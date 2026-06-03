@@ -1,0 +1,1591 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Design System · 概览</title>
+<style>
+/* =========================================================
+   Reset & Base
+   ========================================================= */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  /* Surfaces */
+  --bg-app:        #0A0A0B;
+  --bg-sidebar:    #0D0D0F;
+  --bg-elevated:   #131316;
+  --bg-card:       #16161A;
+  --bg-card-hover: #1B1B20;
+  --bg-input:      #0E0E11;
+
+  /* Borders */
+  --border-subtle: #1F1F23;
+  --border-default: #2A2A30;
+  --border-strong: #3A3A42;
+  --border-focus:  #5E6AD2;
+
+  /* Text */
+  --text-primary:   #EDEDEF;
+  --text-secondary: #B4B7BD;
+  --text-tertiary:  #8A8D94;
+  --text-muted:     #62666D;
+  --text-disabled:  #3D3F45;
+
+  /* Brand */
+  --brand-50:  #F0F1FB;
+  --brand-100: #D9DCF4;
+  --brand-200: #B3B9E9;
+  --brand-300: #8D95DD;
+  --brand-400: #717DDE;
+  --brand-500: #5E6AD2;
+  --brand-600: #4A55B8;
+  --brand-700: #3A438F;
+  --brand-800: #2A3066;
+  --brand-900: #1A1E3D;
+
+  /* Neutrals */
+  --neutral-0:   #FFFFFF;
+  --neutral-50:  #F7F8F8;
+  --neutral-100: #EEEFF1;
+  --neutral-200: #D7D9DD;
+  --neutral-300: #B4B7BD;
+  --neutral-400: #8A8D94;
+  --neutral-500: #62666D;
+  --neutral-600: #494C52;
+  --neutral-700: #2F3137;
+  --neutral-800: #1B1C1F;
+  --neutral-900: #131316;
+  --neutral-950: #08090A;
+
+  /* Semantic */
+  --success-500: #4CB782;
+  --success-600: #3FA571;
+  --success-bg:  rgba(76, 183, 130, 0.12);
+
+  --warning-500: #F2C94C;
+  --warning-600: #DBB23D;
+  --warning-bg:  rgba(242, 201, 76, 0.12);
+
+  --error-500:   #EB5757;
+  --error-600:   #D04545;
+  --error-bg:    rgba(235, 87, 87, 0.12);
+
+  --info-500:    #5E6AD2;
+  --info-bg:     rgba(94, 106, 210, 0.12);
+
+  /* Type */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", "Fira Code", Menlo, Consolas, monospace;
+
+  /* Radii */
+  --r-xs: 4px;
+  --r-sm: 6px;
+  --r-md: 8px;
+  --r-lg: 12px;
+  --r-xl: 16px;
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --dur-fast: 120ms;
+  --dur-base: 200ms;
+  --dur-slow: 320ms;
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-size: 14px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "cv11", "ss01", "ss03";
+}
+
+a { color: inherit; text-decoration: none; }
+button { font-family: inherit; cursor: pointer; border: none; background: none; color: inherit; }
+code, pre { font-family: var(--font-mono); }
+
+/* =========================================================
+   Layout
+   ========================================================= */
+.app {
+  display: grid;
+  grid-template-columns: 264px 1fr;
+  min-height: 100vh;
+}
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0; left: 0; bottom: 0;
+  width: 264px;
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  padding: 24px 16px;
+  z-index: 50;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 8px 24px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 16px;
+}
+.brand-mark {
+  width: 28px; height: 28px;
+  border-radius: 7px;
+  background: linear-gradient(135deg, var(--brand-400), var(--brand-600));
+  display: grid; place-items: center;
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  box-shadow: 0 4px 12px rgba(94, 106, 210, 0.35);
+}
+.brand-name { font-weight: 600; font-size: 14px; letter-spacing: -0.01em; }
+.brand-version {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+}
+
+.nav-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-muted);
+  padding: 12px 8px 8px;
+  font-weight: 500;
+}
+
+.nav { display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+  user-select: none;
+}
+.nav-item:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+.nav-item.active {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+.nav-item .nav-icon { width: 15px; height: 15px; opacity: 0.7; }
+.nav-item.active .nav-icon { opacity: 1; color: var(--brand-400); }
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 16px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 16px 8px 4px;
+}
+.avatar {
+  width: 24px; height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #717DDE, #4A55B8);
+  display: grid; place-items: center;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+/* Main */
+.main {
+  grid-column: 2;
+  min-width: 0;
+}
+
+.content {
+  max-width: 920px;
+  margin: 0 auto;
+  padding: 64px 48px 128px;
+}
+
+.section { margin-bottom: 96px; scroll-margin-top: 32px; }
+.section:last-child { margin-bottom: 0; }
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin-bottom: 12px;
+}
+.eyebrow::before {
+  content: "";
+  width: 8px; height: 8px;
+  background: var(--brand-500);
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.18);
+}
+
+.section-title {
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+.section-sub {
+  font-size: 15px;
+  color: var(--text-tertiary);
+  margin-bottom: 40px;
+  max-width: 640px;
+  line-height: 1.6;
+}
+
+h3.subsection {
+  font-size: 13px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-tertiary);
+  margin: 40px 0 16px;
+}
+
+/* =========================================================
+   Overview
+   ========================================================= */
+.hero {
+  position: relative;
+  padding: 56px 0 40px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 56px;
+}
+.hero h1 {
+  font-size: 52px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin-bottom: 20px;
+  background: linear-gradient(180deg, #FFF 0%, #B4B7BD 130%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.hero p {
+  font-size: 17px;
+  color: var(--text-secondary);
+  max-width: 580px;
+  line-height: 1.55;
+  margin-bottom: 32px;
+}
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+}
+.badge .dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--success-500);
+  box-shadow: 0 0 0 2px rgba(76, 183, 130, 0.2);
+}
+
+.pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 24px;
+}
+.pillar {
+  padding: 20px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  transition: all var(--dur-base) var(--ease);
+}
+.pillar:hover {
+  border-color: var(--border-default);
+  background: var(--bg-card-hover);
+  transform: translateY(-1px);
+}
+.pillar-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--r-md);
+  background: var(--brand-bg, rgba(94, 106, 210, 0.12));
+  display: grid; place-items: center;
+  color: var(--brand-400);
+  margin-bottom: 12px;
+}
+.pillar h4 { font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+.pillar p { font-size: 13px; color: var(--text-tertiary); line-height: 1.5; }
+
+/* =========================================================
+   Colors
+   ========================================================= */
+.color-group {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 24px;
+  margin-bottom: 20px;
+}
+.color-group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+.color-group-head h3 { font-size: 15px; font-weight: 600; }
+.color-group-head span { font-size: 12px; color: var(--text-muted); }
+
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+}
+.swatch {
+  border-radius: var(--r-md);
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+  transition: transform var(--dur-base) var(--ease);
+}
+.swatch:hover { transform: translateY(-2px); }
+.swatch-color {
+  height: 84px;
+  position: relative;
+}
+.swatch-info { padding: 10px 12px; }
+.swatch-name { font-size: 12px; font-weight: 600; color: var(--text-primary); margin-bottom: 2px; }
+.swatch-hex { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
+
+.swatch-row {
+  display: grid;
+  grid-template-columns: 1fr 1.4fr;
+  gap: 14px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.swatch-row:last-child { border-bottom: none; }
+.swatch-row .swatch-color { height: 56px; border-radius: var(--r-md); }
+.swatch-row .swatch-meta { display: flex; flex-direction: column; gap: 2px; }
+
+.semantic-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.semantic {
+  padding: 16px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.semantic-bar { height: 44px; border-radius: var(--r-sm); }
+.semantic-name { font-size: 13px; font-weight: 600; }
+.semantic-val { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
+
+/* =========================================================
+   Typography
+   ========================================================= */
+.type-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 28px;
+  margin-bottom: 20px;
+}
+.type-row {
+  display: grid;
+  grid-template-columns: 100px 1fr 180px;
+  align-items: baseline;
+  gap: 24px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.type-row:last-child { border-bottom: none; }
+.type-label {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+}
+.type-sample { color: var(--text-primary); }
+.type-meta {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  text-align: right;
+}
+.type-h1 { font-size: 48px; font-weight: 600; letter-spacing: -0.035em; line-height: 1.1; }
+.type-h2 { font-size: 36px; font-weight: 600; letter-spacing: -0.025em; line-height: 1.15; }
+.type-h3 { font-size: 28px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.2; }
+.type-h4 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.3; }
+.type-h5 { font-size: 16px; font-weight: 600; line-height: 1.4; }
+.type-h6 { font-size: 14px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; line-height: 1.4; }
+.type-body { font-size: 15px; line-height: 1.6; color: var(--text-secondary); }
+.type-small { font-size: 13px; line-height: 1.5; color: var(--text-tertiary); }
+.type-caption { font-size: 12px; line-height: 1.4; color: var(--text-muted); }
+.type-code { font-size: 13px; font-family: var(--font-mono); color: var(--brand-300); background: var(--bg-elevated); padding: 2px 6px; border-radius: 4px; border: 1px solid var(--border-subtle); }
+
+/* =========================================================
+   Spacing
+   ========================================================= */
+.space-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 24px 28px;
+}
+.space-row {
+  display: grid;
+  grid-template-columns: 60px 1fr 100px;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+}
+.space-bar {
+  height: 14px;
+  background: linear-gradient(90deg, var(--brand-500), var(--brand-400));
+  border-radius: 4px;
+  box-shadow: 0 0 24px rgba(94, 106, 210, 0.25);
+}
+.space-name { font-size: 13px; font-weight: 600; font-family: var(--font-mono); }
+.space-val { font-size: 12px; color: var(--text-tertiary); font-family: var(--font-mono); text-align: right; }
+
+/* =========================================================
+   Components
+   ========================================================= */
+.component-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  margin-bottom: 20px;
+}
+.component-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.component-head h3 { font-size: 15px; font-weight: 600; }
+.component-head .badge { font-size: 11px; padding: 3px 8px; }
+
+.component-preview {
+  padding: 36px 24px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 14px;
+  background:
+    linear-gradient(var(--bg-card), var(--bg-card)),
+    radial-gradient(circle at 1px 1px, var(--border-subtle) 1px, transparent 0);
+  background-size: auto, 16px 16px;
+  min-height: 140px;
+}
+.component-preview.column { flex-direction: column; align-items: stretch; }
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+.tab {
+  padding: 10px 14px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  border-bottom: 1px solid transparent;
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+  margin-bottom: -1px;
+}
+.tab:hover { color: var(--text-secondary); }
+.tab.active { color: var(--text-primary); border-bottom-color: var(--brand-500); }
+
+.code-block {
+  position: relative;
+  background: #0B0B0E;
+  padding: 16px 20px;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  overflow-x: auto;
+  display: none;
+}
+.code-block.active { display: block; }
+.copy-btn {
+  position: absolute;
+  top: 10px; right: 10px;
+  font-size: 11px;
+  font-family: var(--font-mono);
+  color: var(--text-tertiary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  transition: all var(--dur-fast) var(--ease);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.copy-btn:hover { color: var(--text-primary); border-color: var(--border-default); }
+.copy-btn.copied { color: var(--success-500); border-color: var(--success-500); }
+
+/* Syntax tokens */
+.tok-key { color: #C792EA; }
+.tok-str { color: #C3E88D; }
+.tok-num { color: #F78C6C; }
+.tok-com { color: #5C6370; font-style: italic; }
+.tok-tag { color: #F07178; }
+.tok-attr { color: #FFCB6B; }
+.tok-fn  { color: #82AAFF; }
+.tok-prop { color: #B2CCD6; }
+.tok-punc { color: #89DDFF; }
+
+/* =========================================================
+   Buttons / Inputs / Cards
+   ========================================================= */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: var(--r-sm);
+  font-size: 13px;
+  font-weight: 500;
+  border: 1px solid transparent;
+  transition: all var(--dur-fast) var(--ease);
+  white-space: nowrap;
+  user-select: none;
+}
+.btn-primary {
+  background: var(--brand-500);
+  color: #fff;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.1) inset, 0 1px 2px rgba(0,0,0,0.3);
+}
+.btn-primary:hover { background: var(--brand-400); box-shadow: 0 1px 0 rgba(255,255,255,0.1) inset, 0 4px 12px rgba(94,106,210,0.4); }
+.btn-primary:active { background: var(--brand-600); transform: translateY(0.5px); }
+
+.btn-secondary {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+  border-color: var(--border-default);
+}
+.btn-secondary:hover { background: var(--bg-card-hover); border-color: var(--border-strong); }
+
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.btn-ghost:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+
+.btn-danger {
+  background: var(--error-500);
+  color: #fff;
+}
+.btn-danger:hover { background: var(--error-600); }
+
+.btn-disabled, .btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+.btn-lg { height: 42px; padding: 0 18px; font-size: 14px; }
+.btn-icon { width: 34px; padding: 0; }
+
+.input {
+  height: 34px;
+  width: 280px;
+  padding: 0 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  color: var(--text-primary);
+  font-size: 13px;
+  font-family: inherit;
+  transition: all var(--dur-fast) var(--ease);
+  outline: none;
+}
+.input::placeholder { color: var(--text-muted); }
+.input:hover { border-color: var(--border-strong); }
+.input:focus {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.18);
+  background: var(--bg-app);
+}
+.input.error { border-color: var(--error-500); }
+.input.error:focus { box-shadow: 0 0 0 3px rgba(235, 87, 87, 0.18); }
+.input-hint { font-size: 12px; margin-top: 6px; color: var(--text-tertiary); }
+.input-hint.error { color: var(--error-500); }
+
+.input-group { display: flex; flex-direction: column; gap: 4px; }
+
+.card-demo {
+  width: 280px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 18px;
+  transition: all var(--dur-base) var(--ease);
+}
+.card-demo:hover {
+  border-color: var(--border-default);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+}
+.card-demo-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.card-demo-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--r-sm);
+  background: linear-gradient(135deg, var(--brand-500), var(--brand-700));
+  display: grid; place-items: center;
+  color: #fff;
+}
+.card-demo h4 { font-size: 14px; font-weight: 600; margin-bottom: 2px; }
+.card-demo .sub { font-size: 12px; color: var(--text-tertiary); }
+.card-demo p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-top: 8px; }
+
+/* =========================================================
+   Icons
+   ========================================================= */
+.icon-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: 20px;
+}
+.icon-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 8px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all var(--dur-fast) var(--ease);
+  color: var(--text-secondary);
+}
+.icon-tile:hover {
+  border-color: var(--brand-500);
+  color: var(--brand-400);
+  background: var(--bg-card-hover);
+  transform: translateY(-1px);
+}
+.icon-tile svg { width: 20px; height: 20px; }
+.icon-tile-name { font-size: 11px; color: var(--text-tertiary); font-family: var(--font-mono); }
+.icon-tile:hover .icon-tile-name { color: var(--text-secondary); }
+
+/* =========================================================
+   Footer
+   ========================================================= */
+.foot {
+  margin-top: 80px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.foot-links { display: flex; gap: 16px; }
+.foot-links a { transition: color var(--dur-fast) var(--ease); }
+.foot-links a:hover { color: var(--text-primary); }
+
+/* =========================================================
+   Mobile
+   ========================================================= */
+.mobile-menu-btn {
+  display: none;
+  position: fixed;
+  top: 16px; left: 16px;
+  z-index: 100;
+  width: 40px; height: 40px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  align-items: center;
+  justify-content: center;
+  color: var(--text-primary);
+}
+
+@media (max-width: 960px) {
+  .app { grid-template-columns: 1fr; }
+  .sidebar {
+    transform: translateX(-100%);
+    transition: transform var(--dur-base) var(--ease);
+    width: 280px;
+  }
+  .sidebar.open { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+  .main { grid-column: 1; }
+  .content { padding: 80px 24px 64px; }
+  .hero h1 { font-size: 36px; }
+  .pillars { grid-template-columns: 1fr; }
+  .swatch-grid { grid-template-columns: repeat(3, 1fr); }
+  .semantic-grid { grid-template-columns: repeat(2, 1fr); }
+  .icon-grid { grid-template-columns: repeat(4, 1fr); }
+  .type-row { grid-template-columns: 1fr; gap: 8px; }
+  .type-meta { text-align: left; }
+  .mobile-menu-btn { display: flex; }
+  .scrim {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 40;
+  }
+  .scrim.show { display: block; }
+}
+
+@media (max-width: 520px) {
+  .swatch-grid { grid-template-columns: repeat(2, 1fr); }
+  .icon-grid { grid-template-columns: repeat(3, 1fr); }
+  .space-row { grid-template-columns: 50px 1fr 80px; }
+}
+
+/* scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: var(--bg-app); }
+::-webkit-scrollbar-thumb { background: var(--border-default); border-radius: 5px; border: 2px solid var(--bg-app); }
+::-webkit-scrollbar-thumb:hover { background: var(--border-strong); }
+
+/* selection */
+::selection { background: rgba(94, 106, 210, 0.35); color: #fff; }
+</style>
+</head>
+<body>
+
+<!-- Mobile menu -->
+<button class="mobile-menu-btn" id="menuBtn" aria-label="菜单">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+</button>
+<div class="scrim" id="scrim"></div>
+
+<div class="app">
+
+  <!-- ============ SIDEBAR ============ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-mark">D</div>
+      <div class="brand-name">Design System</div>
+      <span class="brand-version">v2.1</span>
+    </div>
+
+    <div class="nav-label">基础</div>
+    <nav class="nav" id="nav">
+      <a class="nav-item active" href="#overview">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg>
+        Overview
+      </a>
+      <a class="nav-item" href="#colors">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="19" cy="13" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="10" cy="19" r="2.5"/></svg>
+        Colors
+      </a>
+      <a class="nav-item" href="#typography">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+        Typography
+      </a>
+      <a class="nav-item" href="#spacing">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h18M3 8h10M3 16h14"/></svg>
+        Spacing
+      </a>
+    </nav>
+
+    <div class="nav-label">组件</div>
+    <nav class="nav">
+      <a class="nav-item" href="#components">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+        Components
+      </a>
+      <a class="nav-item" href="#icons">
+        <svg class="nav-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15 8 22 9 17 14 18 21 12 18 6 21 7 14 2 9 9 8"/></svg>
+        Icons
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="avatar">A</div>
+      <div>
+        <div style="color: var(--text-primary); font-weight: 500;">Auber</div>
+        <div>auber@design.io</div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ============ MAIN ============ -->
+  <main class="main">
+    <div class="content">
+
+      <!-- OVERVIEW -->
+      <section class="hero" id="overview">
+        <span class="eyebrow">设计系统 · v2.1</span>
+        <h1>为下一代产品<br>打造的设计语言</h1>
+        <p>一套模块化、可访问、面向开发与设计协作的组件库。统一色板、字号、间距、动效与交互模式，让产品保持一致的视觉与体验。</p>
+        <div class="hero-meta">
+          <span class="badge"><span class="dot"></span>已发布</span>
+          <span class="badge">1,248 个组件</span>
+          <span class="badge">96% 可访问性</span>
+          <span class="badge">Tree-shakeable</span>
+        </div>
+
+        <div class="pillars">
+          <div class="pillar">
+            <div class="pillar-icon">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+            </div>
+            <h4>开发者优先</h4>
+            <p>纯 CSS / 零运行时，TypeScript 类型完整，5 分钟接入。</p>
+          </div>
+          <div class="pillar">
+            <div class="pillar-icon" style="background: rgba(76, 183, 130, 0.12); color: #4CB782;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+            </div>
+            <h4>可访问性</h4>
+            <p>所有组件达到 WCAG 2.1 AA 级别，键盘导航与屏幕阅读器友好。</p>
+          </div>
+          <div class="pillar">
+            <div class="pillar-icon" style="background: rgba(242, 201, 76, 0.12); color: #F2C94C;">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            </div>
+            <h4>可定制主题</h4>
+            <p>CSS 变量驱动，暗黑 / 亮色 / 高对比度三套主题秒切。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- COLORS -->
+      <section class="section" id="colors">
+        <span class="eyebrow">设计令牌</span>
+        <h2 class="section-title">Colors</h2>
+        <p class="section-sub">所有颜色均为 WCAG AA 对比度达标的中性平衡调色板，从 #0A0A0B 出发，紫色 #5E6AD2 为唯一品牌强调色。</p>
+
+        <h3 class="subsection">主色 · Brand</h3>
+        <div class="color-group">
+          <div class="color-group-head"><h3>Brand Purple</h3><span>9 阶 · 用于品牌强调、链接、聚焦态</span></div>
+          <div class="swatch-grid" id="brandSwatches"></div>
+        </div>
+
+        <h3 class="subsection">中性色 · Neutrals</h3>
+        <div class="color-group">
+          <div class="color-group-head"><h3>Neutral</h3><span>11 阶 · 用于背景、文字、边框</span></div>
+          <div class="swatch-grid" id="neutralSwatches"></div>
+        </div>
+
+        <h3 class="subsection">语义色 · Semantic</h3>
+        <div class="color-group">
+          <div class="color-group-head"><h3>Status</h3><span>成功 / 警告 / 错误 / 信息</span></div>
+          <div class="semantic-grid" id="semanticGrid"></div>
+        </div>
+      </section>
+
+      <!-- TYPOGRAPHY -->
+      <section class="section" id="typography">
+        <span class="eyebrow">字体系统</span>
+        <h2 class="section-title">Typography</h2>
+        <p class="section-sub">基于 SF Pro / Inter 的系统字体栈，9 级视觉层级，字号阶梯遵循 1.2 黄金比例。</p>
+
+        <div class="type-card">
+          <div class="type-row">
+            <span class="type-label">Display</span>
+            <div class="type-sample type-h1">Designed for clarity.</div>
+            <span class="type-meta">48 / 56 · 600</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">H1</span>
+            <div class="type-sample type-h1">H1 · 一级标题</div>
+            <span class="type-meta">48 / 56 · 600</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">H2</span>
+            <div class="type-sample type-h2">H2 · 二级标题</div>
+            <span class="type-meta">36 / 44 · 600</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">H3</span>
+            <div class="type-sample type-h3">H3 · 三级标题</div>
+            <span class="type-meta">28 / 36 · 600</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">H4</span>
+            <div class="type-sample type-h4">H4 · 四级标题</div>
+            <span class="type-meta">20 / 28 · 600</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">H5</span>
+            <div class="type-sample type-h5">H5 · 五级标题</div>
+            <span class="type-meta">16 / 24 · 600</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">H6</span>
+            <div class="type-sample type-h6">H6 · 小标题 · uppercase</div>
+            <span class="type-meta">14 / 20 · 600</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">Body</span>
+            <div class="type-sample type-body">正文段落。系统字体栈在 macOS / iOS 优先 SF Pro，Windows 优先 Segoe UI，Linux 优先 Inter。</div>
+            <span class="type-meta">15 / 24 · 400</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">Small</span>
+            <div class="type-sample type-small">辅助说明文字 · 用于表单提示、次要信息</div>
+            <span class="type-meta">13 / 20 · 400</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">Caption</span>
+            <div class="type-sample type-caption">脚注 / 版权 / 元数据</div>
+            <span class="type-meta">12 / 16 · 400</span>
+          </div>
+          <div class="type-row">
+            <span class="type-label">Code</span>
+            <div class="type-sample"><span class="type-code">const design = true</span></div>
+            <span class="type-meta">13 / 20 · mono</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- SPACING -->
+      <section class="section" id="spacing">
+        <span class="eyebrow">间距系统</span>
+        <h2 class="section-title">Spacing</h2>
+        <p class="section-sub">基于 4px 基准单位的 8 阶间距刻度，覆盖从紧贴元素到版块分隔的所有场景。</p>
+
+        <div class="space-card" id="spacingList"></div>
+      </section>
+
+      <!-- COMPONENTS -->
+      <section class="section" id="components">
+        <span class="eyebrow">组件库</span>
+        <h2 class="section-title">Components</h2>
+        <p class="section-sub">核心交互组件。所有组件都遵循设计令牌驱动，支持深浅主题与无障碍标准。</p>
+
+        <h3 class="subsection">Button · 按钮</h3>
+        <div class="component-block" data-component="button">
+          <div class="component-head">
+            <h3>Buttons</h3>
+            <span class="badge">4 variants</span>
+          </div>
+          <div class="component-preview">
+            <button class="btn btn-primary">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              新建项目
+            </button>
+            <button class="btn btn-secondary">次要操作</button>
+            <button class="btn btn-ghost">幽灵按钮</button>
+            <button class="btn btn-danger">删除</button>
+            <button class="btn btn-primary" disabled>禁用状态</button>
+            <button class="btn btn-primary btn-sm">Small</button>
+            <button class="btn btn-primary btn-lg">Large</button>
+            <button class="btn btn-primary btn-icon" aria-label="设置">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+            </button>
+          </div>
+          <div class="tabs">
+            <button class="tab active" data-tab="react">React</button>
+            <button class="tab" data-tab="html">HTML</button>
+            <button class="tab" data-tab="css">CSS</button>
+          </div>
+          <div class="code-block active" data-code="react"></div>
+          <div class="code-block" data-code="html"></div>
+          <div class="code-block" data-code="css"></div>
+        </div>
+
+        <h3 class="subsection">Input · 输入框</h3>
+        <div class="component-block" data-component="input">
+          <div class="component-head">
+            <h3>Inputs</h3>
+            <span class="badge">3 states</span>
+          </div>
+          <div class="component-preview column">
+            <div class="input-group">
+              <input class="input" placeholder="默认状态 · Default" />
+            </div>
+            <div class="input-group">
+              <input class="input" value="聚焦状态 · Focused" id="focusedInput" />
+            </div>
+            <div class="input-group">
+              <input class="input error" value="错误状态 · not-an-email" />
+              <span class="input-hint error">邮箱格式不正确，请重新输入</span>
+            </div>
+            <div class="input-group">
+              <input class="input" placeholder="辅助说明 · Helper text" />
+              <span class="input-hint">我们将仅用于发送重要通知</span>
+            </div>
+          </div>
+          <div class="tabs">
+            <button class="tab active" data-tab="react">React</button>
+            <button class="tab" data-tab="html">HTML</button>
+            <button class="tab" data-tab="css">CSS</button>
+          </div>
+          <div class="code-block active" data-code="react"></div>
+          <div class="code-block" data-code="html"></div>
+          <div class="code-block" data-code="css"></div>
+        </div>
+
+        <h3 class="subsection">Card · 卡片</h3>
+        <div class="component-block" data-component="card">
+          <div class="component-head">
+            <h3>Cards</h3>
+            <span class="badge">1 variant</span>
+          </div>
+          <div class="component-preview">
+            <div class="card-demo">
+              <div class="card-demo-head">
+                <div class="card-demo-icon">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+                </div>
+                <div>
+                  <h4>实时同步</h4>
+                  <span class="sub">v2.1 · 已发布</span>
+                </div>
+              </div>
+              <p>所有组件状态都会在多端实时同步，告别手动刷新与协作冲突。</p>
+            </div>
+            <div class="card-demo">
+              <div class="card-demo-head">
+                <div class="card-demo-icon" style="background: linear-gradient(135deg, #4CB782, #3FA571);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+                </div>
+                <div>
+                  <h4>类型安全</h4>
+                  <span class="sub">TS 100% 覆盖</span>
+                </div>
+              </div>
+              <p>完整的 TypeScript 类型定义，IDE 智能提示覆盖每一个 prop。</p>
+            </div>
+            <div class="card-demo">
+              <div class="card-demo-head">
+                <div class="card-demo-icon" style="background: linear-gradient(135deg, #F2C94C, #DBB23D);">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                </div>
+                <div>
+                  <h4>节省时间</h4>
+                  <span class="sub">5 分钟接入</span>
+                </div>
+              </div>
+              <p>零运行时，零配置。开箱即用，主题切换仅需修改 CSS 变量。</p>
+            </div>
+          </div>
+          <div class="tabs">
+            <button class="tab active" data-tab="react">React</button>
+            <button class="tab" data-tab="html">HTML</button>
+            <button class="tab" data-tab="css">CSS</button>
+          </div>
+          <div class="code-block active" data-code="react"></div>
+          <div class="code-block" data-code="html"></div>
+          <div class="code-block" data-code="css"></div>
+        </div>
+      </section>
+
+      <!-- ICONS -->
+      <section class="section" id="icons">
+        <span class="eyebrow">图标系统</span>
+        <h2 class="section-title">Icons</h2>
+        <p class="section-sub">24×24 网格 · 1.5px 描边 · 圆角端点。点击复制 SVG 源码到剪贴板。</p>
+
+        <div class="icon-grid" id="iconGrid"></div>
+      </section>
+
+      <footer class="foot">
+        <div>© 2026 Design System · v2.1.0</div>
+        <div class="foot-links">
+          <a href="#overview">回到顶部 ↑</a>
+          <a href="#">GitHub</a>
+          <a href="#">Figma</a>
+        </div>
+      </footer>
+    </div>
+  </main>
+</div>
+
+<script>
+/* =========================================================
+   Data
+   ========================================================= */
+const BRAND = [
+  {n:'brand-50',  v:'#F0F1FB'},
+  {n:'brand-100', v:'#D9DCF4'},
+  {n:'brand-200', v:'#B3B9E9'},
+  {n:'brand-300', v:'#8D95DD'},
+  {n:'brand-400', v:'#717DDE'},
+  {n:'brand-500', v:'#5E6AD2', main:true},
+  {n:'brand-600', v:'#4A55B8'},
+  {n:'brand-700', v:'#3A438F'},
+  {n:'brand-800', v:'#2A3066'},
+  {n:'brand-900', v:'#1A1E3D'}
+];
+
+const NEUTRALS = [
+  {n:'neutral-0',   v:'#FFFFFF', light:true},
+  {n:'neutral-50',  v:'#F7F8F8', light:true},
+  {n:'neutral-100', v:'#EEEFF1', light:true},
+  {n:'neutral-200', v:'#D7D9DD', light:true},
+  {n:'neutral-300', v:'#B4B7BD'},
+  {n:'neutral-400', v:'#8A8D94'},
+  {n:'neutral-500', v:'#62666D'},
+  {n:'neutral-600', v:'#494C52'},
+  {n:'neutral-700', v:'#2F3137'},
+  {n:'neutral-800', v:'#1B1C1F'},
+  {n:'neutral-900', v:'#131316'},
+  {n:'neutral-950', v:'#08090A'}
+];
+
+const SEMANTIC = [
+  {n:'Success',  v:'#4CB782', bg:'rgba(76, 183, 130, 0.12)'},
+  {n:'Warning',  v:'#F2C94C', bg:'rgba(242, 201, 76, 0.12)'},
+  {n:'Error',    v:'#EB5757', bg:'rgba(235, 87, 87, 0.12)'},
+  {n:'Info',     v:'#5E6AD2', bg:'rgba(94, 106, 210, 0.12)'}
+];
+
+const SPACING = [
+  {n:'space-1', v:4},
+  {n:'space-2', v:8},
+  {n:'space-3', v:12},
+  {n:'space-4', v:16},
+  {n:'space-6', v:24},
+  {n:'space-8', v:32},
+  {n:'space-12',v:48},
+  {n:'space-16',v:64}
+];
+
+const ICONS = [
+  ['search',     '<circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>'],
+  ['settings',   '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 01-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>'],
+  ['user',       '<path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/>'],
+  ['bell',       '<path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>'],
+  ['mail',       '<path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22 6 12 13 2 6"/>'],
+  ['calendar',   '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>'],
+  ['heart',      '<path d="M20.84 4.61a5.5 5.5 0 00-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 00-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 000-7.78z"/>'],
+  ['star',       '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'],
+  ['download',   '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/>'],
+  ['upload',     '<path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>'],
+  ['copy',       '<rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>'],
+  ['eye',        '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>'],
+  ['lock',       '<rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/>'],
+  ['trash',      '<polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 01-2 2H9a2 2 0 01-2-2L5 6"/><path d="M10 11v6M14 11v6"/><path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2"/>'],
+  ['edit',       '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>'],
+  ['filter',     '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>'],
+  ['grid',       '<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>'],
+  ['plus',       '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>'],
+  ['check',      '<polyline points="20 6 9 17 4 12"/>'],
+  ['x',          '<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>'],
+  ['arrow-right','<line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>'],
+  ['arrow-up-right','<line x1="7" y1="17" x2="17" y2="7"/><polyline points="7 7 17 7 17 17"/>'],
+  ['chevron-down','<polyline points="6 9 12 15 18 9"/>'],
+  ['more',       '<circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/>'],
+  ['code',       '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>'],
+  ['terminal',   '<polyline points="4 17 10 11 4 5"/><line x1="12" y1="19" x2="20" y2="19"/>'],
+  ['bookmark',   '<path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>'],
+  ['home',       '<path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/>'],
+  ['moon',       '<path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/>'],
+  ['zap',        '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>'],
+  ['globe',      '<circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15 15 0 010 20M12 2a15 15 0 000 20"/>'],
+  ['git-branch', '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 01-9 9"/>']
+];
+
+/* Code snippets per component */
+const SNIPPETS = {
+  button: {
+    react: `import { Button } from '@design/ui';
+
+export default function Actions() {
+  return (
+    <div className="actions">
+      <Button variant="primary" icon="plus">
+        新建项目
+      </Button>
+      <Button variant="secondary">次要操作</Button>
+      <Button variant="ghost">幽灵按钮</Button>
+      <Button variant="danger">删除</Button>
+      <Button variant="primary" disabled>
+        禁用状态
+      </Button>
+    </div>
+  );
+}`,
+    html: `<!-- Button variants -->
+<button class="btn btn-primary">新建项目</button>
+<button class="btn btn-secondary">次要操作</button>
+<button class="btn btn-ghost">幽灵按钮</button>
+<button class="btn btn-danger">删除</button>
+<button class="btn btn-primary" disabled>禁用状态</button>`,
+    css: `/* === Button tokens === */
+.btn {
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 120ms cubic-bezier(0.2, 0, 0, 1);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-primary {
+  background: var(--brand-500);
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+.btn-primary:hover { background: var(--brand-400); }`
+  },
+  input: {
+    react: `import { Input, FormField } from '@design/ui';
+
+export default function EmailField() {
+  return (
+    <FormField
+      label="邮箱"
+      hint="我们将仅用于发送重要通知"
+      error={!isValid}
+    >
+      <Input
+        type="email"
+        placeholder="you@company.com"
+        value={email}
+        onChange={setEmail}
+        invalid={!isValid}
+      />
+    </FormField>
+  );
+}`,
+    html: `<!-- Input states -->
+<input class="input" placeholder="默认状态" />
+<input class="input" value="聚焦状态" autofocus />
+<input class="input error" value="错误状态" />
+<span class="input-hint error">邮箱格式不正确</span>`,
+    css: `/* === Input tokens === */
+.input {
+  height: 34px;
+  width: 280px;
+  padding: 0 12px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font: inherit;
+  transition: all 120ms cubic-bezier(0.2, 0, 0, 1);
+}
+.input:focus {
+  border-color: var(--brand-500);
+  box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.18);
+}
+.input.error { border-color: var(--error-500); }`
+  },
+  card: {
+    react: `import { Card, CardHeader, CardBody } from '@design/ui';
+
+export default function FeatureCard() {
+  return (
+    <Card hoverable>
+      <CardHeader
+        icon={<ZapIcon />}
+        title="实时同步"
+        subtitle="v2.1 · 已发布"
+      />
+      <CardBody>
+        所有组件状态都会在多端实时同步，
+        告别手动刷新与协作冲突。
+      </CardBody>
+    </Card>
+  );
+}`,
+    html: `<!-- Card composition -->
+<div class="card-demo">
+  <div class="card-demo-head">
+    <div class="card-demo-icon">⚡</div>
+    <div>
+      <h4>实时同步</h4>
+      <span class="sub">v2.1 · 已发布</span>
+    </div>
+  </div>
+  <p>所有组件状态都会在多端实时同步。</p>
+</div>`,
+    css: `/* === Card tokens === */
+.card {
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  padding: 18px;
+  transition: all 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+.card:hover {
+  border-color: var(--border-default);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}`
+  }
+};
+
+/* =========================================================
+   Simple syntax highlighter (HTML / CSS / JSX)
+   ========================================================= */
+function escape(s) { return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+
+function highlight(code, lang) {
+  let h = escape(code);
+
+  // Comments first (to protect their content)
+  if (lang === 'css') {
+    h = h.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="tok-com">$1</span>');
+  } else {
+    h = h.replace(/(\/\/[^\n]*)/g, '<span class="tok-com">$1</span>');
+    h = h.replace(/(\/\*[\s\S]*?\*\/)/g, '<span class="tok-com">$1</span>');
+    h = h.replace(/(&lt;!--[\s\S]*?--&gt;)/g, '<span class="tok-com">$1</span>');
+  }
+
+  // Strings
+  h = h.replace(/('(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"|`(?:\\.|[^`\\])*`)/g, '<span class="tok-str">$1</span>');
+
+  // HTML tags
+  if (lang === 'html') {
+    h = h.replace(/(&lt;\/?)([a-zA-Z][\w-]*)/g, '$1<span class="tok-tag">$2</span>');
+    h = h.replace(/([a-zA-Z-]+)=("[^"]*")/g, '<span class="tok-attr">$1</span>=<span class="tok-str">$2</span>');
+  }
+
+  // JSX
+  if (lang === 'react') {
+    h = h.replace(/(&lt;\/?)([A-Z][\w]*)/g, '$1<span class="tok-tag">$2</span>');
+    h = h.replace(/\b(import|from|return|const|let|var|function|export|default|className|if|else|true|false|null|undefined)\b/g, '<span class="tok-key">$1</span>');
+    h = h.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="tok-num">$1</span>');
+  }
+
+  // CSS
+  if (lang === 'css') {
+    h = h.replace(/(^|\n)([.#]?[a-zA-Z][\w-]*)\s*\{/g, '$1<span class="tok-tag">$2</span> {');
+    h = h.replace(/(--[a-z-]+|color|background|border|radius|font|padding|margin|width|height|transition|box-shadow)(?=\s*:)/g, '<span class="tok-prop">$1</span>');
+    h = h.replace(/\b(\d+(?:\.\d+)?(?:px|rem|em|%|s|ms)?)\b/g, '<span class="tok-num">$1</span>');
+  }
+
+  return h;
+}
+
+/* =========================================================
+   Render functions
+   ========================================================= */
+function textColor(bg) {
+  const hex = bg.replace('#','');
+  const r = parseInt(hex.substr(0,2),16);
+  const g = parseInt(hex.substr(2,2),16);
+  const b = parseInt(hex.substr(4,2),16);
+  return (r*0.299 + g*0.587 + b*0.114) > 160 ? '#0A0A0B' : '#fff';
+}
+
+function renderSwatches(target, data) {
+  const el = document.getElementById(target);
+  if (!el) return;
+  el.innerHTML = data.map(s => `
+    <div class="swatch" title="${s.v}">
+      <div class="swatch-color" style="background:${s.v};color:${textColor(s.v)};display:flex;align-items:flex-end;padding:8px 10px;font-size:10px;font-family:var(--font-mono);font-weight:600;${s.main?'box-shadow:inset 0 0 0 2px rgba(255,255,255,0.15);':''}">${s.main?'MAIN':''}</div>
+      <div class="swatch-info">
+        <div class="swatch-name">${s.n}</div>
+        <div class="swatch-hex">${s.v}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderSemantic() {
+  const el = document.getElementById('semanticGrid');
+  if (!el) return;
+  el.innerHTML = SEMANTIC.map(s => `
+    <div class="semantic">
+      <div class="semantic-bar" style="background:${s.v}"></div>
+      <div>
+        <div class="semantic-name">${s.n}</div>
+        <div class="semantic-val">${s.v} · ${s.bg}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function renderSpacing() {
+  const el = document.getElementById('spacingList');
+  if (!el) return;
+  const max = Math.max(...SPACING.map(s => s.v));
+  el.innerHTML = SPACING.map(s => `
+    <div class="space-row">
+      <div class="space-name">${s.n}</div>
+      <div class="space-bar" style="width:${(s.v/max)*100}%"></div>
+      <div class="space-val">${s.v}px</div>
+    </div>
+  `).join('');
+}
+
+function renderIcons() {
+  const el = document.getElementById('iconGrid');
+  if (!el) return;
+  el.innerHTML = ICONS.map(([name, paths]) => `
+    <div class="icon-tile" data-icon="${name}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>
+      <span class="icon-tile-name">${name}</span>
+    </div>
+  `).join('');
+
+  el.querySelectorAll('.icon-tile').forEach(tile => {
+    tile.addEventListener('click', () => {
+      const name = tile.dataset.icon;
+      const [, paths] = ICONS.find(([n]) => n === name);
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">${paths}</svg>`;
+      copyToClipboard(svg, tile.querySelector('.icon-tile-name'));
+    });
+  });
+}
+
+function renderCodeSnippets() {
+  document.querySelectorAll('[data-component]').forEach(block => {
+    const name = block.dataset.component;
+    const snippets = SNIPPETS[name];
+    if (!snippets) return;
+    block.querySelectorAll('.code-block').forEach(cb => {
+      const lang = cb.dataset.code;
+      cb.innerHTML = highlight(snippets[lang], lang) + `<button class="copy-btn" data-copy>${copyIcon()} 复制</button>`;
+    });
+  });
+}
+
+function copyIcon() {
+  return '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+}
+
+/* =========================================================
+   Interactions
+   ========================================================= */
+function copyToClipboard(text, labelEl) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text);
+  } else {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+  }
+  if (labelEl) {
+    const original = labelEl.textContent;
+    labelEl.textContent = '已复制 ✓';
+    labelEl.style.color = 'var(--success-500)';
+    setTimeout(() => { labelEl.textContent = original; labelEl.style.color = ''; }, 1400);
+  }
+}
+
+function bindTabs() {
+  document.querySelectorAll('.component-block').forEach(block => {
+    const tabs = block.querySelectorAll('.tab');
+    const codes = block.querySelectorAll('.code-block');
+    tabs.forEach(tab => {
+      tab.addEventListener('click', () => {
+        tabs.forEach(t => t.classList.remove('active'));
+        codes.forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        block.querySelector(`.code-block[data-code="${tab.dataset.tab}"]`).classList.add('active');
+      });
+    });
+  });
+}
+
+function bindCopyButtons() {
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('[data-copy]');
+    if (!btn) return;
+    const block = btn.closest('.code-block');
+    if (!block) return;
+    // Strip HTML to get raw text
+    const tmp = document.createElement('div');
+    tmp.innerHTML = block.innerHTML;
+    tmp.querySelectorAll('.copy-btn').forEach(b => b.remove());
+    copyToClipboard(tmp.textContent.trim(), btn);
+    btn.classList.add('copied');
+    btn.innerHTML = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> 已复制';
+    setTimeout(() => {
+      btn.classList.remove('copied');
+      btn.innerHTML = copyIcon() + ' 复制';
+    }, 1400);
+  });
+}
+
+function bindActiveNav() {
+  const navItems = document.querySelectorAll('.nav-item');
+  const sections = Array.from(navItems).map(n => document.querySelector(n.getAttribute('href'))).filter(Boolean);
+
+  const obs = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const id = '#' + e.target.id;
+        navItems.forEach(n => n.classList.toggle('active', n.getAttribute('href') === id));
+      }
+    });
+  }, { rootMargin: '-30% 0px -65% 0px' });
+
+  sections.forEach(s => obs.observe(s));
+}
+
+function bindMobileMenu() {
+  const btn = document.getElementById('menuBtn');
+  const sidebar = document.getElementById('sidebar');
+  const scrim = document.getElementById('scrim');
+  const close = () => { sidebar.classList.remove('open'); scrim.classList.remove('show'); };
+  btn.addEventListener('click', () => {
+    const open = sidebar.classList.toggle('open');
+    scrim.classList.toggle('show', open);
+  });
+  scrim.addEventListener('click', close);
+  document.querySelectorAll('.nav-item').forEach(n => n.addEventListener('click', close));
+}
+
+/* =========================================================
+   Init
+   ========================================================= */
+document.addEventListener('DOMContentLoaded', () => {
+  renderSwatches('brandSwatches', BRAND);
+  renderSwatches('neutralSwatches', NEUTRALS);
+  renderSemantic();
+  renderSpacing();
+  renderIcons();
+  renderCodeSnippets();
+  bindTabs();
+  bindCopyButtons();
+  bindActiveNav();
+  bindMobileMenu();
+  // Auto-focus the second input for demo
+  const fi = document.getElementById('focusedInput');
+  if (fi) setTimeout(() => fi.focus(), 600);
+});
+</script>
+</body>
+</html>

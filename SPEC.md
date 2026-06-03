@@ -1,8 +1,8 @@
 # Agent Monitor — 项目规范 (SPEC.md)
 
-> 版本: 2.3.5
-> 更新: 2026-06-02
-> 状态: **Phase 6 多引擎适配层真正可用**（Blueprint Run → EngineAdapter → runtime_calls 全链路打通） + 4 个 P0 修复 + 5 个 P1/P2 待办
+> 版本: 2.3.7
+> 更新: 2026-06-03
+> 状态: **Phase 6 完成 + Agent 系统重构设计中** — 详见 `docs/AGENT-SYSTEM-REDESIGN.md`
 > 历史版本: 1.4.0 已归档至 `archive/20260529-old-requirements/`
 
 ---
@@ -15,6 +15,8 @@
 - `archive/20260529-old-requirements/SPEC.md`
 
 本文件为新的项目规范。旧版中仍适用的内容（核心对象、产品原则）已吸收整合到新版中。
+
+**设计文档**：`docs/AGENT-SYSTEM-REDESIGN.md` — Agent 系统重构（借鉴 Multica Runtime→Agent→Presence 模型），含数据库变更、后端服务、前端页面的详细实施方案。
 
 ---
 
@@ -454,34 +456,38 @@ Agent Monitor
 - 实时数据流 + 状态同步
 - 当前状态：页面已铺开；实时数据流仍待 socket.io 接入，错误态和空态需 QA 收口。
 
-### Phase 6: 多引擎适配层（基于 WeSight 协议）— **新方向，2026-06-01 锁定**
-- 抽 `EngineAdapter` interface（5 方法：`detectInstalled` / `run` / `approve` / `cancel` / `cost`）
-- `packages/server/src/adapters/multica.ts` 改造为实现新接口
-- 新增 `claude-code.ts` 适配（参考 wesight `libs/agentEngine/` 的 `externalAgent*.ts` 安装/复用本地配置思路）
-- 新增 `codex.ts` 适配（如时间允许）
-- UI：Agent View / Settings 加引擎选择器
-- `providers.ts` 抽象层（OpenAI / Anthropic / Gemini / DeepSeek / Qwen / Moonshot / Ollama / 自定义 OpenAI 兼容端点）
-- ExecutionTrace 表补齐 5 指标字段（TTFT / output-phase TPS / estimated model TPS / tool latency / agent steps）
-- 验收：UI 能选引擎；Claude Code 适配器跑通最小链路；ExecutionTrace 5 指标可视化
+### Phase 6: 多引擎适配层（基于 WeSight 协议）— **2026-06-03 完成**
+- 抽 `EngineAdapter` interface（5 方法：`detectInstalled` / `run` / `approve` / `cancel` / `cost`）✅
+- `packages/server/src/adapters/multica.ts` 改造为实现新接口 ✅
+- 新增 `claude-code.ts` 适配器（真实 CLI spawn + stream-json 解析）✅
+- 新增 `reasonix.ts` 适配器（DeepSeek Reasonix CLI + transcript JSONL 指标提取）✅
+- `providers.ts` 抽象层（8 个 Provider：Anthropic / OpenAI / DeepSeek / Ollama / Gemini / Qwen / Moonshot / 自定义 OpenAI 兼容）✅
+- 公共 SSE 解析器 `parseSSEResponse()` 抽取，消除 provider 重复代码 ✅
+- ExecutionTrace 表补齐 5 指标字段（TTFT / output-phase TPS / estimated model TPS / tool latency / agent steps）✅
+- Blueprint Run → EngineAdapter → runtime_calls 全链路打通 ✅
+- Chat 对话界面（SSE 流式 + 引擎选择 + 工作目录）✅
+- P1-6/P2-8/P2-9/P2-10 全部收口 ✅
+- 验收：UI 能选引擎；Claude Code + Reasonix 双引擎在线；60 测试全绿
 
 ### 当前验证基线
 
 | 项目 | 结果 | 日期 | 说明 |
 |------|------|------|------|
-| `npm run typecheck` | ✅ 通过 | 2026-06-02 | server + ui TypeScript 均通过 |
-| `npm run build` | ✅ 通过 | 2026-06-02 | Vite chunk 542kB warning，非阻断 |
-| `npm test` | ✅ 通过 | 2026-06-02 | 53/53 (5 test files, 含 P0-1 gpt-4o-mini + P0-4 fetchWithTimeout 2 个新测) |
+| `npm run typecheck` | ✅ 通过 | 2026-06-03 | server + ui TypeScript 均通过 |
+| `npm run build` | ✅ 通过 | 2026-06-03 | Vite chunk 542kB warning，非阻断 |
+| `npm test` | ✅ 通过 | 2026-06-03 | 60/60 (7 test files) |
 | 端到端最小链路 | ✅ 通过 | 2026-06-02 | Project → Task/Output/Memory → Blueprint → Trace/Inbox 4 层全部联通（mock 数据） |
 | UUID 校验（4 路由） | ✅ 修复 | 2026-06-02 | projects / blueprints / memory / traces 统一返回 400 |
-| UI 用例（TC-003/005/006/007/008/009/011/015/018/019/020） | ⚠️ 待浏览器 | 2026-06-02 | 代码层已实现，需 Playwright 走一遍 |
+| UI 用例（TC-003/005/006/007/008/009/011/015/018/019/020） | ⚠️ 待浏览器 | 2026-06-03 | 代码层已实现，需 Playwright 走一遍 |
+| 引擎注册 | ✅ 通过 | 2026-06-03 | Claude Code + Reasonix 双引擎 installed:true |
+| Chat 对话 | ✅ 通过 | 2026-06-02 | SSE 流式 + 引擎选择 + 工作目录 |
 
-### 下一步收口顺序
+### 下一步方向
 
-1. 统一 server 测试到 Vitest，恢复 `npm test`。
-2. 按 `docs/QA-REPORT.md` 复测 UI/API 修复项。
-3. 跑通 Project → Task/Output/Memory → Blueprint → Trace/Inbox/Dashboard 的最小端到端链路。
-4. 补齐 Blueprint 路由 UUID 校验。
-5. 本地 mock 链路稳定后，再接真实 Multica。
+1. **前端深度打磨** — 应用 design-system skill（Linear/Vercel Dark 风格），统一视觉语言
+2. **子 Agent 分工策略** — 前端派 Hermes、后端派 Reasonix，Claude Code 当 PM 并行调度
+3. Playwright UI 用例复测
+4. 本地 mock 链路稳定后，再接真实 Multica
 
 ---
 
@@ -503,3 +509,5 @@ Agent Monitor
 | 2026-06-02 | 2.3.3 | Claude | **Phase 6 收口完成**（SPEC v2.3.0 锁定的 3 项 WeSight 借鉴点全部落地）：(1) **`runtime_calls` 表 migration**（`005_runtime_calls.sql`）— 对齐 WeSight 5 指标字段（ttft_ms/output_tps/est_model_tps/tool_latency_ms/agent_steps）+ engine_id/model/provider 维度；(2) **`RunMetricsCollector.finish()` 持久化** — 在 `opts.persist=true` 时把 5 指标 + 计量写 `runtime_calls` 表（fire-and-forget，错误不影响主流程）；(3) **`providers.ts` 抽象层** — 5 个 provider 实现（anthropic / openai / deepseek / ollama / mock），纯 fetch 包装不引入 SDK，`resolveProvider(model)` 按前缀路由（claude-*/gpt-*/o[1-9]*/deepseek-*/ollama:*/llama/qwen/mistral）；(4) **EngineAdapter 接入** — `claude-code.ts` 和 `multica/engine.ts` 在 `startMetrics` 时设 `engineId` + `persist: true`，让每次真实跑 agent 都自动入库。**新增 17 个单测**（providers.test.ts 覆盖 resolveProvider/注册表/cost 估算/mock 流/缺 key 抛错），总测试数 47/47 通过。**配置要求**：用真实 provider 需在 env 设 `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `DEEPSEEK_API_KEY`（Ollama 不需要 key，走 `OLLAMA_ENDPOINT` env）。**Phase 6 进度 60% → 100%** |
 | 2026-06-02 | 2.3.4 | Claude | **`/code-review` high-effort 扫 Phase 6 收口发现 10 个 findings，按严重性取 4 个 P0 + 2 个 P1 修复**：<br>**P0-1 修 gpt-4o-mini 16x 过账**（providers.ts:266）：抽 `costFromTable` helper（按 key 长度降序 + lowercase），3 个 `cost()` 改用 helper；OpenAI 表重排为 `gpt-4o-mini` 在前。<br>**P0-2 修默认 model 持久化全失败**（claude-code.ts:65 + engine.ts）：双保险——业务层把 `'sonnet'` 改为 `'claude-sonnet-4-5'` 命中 resolveProvider 前缀；持久化层 `persistRunMetrics` 给 `resolveProvider` 包 try/catch，未知 model 不再丢整行（provider 写 NULL）。<br>**P0-3 修 claude-code timeout 静默成功**（claude-code.ts:135）：`exitCode === -1`（SIGTERM 杀掉）也 yield `type:'error'` 消息含 `timeout` 关键字。<br>**P0-4 给 fetch 加超时**（providers.ts）：新增 `fetchWithTimeout` 公开 helper（默认 60s AbortController），openaiCompatStream + anthropic chat 都改用。<br>**P1-5/7 顺手修**（P1-5 cost() 大小写不一致 + P1-7 cost() 回退掩盖拼错）：3 个 cost() 都通过 `costFromTable` 自动 lowercase + 未知 model 返回 0 + console.warn，账单不再被静默污染。<br>**新增 2 单测**（P0-1 gpt-4o-mini + P0-4 fetchWithTimeout 含永不响应 server）。总测试数 53/53 通过。<br>**残留 5 个 P1/P2 已知缺口**（已落到 task #28/#30/#31/#32，不阻断当前发布）：toolLatencyMs/agentSteps 0 vs null、缺 Gemini/Qwen/Moonshot/custom-OpenAI 路由、clearMetrics 漏删 DB 行、Anthropic SSE 与 openai 重复未抽公共。 |
 | 2026-06-02 | 2.3.5 | Claude | **关键架构发现 + 修复**（用户报告"项目还是不能用"后 E2E 验证发现）：<br>**根因**：Phase 6 收口（v2.3.3）只完成 EngineAdapter 协议 + RunMetricsCollector + runtime_calls 持久化层 + providers.ts 路由 + 4 个适配器实现，但**`blueprint-engine.executeAgentNode` 完全没接入 EngineAdapter**——只走旧的 AgentPlatformAdapter（multica / openclaw / mock）。`runtime_calls` 表**永远是空的**，SPEC 标"Phase 6 100%"是误标。<br>**P0-11 修 executeAgentNode**（blueprint-engine.ts）：在 Path 1 优先 `getEngine(cfg.adapter)`，for-await 累积 `EngineMessage` 文本流；保留 Path 2 AgentPlatformAdapter + Path 3 mock fallback。<br>**bug**：getEngine 实际有两个同名导出（`engine.ts:71` 空注册表 + `registry.ts:32` 真实注册表），且 blueprint-engine.ts 之前 import 的是空的那个——import 路径改为 `../adapters/registry.js`。<br>**P0-12 E2E 验证**（实测）：<br>1. 创建 BP（adapter='claude-code'）<br>2. 触发 Run<br>3. SQL `SELECT * FROM runtime_calls` **确认有 1 行**：run_id=`claude_...`、engine_id=`claude-code`、model=`claude-sonnet-4-5`、provider=`anthropic`、ttft_ms=32487、input_tokens=35955、output_tokens=35<br>**Phase 6 真正可用**。<br>**回归**：typecheck/test 全绿 53/53，git log 完整记录 4 个 commit（review fixes + wiring fix）。<br>**残留 4 个 P1/P2**（已落到 task #28/#30/#31/#32）：toolLatencyMs/agentSteps 0 vs null、缺 Gemini/Qwen/Moonshot/custom-OpenAI 路由、clearMetrics 漏删 DB 行、Anthropic SSE 80+ 行重复。 |
+| 2026-06-03 | 2.3.6 | Claude | **Phase 6 完成收口 + Reasonix 引擎接入**：<br>**P1-6** 修 toolLatencyMs/agentSteps 初始值从 `0` 改为 `undefined`（engine.ts），测试断言同步更新。<br>**P2-9** 修 clearMetrics 漏删 DB 行（engine.ts），动态 import 风格 fire-and-forget DELETE runtime_calls。<br>**P2-10** 抽公共 SSE 解析器 `parseSSEResponse()`（providers.ts），Anthropic + OpenAI 兼容流已替换。<br>**P2-8** 新增 4 个 Provider：Gemini（Google AI 原生 SSE）/ Qwen（OpenAI 兼容，DASHSCOPE_API_KEY）/ Moonshot（OpenAI 兼容，MOONSHOT_API_KEY）/ Custom OpenAI（自定义 baseURL）。`makeOpenAICompatible()` 工厂函数供 Qwen/Moonshot/Custom 共用。新增 7 个 provider 测试，总计 30 个 providers 测试通过。<br>**Reasonix 引擎适配器**（reasonix.ts）：接入 DeepSeek Reasonix CLI（`reasonix run --transcript`），spawn 子进程流式输出 + transcript JSONL 指标提取（tokens/cost/ttft）。注册到 registry.ts，双引擎（Claude Code + Reasonix）installed:true。<br>**测试**：60/60 全绿（7 test files）。<br>**策略方向**：确立子 Agent 分工模式（前端→Hermes / 后端→Reasonix / Claude Code→PM），加速项目推进。 |
+| 2026-06-03 | 2.3.7 | Claude | **Agent 系统重构设计**（详见 `docs/AGENT-SYSTEM-REDESIGN.md`）：借鉴 Multica 的 Runtime→Agent→Presence 三层模型，替代当前硬编码 mock adapter。核心变更：(1) 新建 `agent_runtimes` 表（对应 Multica `agent_runtime`），每个已安装引擎自动注册为 Runtime；(2) Agent 区分 `engine`（自动发现）和 `manual`（手动注册 OpenClaw bot）两种来源；(3) 新建 `presence-service.ts` 做服务端状态推导（online/busy/offline），替代前端硬编码状态；(4) 引擎执行任务时 `_runningChildren.size > 0` 驱动 Agent 变"忙碌"。15 个文件（3 新建 + 12 修改），~800 行改动。待实施。 |

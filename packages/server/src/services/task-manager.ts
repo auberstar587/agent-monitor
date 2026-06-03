@@ -1,4 +1,5 @@
 import { query, queryOne, execute } from "../db/client.js";
+import { updateAgentQuality } from "./agent-registry.js";
 
 export interface Task {
   id: string;
@@ -88,7 +89,22 @@ export async function transitionTask(id: string, newStatus: string): Promise<Tas
     extraSets.push("completed_at = now()");
   }
   params.push(id);
-  return queryOne<Task>(`UPDATE tasks SET ${extraSets.join(", ")} WHERE id = $2 RETURNING *`, params);
+  const updated = await queryOne<Task>(`UPDATE tasks SET ${extraSets.join(", ")} WHERE id = $2 RETURNING *`, params);
+
+  // P8-11: 任务进入终止态（completed/failed）时，自动更新指派 Agent 的 quality 指标
+  if (updated && (newStatus === "completed" || newStatus === "failed") && task.assignee_id) {
+    const durationMs = task.started_at
+      ? Date.now() - new Date(task.started_at).getTime()
+      : 0;
+    try {
+      await updateAgentQuality(task.assignee_id, newStatus === "completed", durationMs);
+    } catch (err) {
+      // 质量更新失败不影响主流程
+      console.warn("[task-manager] updateAgentQuality failed:", err);
+    }
+  }
+
+  return updated;
 }
 
 export async function deleteTask(id: string): Promise<boolean> {

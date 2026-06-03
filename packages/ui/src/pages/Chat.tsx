@@ -87,6 +87,7 @@ export default function Chat() {
           engine: selectedEngine,
           prompt,
           workingDir: workingDir || undefined,
+          projectId: selectedProjectId || undefined,
         }),
         signal: controller.signal,
       });

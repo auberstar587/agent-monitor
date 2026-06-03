@@ -47,8 +47,9 @@ export default function BlueprintList() {
   };
 
   return (
-    <div className="p-0 max-w-5xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="blueprints-page">
+      {/* 顶栏：fixed 高度，不参与滚动 */}
+      <div className="flex items-center justify-between mb-6 flex-shrink-0">
         <p className="page-subtitle">DAG 多 Agent 决策编排工作流</p>
         <button
           onClick={() => navigate("/blueprints/new")}
@@ -58,17 +59,19 @@ export default function BlueprintList() {
         </button>
       </div>
 
-      {loading ? (
-        <div className="text-sm py-12 text-center" style={{ color: "var(--muted)" }}>加载中...</div>
-      ) : blueprints.length === 0 ? (
-        <div className="empty-state">
-          <GitBranch size={40} className="opacity-20" />
-          <p style={{ color: "var(--text-secondary)" }}>暂无蓝图</p>
-          <p className="text-xs" style={{ color: "var(--muted)" }}>创建你的第一个多 Agent 工作流</p>
-        </div>
-      ) : (
-        <div className="space-y-2">
-          {blueprints.map((bp) => (
+      {/* 列表区：内层独立滚，外框（顶栏）保持不动 */}
+      <div className="blueprints-scroll">
+        {loading ? (
+          <div className="text-sm py-12 text-center" style={{ color: "var(--muted)" }}>加载中...</div>
+        ) : blueprints.length === 0 ? (
+          <div className="empty-state">
+            <GitBranch size={40} className="opacity-20" />
+            <p style={{ color: "var(--text-secondary)" }}>暂无蓝图</p>
+            <p className="text-xs" style={{ color: "var(--muted)" }}>创建你的第一个多 Agent 工作流</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {blueprints.map((bp) => (
             <div
               key={bp.id}
               onClick={() => navigate(`/blueprints/${bp.id}`)}
@@ -112,7 +115,8 @@ export default function BlueprintList() {
             </div>
           ))}
         </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

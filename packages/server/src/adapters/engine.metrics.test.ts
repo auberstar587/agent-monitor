@@ -25,8 +25,8 @@ describe('RunMetricsCollector', () => {
     expect(s.outputTokens).toBe(0);
     expect(s.ttftMs).toBeUndefined();
     expect(s.outputTps).toBeUndefined();
-    expect(s.toolLatencyMs).toBe(0);
-    expect(s.agentSteps).toBe(0);
+    expect(s.toolLatencyMs).toBeUndefined();
+    expect(s.agentSteps).toBeUndefined();
     expect(s.model).toBe('test-model');
   });
 

@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useStore } from "../stores";
 import { Link } from "react-router-dom";
-import { Bot, Cpu, Radio, Zap, Clock, ArrowUpRight, Search, Filter } from "lucide-react";
+import { api } from "../lib/api";
+import { Bot, Cpu, Radio, Zap, ArrowUpRight, Search, Filter, RefreshCw } from "lucide-react";
 
 // === Utility: relative time without any extra dep ===
 function relTime(iso?: string) {
@@ -17,10 +18,10 @@ function relTime(iso?: string) {
 // === Status channel: drives left rail + pulse ===
 function channelStyle(status: string) {
   switch (status) {
-    case "online": return { color: "var(--success)", label: "ONLINE", code: "01" };
-    case "busy":   return { color: "var(--info)",    label: "BUSY",   code: "02" };
-    case "offline":return { color: "var(--muted)",   label: "OFFLINE",code: "00" };
-    default:       return { color: "var(--muted)",   label: status?.toUpperCase() ?? "UNKNOWN", code: "??" };
+    case "online": return { color: "var(--success)", label: "在线", code: "01" };
+    case "busy":   return { color: "var(--info)",    label: "忙碌", code: "02" };
+    case "offline":return { color: "var(--muted)",   label: "离线", code: "00" };
+    default:       return { color: "var(--muted)",   label: status?.toUpperCase() ?? "未知", code: "??" };
   }
 }
 
@@ -28,14 +29,15 @@ export default function Agents() {
   const { agents, fetchAgents } = useStore();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<"all" | "online" | "busy" | "offline">("all");
-  const [tick, setTick] = useState(0);
-
   useEffect(() => { fetchAgents(); }, []);
 
-  // 1Hz heartbeat for the scanning line + relative timestamps
-  useEffect(() => {
-    const id = setInterval(() => setTick((n) => n + 1), 1000);
-    return () => clearInterval(id);
+  // 同步按钮：从 adapter 全量回灌到 DB
+  const [syncing, setSyncing] = useState(false);
+  const handleSync = useCallback(async () => {
+    setSyncing(true);
+    try { await api.syncAgents(); } catch { /* 静默：sync 失败已在后端吞 */ }
+    await fetchAgents();
+    setSyncing(false);
   }, []);
 
   const onlineCount = agents.filter((a: any) => a.status === "online").length;
@@ -55,10 +57,10 @@ export default function Agents() {
         <div className="agents-empty-body">
           <div className="flex items-center gap-2 mb-3">
             <Radio size={14} style={{ color: "var(--muted)" }} />
-            <span className="agents-eyebrow">NO SIGNAL · CHANNEL IDLE</span>
+            <span className="agents-eyebrow">暂无 Agent</span>
           </div>
-          <p className="agents-empty-title">No agents detected</p>
-          <p className="agents-empty-sub">Configure an Adapter to bring agents online.</p>
+          <p className="agents-empty-title">未检测到任何 Agent</p>
+          <p className="agents-empty-sub">配置适配器以接入 Agent</p>
         </div>
       </div>
     );
@@ -69,30 +71,22 @@ export default function Agents() {
       {/* ===== Telemetry bar (fixed count strip) ===== */}
       <div className="agents-telemetry">
         <div className="agents-telem-cell">
-          <span className="agents-telem-label"><Cpu size={11} /> NODES</span>
+          <span className="agents-telem-label"><Cpu size={11} /> 总数</span>
           <span className="agents-telem-value mono">{String(agents.length).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--success)" }}><Zap size={11} /> ONLINE</span>
+          <span className="agents-telem-label" style={{ color: "var(--success)" }}><Zap size={11} /> 在线</span>
           <span className="agents-telem-value mono" style={{ color: "var(--success)" }}>{String(onlineCount).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--info)" }}><Radio size={11} /> BUSY</span>
+          <span className="agents-telem-label" style={{ color: "var(--info)" }}><Radio size={11} /> 忙碌</span>
           <span className="agents-telem-value mono" style={{ color: "var(--info)" }}>{String(busyCount).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--muted)" }}>OFFLINE</span>
+          <span className="agents-telem-label" style={{ color: "var(--muted)" }}>离线</span>
           <span className="agents-telem-value mono" style={{ color: "var(--muted)" }}>{String(offlineCount).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-spacer" />
-        <div className="agents-telem-cell">
-          <span className="agents-telem-label"><Clock size={11} /> TICK</span>
-          <span className="agents-telem-value mono">{String(tick % 1000).padStart(3, "0")}<span className="agents-telem-unit">s</span></span>
-        </div>
-        <div className="agents-telem-cell">
-          <span className="agents-telem-label">UPLINK</span>
-          <span className="agents-telem-value mono" style={{ color: "var(--success)" }}>SYNC</span>
-        </div>
       </div>
 
       {/* ===== Filter / Search row ===== */}
@@ -101,7 +95,7 @@ export default function Agents() {
           <Search size={13} style={{ color: "var(--muted)" }} />
           <input
             className="agents-search-input"
-            placeholder="QUERY · name / role"
+            placeholder="搜索 · 名称/角色"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
@@ -114,17 +108,30 @@ export default function Agents() {
               onClick={() => setFilter(f)}
               className={`agents-filter-btn ${filter === f ? "active" : ""}`}
             >
-              {f.toUpperCase()}
+              {f === "all" ? "全部" : f === "online" ? "在线" : f === "busy" ? "忙碌" : "离线"}
             </button>
           ))}
         </div>
+        <div className="agents-toolbar-spacer" />
+        <button
+          onClick={handleSync}
+          disabled={syncing}
+          className="agents-filter-btn agents-filter-btn--icon"
+          title="从 adapter 同步最新 agent 列表"
+        >
+          <RefreshCw
+            size={11}
+            style={syncing ? { animation: "agents-spin 1s linear infinite" } : undefined}
+          />
+          {syncing ? "同步中…" : "同步"}
+        </button>
       </div>
 
       {/* ===== Agent grid ===== */}
       <div className="agents-grid">
         {visible.length === 0 ? (
           <div className="agents-empty-row">
-            <span className="mono">NO MATCH · {query || filter.toUpperCase()}</span>
+            <span className="mono">无匹配 · {query || (filter === "all" ? "全部" : filter === "online" ? "在线" : filter === "busy" ? "忙碌" : "离线")}</span>
           </div>
         ) : (
           visible.map((agent: any, idx: number) => {
@@ -166,21 +173,21 @@ export default function Agents() {
                   {/* Stats grid */}
                   <div className="agent-stats">
                     <div className="agent-stat">
-                      <span className="agent-stat-label">PLATFORM</span>
+                      <span className="agent-stat-label">平台</span>
                       <span className="agent-stat-value">{agent.platform || "—"}</span>
                     </div>
                     <div className="agent-stat">
-                      <span className="agent-stat-label">LAST SEEN</span>
+                      <span className="agent-stat-label">最后在线</span>
                       <span className="agent-stat-value mono">{relTime(agent.last_seen_at)}</span>
                     </div>
                   </div>
 
                   {/* Current task strip */}
                   {agent.current_task_id && (
-                    <div className="agent-task">
-                      <span className="agent-task-label">TASK</span>
-                      <span className="agent-task-value mono">{agent.current_task_id}</span>
-                    </div>
+                    <Link to={`/tasks/${agent.current_task_id}`} className="agent-task no-underline" style={{ textDecoration: "none" }}>
+                      <span className="agent-task-label">任务</span>
+                      <span className="agent-task-value mono">{agent.current_task_id.length > 12 ? agent.current_task_id.slice(0, 8) + "…" : agent.current_task_id}</span>
+                    </Link>
                   )}
                 </div>
               </Link>
