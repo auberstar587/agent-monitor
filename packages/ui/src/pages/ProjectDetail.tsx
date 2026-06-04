@@ -421,19 +421,19 @@ export default function ProjectDetail() {
           <div className="pd-path-row">
             <MapPin size={11} style={{ color: "var(--muted)" }} />
             <span className="mono pd-path-text">{project.path}</span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--muted)", marginLeft: 16 }}>
+            <span className="mono" style={{ fontSize: 11, color: "var(--muted)", marginLeft: 16 }}>
               <Hash size={10} style={{ display: "inline", verticalAlign: "middle" }} />
               {" "}{project.id?.slice(0, 8).toUpperCase()}
             </span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--muted)", marginLeft: 12 }}>
+            <span className="mono" style={{ fontSize: 11, color: "var(--muted)", marginLeft: 12 }}>
               <GitBranch size={10} style={{ display: "inline", verticalAlign: "middle" }} />
               {" "}{relations.length} 关联
             </span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--muted)", marginLeft: 12 }}>
+            <span className="mono" style={{ fontSize: 11, color: "var(--muted)", marginLeft: 12 }}>
               <FileOutput size={10} style={{ display: "inline", verticalAlign: "middle" }} />
               {" "}{outputs.length} 输出
             </span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--muted)", marginLeft: 12 }}>
+            <span className="mono" style={{ fontSize: 11, color: "var(--muted)", marginLeft: 12 }}>
               <Clock size={10} style={{ display: "inline", verticalAlign: "middle" }} />
               {" "}{relTime(project.last_activity || project.updated_at)}
             </span>
@@ -453,7 +453,7 @@ export default function ProjectDetail() {
             <p className="text-xl font-semibold mono" style={{ color: item.color, margin: 0 }}>
               {item.value}
             </p>
-            <p className="text-[10px]" style={{ color: "var(--muted)", margin: 0, marginTop: 2 }}>
+            <p className="text-[11px]" style={{ color: "var(--muted)", margin: 0, marginTop: 2 }}>
               {item.label}
             </p>
           </Link>
@@ -466,10 +466,10 @@ export default function ProjectDetail() {
         {/* ── 左列：任务摘要 ── */}
         <div className="content-card" style={{ padding: "14px 16px" }}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
+            <span className="text-[11px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
               任务
             </span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+            <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
               · {allTasks.length}
             </span>
             <div style={{ flex: 1 }} />
@@ -483,7 +483,7 @@ export default function ProjectDetail() {
             </button>
             <Link
               to={`/tasks?project_id=${project.id}`}
-              className="text-[10px] font-medium"
+              className="text-[11px] font-medium"
               style={{ color: "var(--accent)", textDecoration: "none" }}
             >
               查看全部 →
@@ -504,23 +504,23 @@ export default function ProjectDetail() {
                     className="list-row no-underline"
                     style={{ minHeight: 40, padding: "8px 12px", gap: 8, textDecoration: "none" }}
                   >
-                    <span className={`status-pill ${ts.pill}`} style={{ fontSize: 9, padding: "1px 6px" }}>
+                    <span className={`status-pill ${ts.pill}`} style={{ fontSize: 11, padding: "1px 6px" }}>
                       {ts.label}
                     </span>
                     <span className="text-[12px]" style={{ color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                       {task.title}
                     </span>
                     {task.priority && (
-                      <span className="mono" style={{ fontSize: 9, color: "var(--muted)", letterSpacing: "0.06em" }}>
+                      <span className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.06em" }}>
                         {task.priority}
                       </span>
                     )}
                     {task.assignee_id && (
-                      <span className="text-[10px]" style={{ color: "var(--muted)" }}>
+                      <span className="text-[11px]" style={{ color: "var(--muted)" }}>
                         {task.assignee_id.length > 8 ? task.assignee_id.slice(0, 8) + "…" : task.assignee_id}
                       </span>
                     )}
-                    <span className="mono text-[10px]" style={{ color: "var(--muted)", flexShrink: 0 }}>
+                    <span className="mono text-[11px]" style={{ color: "var(--muted)", flexShrink: 0 }}>
                       {relTime(task.created_at)}
                     </span>
                   </Link>
@@ -533,16 +533,16 @@ export default function ProjectDetail() {
         {/* ── 右列：Agent 会话摘要 ── */}
         <div className="content-card" style={{ padding: "14px 16px" }}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
+            <span className="text-[11px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
               Agent 会话
             </span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+            <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
               · {recentSessions.length}
             </span>
             <div style={{ flex: 1 }} />
             <Link
               to="/agents"
-              className="text-[10px] font-medium"
+              className="text-[11px] font-medium"
               style={{ color: "var(--accent)", textDecoration: "none" }}
             >
               查看全部 →
@@ -569,18 +569,18 @@ export default function ProjectDetail() {
                       fontSize: 12,
                     }}
                   >
-                    <span className={`status-pill ${ss.pill}`} style={{ fontSize: 9, padding: "1px 6px" }}>
+                    <span className={`status-pill ${ss.pill}`} style={{ fontSize: 11, padding: "1px 6px" }}>
                       {ss.label}
                     </span>
                     <span className="text-[12px]" style={{ color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                       {s.agent_id?.length > 12 ? s.agent_id.slice(0, 12) + "…" : (s.agent_id || "—")}
                     </span>
                     {(s.last_output || s.output) && (
-                      <span className="text-[10px]" style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>
+                      <span className="text-[11px]" style={{ color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 120 }}>
                         {(s.last_output || s.output).slice(0, 30)}
                       </span>
                     )}
-                    <span className="mono text-[10px]" style={{ color: "var(--muted)", flexShrink: 0 }}>
+                    <span className="mono text-[11px]" style={{ color: "var(--muted)", flexShrink: 0 }}>
                       {relTime(s.updated_at ?? s.created_at)}
                     </span>
                   </div>
@@ -593,16 +593,16 @@ export default function ProjectDetail() {
         {/* ── 左列：Trace 摘要 ── */}
         <div className="content-card" style={{ padding: "14px 16px" }}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
+            <span className="text-[11px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
               执行轨迹
             </span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+            <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
               · {recentTraces.length}
             </span>
             <div style={{ flex: 1 }} />
             <Link
               to={`/traces?project_id=${project.id}`}
-              className="text-[10px] font-medium"
+              className="text-[11px] font-medium"
               style={{ color: "var(--accent)", textDecoration: "none" }}
             >
               查看全部 →
@@ -627,21 +627,21 @@ export default function ProjectDetail() {
                       borderColor: isFailed ? "var(--danger)" : undefined,
                     }}
                   >
-                    <span className={`status-pill ${ts.pill}`} style={{ fontSize: 9, padding: "1px 6px" }}>
+                    <span className={`status-pill ${ts.pill}`} style={{ fontSize: 11, padding: "1px 6px" }}>
                       {ts.label}
                     </span>
                     <span className="text-[12px]" style={{ color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                       {trace.title || trace.task_id?.slice(0, 12)}
                     </span>
-                    <span className="mono text-[10px]" style={{ color: "var(--muted)" }}>
+                    <span className="mono text-[11px]" style={{ color: "var(--muted)" }}>
                       <Timer size={9} style={{ display: "inline", verticalAlign: "middle" }} />
                       {" "}{fmtDuration(trace.duration_ms)}
                     </span>
-                    <span className="mono text-[10px]" style={{ color: "var(--muted)" }}>
+                    <span className="mono text-[11px]" style={{ color: "var(--muted)" }}>
                       <Coins size={9} style={{ display: "inline", verticalAlign: "middle" }} />
                       {" "}{fmtCost(trace.cost_cents)}
                     </span>
-                    <span className="mono text-[10px]" style={{ color: "var(--muted)", flexShrink: 0 }}>
+                    <span className="mono text-[11px]" style={{ color: "var(--muted)", flexShrink: 0 }}>
                       {relTime(trace.created_at)}
                     </span>
                   </Link>
@@ -654,16 +654,16 @@ export default function ProjectDetail() {
         {/* ── 右列：Artifact 摘要 ── */}
         <div className="content-card" style={{ padding: "14px 16px" }}>
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
+            <span className="text-[11px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
               产出物
             </span>
-            <span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+            <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
               · {recentArtifacts.length}
             </span>
             <div style={{ flex: 1 }} />
             <Link
               to={`/artifacts?project_id=${project.id}`}
-              className="text-[10px] font-medium"
+              className="text-[11px] font-medium"
               style={{ color: "var(--accent)", textDecoration: "none" }}
             >
               查看全部 →
@@ -690,18 +690,18 @@ export default function ProjectDetail() {
                       fontSize: 12,
                     }}
                   >
-                    <span className={`status-pill ${as.pill}`} style={{ fontSize: 9, padding: "1px 6px" }}>
+                    <span className={`status-pill ${as.pill}`} style={{ fontSize: 11, padding: "1px 6px" }}>
                       {as.label}
                     </span>
                     <span className="text-[12px]" style={{ color: "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
                       {art.title || art.name || art.id?.slice(0, 12)}
                     </span>
                     {art.type && (
-                      <span className="tech-badge mono" style={{ fontSize: 9, padding: "1px 4px" }}>
+                      <span className="tech-badge mono" style={{ fontSize: 11, padding: "1px 4px" }}>
                         {art.type}
                       </span>
                     )}
-                    <span className="mono text-[10px]" style={{ color: "var(--muted)", flexShrink: 0 }}>
+                    <span className="mono text-[11px]" style={{ color: "var(--muted)", flexShrink: 0 }}>
                       {relTime(art.created_at)}
                     </span>
                   </div>
@@ -715,7 +715,7 @@ export default function ProjectDetail() {
       {/* ═══ 新建任务内联表单 ═══ */}
       {showAddTask && (
         <div className="content-card" style={{ padding: 12, marginBottom: 16 }}>
-          <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>
+          <div className="text-[11px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>
             新建任务
           </div>
           <div className="flex items-center gap-2">
@@ -819,7 +819,7 @@ export default function ProjectDetail() {
         </h3>
         {showAddRel && (
           <div className="pd-section-card mb-3" style={{ padding: 12 }}>
-            <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>
+            <div className="text-[11px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>
               新建关联
             </div>
             <div className="flex flex-col gap-2">
