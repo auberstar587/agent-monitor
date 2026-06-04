@@ -67,4 +67,59 @@ export async function traceRoutes(fastify: FastifyInstance) {
     if (!row) return reply.code(404).send({ error: "inbox item not found" });
     return row;
   });
+
+  // 类型化动作 API：批准
+  // inbox_items.status 是 TEXT，可写 'approved'/'rejected' 等值
+  fastify.post("/api/inbox/:id/approve", async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as { id: string };
+    const { note } = (req.body ?? {}) as { note?: string };
+    const row = await queryOne(
+      `UPDATE inbox_items
+          SET status = 'approved',
+              resolved_by = 'user',
+              resolved_at = now(),
+              updated_at = now()
+        WHERE id = $1
+        RETURNING *`,
+      [id],
+    );
+    if (!row) return reply.code(404).send({ error: "inbox item not found" });
+    // note 暂不持久化（inbox_items 当前无 metadata JSONB 字段），仅在响应中回显给前端
+    return { ...(row as Record<string, unknown>), note: note ?? null };
+  });
+
+  // 类型化动作 API：拒绝
+  fastify.post("/api/inbox/:id/reject", async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as { id: string };
+    const { note } = (req.body ?? {}) as { note?: string };
+    const row = await queryOne(
+      `UPDATE inbox_items
+          SET status = 'rejected',
+              resolved_by = 'user',
+              resolved_at = now(),
+              updated_at = now()
+        WHERE id = $1
+        RETURNING *`,
+      [id],
+    );
+    if (!row) return reply.code(404).send({ error: "inbox item not found" });
+    return { ...(row as Record<string, unknown>), note: note ?? null };
+  });
+
+  // 类型化动作 API：重试（标记为 resolved，具体任务重试由调用方发起）
+  fastify.post("/api/inbox/:id/retry", async (req: FastifyRequest, reply: FastifyReply) => {
+    const { id } = req.params as { id: string };
+    const row = await queryOne(
+      `UPDATE inbox_items
+          SET status = 'resolved',
+              resolved_by = 'user',
+              resolved_at = now(),
+              updated_at = now()
+        WHERE id = $1
+        RETURNING *`,
+      [id],
+    );
+    if (!row) return reply.code(404).send({ error: "inbox item not found" });
+    return row;
+  });
 }

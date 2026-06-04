@@ -117,7 +117,35 @@ export async function taskRoutes(fastify: FastifyInstance) {
       } catch { /* 上下文注入失败不阻塞执行 */ }
     }
 
-    // 8. Hijack + SSE
+    // 8. 写入 execution_traces 起始记录（task_id 是 UNIQUE，使用 ON CONFLICT 幂等）
+    let traceId: string | null = null;
+    let traceSeq = 0;
+    try {
+      const inserted = await queryOne<{ id: string }>(
+        `INSERT INTO execution_traces
+           (task_id, project_id, agent_id, source, status, title, started_at, retry_count)
+         VALUES ($1, $2, $3, $4, 'running', $5, now(), 0)
+         ON CONFLICT (task_id) DO UPDATE
+           SET status = 'running',
+               started_at = now(),
+               completed_at = NULL,
+               updated_at = now()
+         RETURNING id`,
+        [
+          id,
+          task.project_id ?? null,
+          task.assignee_id ?? engineName, // agent_id NOT NULL，回退到引擎名
+          engineName,
+          task.title,
+        ],
+      );
+      traceId = inserted?.id ?? null;
+    } catch (err: any) {
+      // trace 写入失败不阻塞执行，仅记录
+      console.error(`[tasks.execute] failed to insert trace: ${err?.message ?? err}`);
+    }
+
+    // 9. Hijack + SSE
     reply.hijack();
     const res = reply.raw;
     res.writeHead(200, {
@@ -126,24 +154,122 @@ export async function taskRoutes(fastify: FastifyInstance) {
       'Connection': 'keep-alive',
     });
 
+    // 收集本轮执行统计
+    const textChunks: string[] = [];
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let model: string | null = null;
+    let errorMessage: string | null = null;
+    let runStatus: 'completed' | 'failed' = 'completed';
+
     try {
-      sseWrite(res, 'start', { runId: `task_${id}`, taskId: id });
+      sseWrite(res, 'start', { runId: `task_${id}`, taskId: id, traceId });
 
       const stream = engine.run(prompt, { systemPrompt, workingDir });
       for await (const msg of stream) {
+        // 累积文本片段（用于 summary，最多 2000 字）
+        if (msg.type === 'text' && typeof msg.content === 'string') {
+          textChunks.push(msg.content);
+        }
+
+        // 记录工具调用
+        if (msg.type === 'tool_use' && traceId) {
+          traceSeq += 1;
+          try {
+            await query(
+              `INSERT INTO trace_tool_calls (trace_id, task_id, seq, type, tool_name, tool_input)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                traceId,
+                id,
+                traceSeq,
+                msg.type,
+                msg.tool ?? null,
+                msg.input ? JSON.stringify(msg.input) : null,
+              ],
+            );
+          } catch (toolErr: any) {
+            console.error(`[tasks.execute] failed to insert tool_call #${traceSeq}: ${toolErr?.message ?? toolErr}`);
+          }
+        }
+
+        // 记录工具结果（绑定到最近一次 tool_use 的 seq）
+        if (msg.type === 'tool_result' && traceId && traceSeq > 0) {
+          try {
+            await query(
+              `UPDATE trace_tool_calls
+                  SET tool_output = $1,
+                      error_text = $2
+                WHERE trace_id = $3 AND task_id = $4 AND seq = $5`,
+              [
+                typeof msg.output === 'string' ? msg.output : (msg.output ? JSON.stringify(msg.output) : null),
+                msg.type === 'tool_result' && (msg as any).is_error ? (msg.output ?? 'tool error') : null,
+                traceId,
+                id,
+                traceSeq,
+              ],
+            );
+          } catch (toolErr: any) {
+            console.error(`[tasks.execute] failed to update tool_call #${traceSeq}: ${toolErr?.message ?? toolErr}`);
+          }
+        }
+
+        // 抓取用量（适配器可能在 message 里附带 usage/model）
+        const usage = (msg as any).usage;
+        if (usage && typeof usage === 'object') {
+          if (typeof usage.inputTokens === 'number') inputTokens = usage.inputTokens;
+          if (typeof usage.outputTokens === 'number') outputTokens = usage.outputTokens;
+          if (typeof usage.model === 'string') model = usage.model;
+        }
+
         if (!sseWrite(res, 'message', msg)) break;
       }
 
       // 成功完成 → 自动 transition → completed
       await transitionTask(id, "completed");
+      runStatus = 'completed';
       sseWrite(res, 'done', { runId: `task_${id}`, taskId: id, finalStatus: "completed" });
     } catch (err: any) {
       // 异常 → 自动 transition → failed
+      errorMessage = err?.message ?? String(err);
+      runStatus = 'failed';
       try { await transitionTask(id, "failed"); } catch {}
-      sseWrite(res, 'error', { error: err?.message ?? String(err) });
+      sseWrite(res, 'error', { error: errorMessage });
       sseWrite(res, 'done', { runId: `task_${id}`, taskId: id, finalStatus: "failed" });
     } finally {
+      // 关闭 SSE
       if (!res.writableEnded) res.end();
+
+      // 更新 execution_traces 终态
+      if (traceId) {
+        const summary = textChunks.join('').slice(0, 2000) || null;
+        try {
+          await query(
+            `UPDATE execution_traces SET
+               status = $1,
+               completed_at = now(),
+               duration_ms = (EXTRACT(EPOCH FROM (now() - started_at)) * 1000)::int,
+               summary = $2,
+               error_message = $3,
+               input_tokens = $4,
+               output_tokens = $5,
+               model = $6,
+               updated_at = now()
+             WHERE id = $7`,
+            [
+              runStatus,
+              summary,
+              errorMessage,
+              inputTokens,
+              outputTokens,
+              model,
+              traceId,
+            ],
+          );
+        } catch (updErr: any) {
+          console.error(`[tasks.execute] failed to finalize trace: ${updErr?.message ?? updErr}`);
+        }
+      }
     }
   });
 

@@ -97,6 +97,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ resolved_by: resolvedBy }),
     }),
+  approveInbox: (id: string, note?: string) =>
+    request<any>(`/inbox/${id}/approve`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    }),
+  rejectInbox: (id: string, note?: string) =>
+    request<any>(`/inbox/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ note }),
+    }),
+  retryInbox: (id: string) =>
+    request<any>(`/inbox/${id}/retry`, { method: "POST" }),
 
   listAgents: () => request<any[]>("/agents"),
   updateAgent: (id: string, data: any) => request<any>(`/agents/${id}`, { method: "PUT", body: JSON.stringify(data) }),
