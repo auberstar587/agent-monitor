@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import CustomSelect from "../components/CustomSelect";
 import {
   ArrowLeft,
   FolderKanban,
@@ -70,6 +71,13 @@ const DIR_LABEL: Record<string, string> = {
   review: "审查",
   question: "提问",
 };
+const PROJECT_STATUS_OPTIONS = [
+  { value: "active", label: "ACTIVE" },
+  { value: "paused", label: "PAUSED" },
+  { value: "archived", label: "ARCHIVED" },
+];
+const RELATION_TYPE_OPTIONS = ["dependency", "reference", "blocks", "related"]
+  .map((type) => ({ value: type, label: type }));
 
 /* ── Trace 状态映射 ── */
 const TRACE_STATUS: Record<string, { pill: string; label: string; icon: typeof CheckCircle; color: string }> = {
@@ -291,7 +299,67 @@ export default function ProjectDetail() {
 
   return (
     <div className="pd-page">
-      {/* ═══ 返回导航 ═══ */}
+      {/* ═══ Telemetry bar ═══ */}
+      <div className="pd-telemetry">
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label">
+            <Hash size={11} /> 项目
+          </span>
+          <span className="pd-telem-value mono">
+            {project.id?.slice(0, 8).toUpperCase()}
+          </span>
+        </div>
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label" style={{ color: ch.color }}>
+            <FolderKanban size={11} /> 状态
+          </span>
+          {/* P8-03: 状态切换下拉 */}
+          <CustomSelect
+            value={project.status}
+            onChange={handleStatusChange}
+            options={PROJECT_STATUS_OPTIONS}
+            style={{ width: 104, color: ch.color }}
+            title="切换项目状态"
+            variant="badge"
+          />
+        </div>
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label">
+            <GitBranch size={11} /> 关联
+          </span>
+          <span className="pd-telem-value mono">
+            {String(relations.length).padStart(3, "0")}
+          </span>
+        </div>
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label">
+            <FileOutput size={11} /> 输出
+          </span>
+          <span className="pd-telem-value mono">
+            {String(outputs.length).padStart(3, "0")}
+          </span>
+        </div>
+        <div className="pd-telem-spacer" />
+        <div className="pd-telem-cell">
+          <span className="pd-telem-label">
+            <Clock size={11} /> 最近活跃
+          </span>
+          <span className="pd-telem-value mono">
+            {relTime(project.last_activity || project.updated_at)}
+          </span>
+        </div>
+        {/* P8-06: 详情页删除按钮 */}
+        <button
+          onClick={handleDelete}
+          className="icon-btn"
+          style={{ color: "var(--danger)", marginLeft: 8 }}
+          title="删除项目"
+        >
+          <Trash2 size={13} />
+        </button>
+      </div>
+
+      {/* ═══ Back nav ═══ */}
       <Link to="/projects" className="pd-back">
         <ArrowLeft size={13} />
         <span className="mono">返回项目列表</span>
@@ -312,17 +380,18 @@ export default function ProjectDetail() {
               {ch.label}
             </span>
             {/* 状态切换下拉 */}
-            <select
+            <CustomSelect
               value={project.status}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              className="pd-telem-value mono bg-transparent border-none cursor-pointer"
-              style={{ color: ch.color, fontSize: 11, fontWeight: 600, padding: 0, marginLeft: 8 }}
+              onChange={handleStatusChange}
+              options={[
+                { value: "active", label: "ACTIVE" },
+                { value: "paused", label: "PAUSED" },
+                { value: "archived", label: "ARCHIVED" },
+              ]}
+              style={{ width: 104, color: ch.color, marginLeft: 8 }}
               title="切换项目状态"
-            >
-              <option value="active">ACTIVE</option>
-              <option value="paused">PAUSED</option>
-              <option value="archived">ARCHIVED</option>
-            </select>
+              variant="badge"
+            />
             <div style={{ flex: 1 }} />
             <button
               onClick={handleDelete}
@@ -660,29 +729,29 @@ export default function ProjectDetail() {
               style={{ fontSize: 12 }}
               autoFocus
             />
-            <select
+            <CustomSelect
               value={newTaskPriority}
-              onChange={(e) => setNewTaskPriority(e.target.value)}
-              className="form-input"
-              style={{ fontSize: 11, width: 80, cursor: "pointer" }}
-            >
-              <option value="urgent">紧急</option>
-              <option value="high">高</option>
-              <option value="medium">中</option>
-              <option value="low">低</option>
-            </select>
-            <select
+              onChange={setNewTaskPriority}
+              options={[
+                { value: "urgent", label: "紧急" },
+                { value: "high", label: "高" },
+                { value: "medium", label: "中" },
+                { value: "low", label: "低" },
+              ]}
+              style={{ width: 80 }}
+            />
+            <CustomSelect
               value={newTaskType}
-              onChange={(e) => setNewTaskType(e.target.value)}
-              className="form-input"
-              style={{ fontSize: 11, width: 90, cursor: "pointer" }}
-            >
-              <option value="general">通用</option>
-              <option value="bug">缺陷</option>
-              <option value="feature">功能</option>
-              <option value="review">审查</option>
-              <option value="analysis">分析</option>
-            </select>
+              onChange={setNewTaskType}
+              options={[
+                { value: "general", label: "通用" },
+                { value: "bug", label: "缺陷" },
+                { value: "feature", label: "功能" },
+                { value: "review", label: "审查" },
+                { value: "analysis", label: "分析" },
+              ]}
+              style={{ width: 90 }}
+            />
             <button onClick={handleAddTask} disabled={!newTaskTitle.trim()} className="button button-primary" style={{ fontSize: 11, padding: "4px 12px" }}>
               提交
             </button>
@@ -756,21 +825,26 @@ export default function ProjectDetail() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ minWidth: 60, color: "var(--muted)" }}>目标</span>
-                <select value={relTarget} onChange={(e) => setRelTarget(e.target.value)} className="form-input flex-1" style={{ fontSize: 11 }}>
-                  <option value="">选择项目...</option>
-                  {allProjects.map((p: any) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                <CustomSelect
+                  value={relTarget}
+                  onChange={setRelTarget}
+                  options={[
+                    { value: "", label: "选择项目..." },
+                    ...allProjects.map((p: any) => ({ value: p.id, label: p.name })),
+                  ]}
+                  className="flex-1"
+                  style={{ height: 30 }}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ minWidth: 60, color: "var(--muted)" }}>类型</span>
-                <select value={relType} onChange={(e) => setRelType(e.target.value)} className="form-input flex-1" style={{ fontSize: 11 }}>
-                  <option value="dependency">dependency</option>
-                  <option value="reference">reference</option>
-                  <option value="blocks">blocks</option>
-                  <option value="related">related</option>
-                </select>
+                <CustomSelect
+                  value={relType}
+                  onChange={setRelType}
+                  options={RELATION_TYPE_OPTIONS}
+                  className="flex-1"
+                  style={{ height: 30 }}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ minWidth: 60, color: "var(--muted)" }}>描述</span>

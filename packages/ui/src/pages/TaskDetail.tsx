@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import CustomSelect from "../components/CustomSelect";
 import { ArrowLeft, Edit3, Check, X, Play, CheckCircle, XCircle, RotateCcw, Ban, Rocket, Loader2, Plus } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -8,6 +9,8 @@ const STATUS_LABELS: Record<string, string> = {
 };
 const PRIORITY_LABELS: Record<string, string> = { urgent: "紧急", high: "高", medium: "中", low: "低" };
 const TYPE_LABELS: Record<string, string> = { general: "通用", bug: "缺陷", feature: "功能", review: "审查", analysis: "分析" };
+const PRIORITY_OPTIONS = Object.entries(PRIORITY_LABELS).map(([value, label]) => ({ value, label }));
+const TYPE_OPTIONS = Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }));
 
 // Valid transitions for each status (kept in sync with server task-manager.ts VALID_TRANSITIONS)
 const TRANSITIONS: Record<string, { status: string; label: string; icon: any; color: string }[]> = {
@@ -37,6 +40,7 @@ export default function TaskDetail() {
   const [execEngine, setExecEngine] = useState("claude-code");
   const [execOutput, setExecOutput] = useState<string[]>([]);
   const [engines, setEngines] = useState<{id: string; label: string; installed: boolean}[]>([]);
+  // P8-13: labels 编辑态
   const [editingLabels, setEditingLabels] = useState(false);
   const [labelDraft, setLabelDraft] = useState<string[]>([]);
   const [newLabel, setNewLabel] = useState("");
@@ -56,6 +60,7 @@ export default function TaskDetail() {
     api.listAgents().then(setAgents).catch(() => {});
   }, []);
 
+  // 加载项目列表
   useEffect(() => {
     api.listProjects().then(setProjects).catch(() => {});
   }, []);
@@ -86,6 +91,8 @@ export default function TaskDetail() {
     await api.deleteTask(task.id);
     navigate("/tasks");
   };
+
+  // P8-14: 直接编辑 type/priority/assignee（P8-16 错误提示通用此 handler）
   const handleUpdate = async (patch: Record<string, any>) => {
     setError(null);
     try {
@@ -216,34 +223,25 @@ export default function TaskDetail() {
             <span className={`status-pill ${task.status === 'completed' ? 'status-succeeded' : task.status === 'failed' ? 'status-failed' : task.status === 'in_progress' ? 'status-running' : 'status-queued'}`}>
               {STATUS_LABELS[task.status] || task.status}
             </span>
-            <select
-              className="type-badge"
+            <CustomSelect
               style={{
                 color: task.priority === 'urgent' ? 'var(--danger)' : task.priority === 'high' ? 'var(--warning)' : 'var(--muted)',
                 background: task.priority === 'urgent' ? 'var(--danger-bg)' : task.priority === 'high' ? 'var(--warning-bg)' : 'transparent',
-                border: "none",
-                cursor: "pointer",
-                padding: "2px 6px",
               }}
               value={task.priority}
-              onChange={(e) => handleUpdate({ priority: e.target.value })}
+              onChange={(value) => handleUpdate({ priority: value })}
+              options={PRIORITY_OPTIONS}
               title="优先级"
-            >
-              {Object.entries(PRIORITY_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
-            <select
-              className="text-xs px-1.5 py-0.5 rounded"
-              style={{ color: "var(--muted)", border: "1px solid var(--line)", background: "transparent", cursor: "pointer" }}
+              variant="badge"
+            />
+            <CustomSelect
+              style={{ width: 88 }}
               value={task.type}
-              onChange={(e) => handleUpdate({ type: e.target.value })}
+              onChange={(value) => handleUpdate({ type: value })}
+              options={TYPE_OPTIONS}
               title="类型"
-            >
-              {Object.entries(TYPE_LABELS).map(([k, v]) => (
-                <option key={k} value={k}>{v}</option>
-              ))}
-            </select>
+              variant="badge"
+            />
           </div>
         </div>
       </div>
@@ -286,17 +284,18 @@ export default function TaskDetail() {
           <div className="flex items-center gap-2">
             <Rocket size={14} style={{ color: "var(--accent)" }} />
             <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>执行任务</span>
-            <select
+            <CustomSelect
               value={execEngine}
-              onChange={(e) => setExecEngine(e.target.value)}
-              className="form-input"
-              style={{ fontSize: 11, padding: "2px 6px", minWidth: 120 }}
-            >
-              {engines.length === 0 && <option value="claude-code">Claude Code</option>}
-              {engines.map((eng) => (
-                <option key={eng.id} value={eng.id}>{eng.label}{!eng.installed ? " (未安装)" : ""}</option>
-              ))}
-            </select>
+              onChange={setExecEngine}
+              options={engines.length === 0
+                ? [{ value: "claude-code", label: "Claude Code" }]
+                : engines.map((eng) => ({
+                  value: eng.id,
+                  label: `${eng.label}${!eng.installed ? " (未安装)" : ""}`,
+                  disabled: !eng.installed,
+                }))}
+              style={{ minWidth: 140, height: 28 }}
+            />
             <button
               onClick={handleExecute}
               disabled={executing}
@@ -366,17 +365,16 @@ export default function TaskDetail() {
             {task.completed_at && <div>完成: {new Date(task.completed_at).toLocaleString("zh-CN")}</div>}
             <div className="flex items-center gap-1.5">
               <span style={{ minWidth: 50 }}>指派人:</span>
-              <select
+              <CustomSelect
                 value={task.assignee_id || ""}
-                onChange={(e) => handleUpdate({ assignee_id: e.target.value || null })}
-                className="form-input"
-                style={{ fontSize: 11, padding: "2px 6px", flex: 1 }}
-              >
-                <option value="">未分配</option>
-                {agents.map((a: any) => (
-                  <option key={a.id} value={a.id}>{a.name} ({a.platform})</option>
-                ))}
-              </select>
+                onChange={(value) => handleUpdate({ assignee_id: value || null })}
+                options={[
+                  { value: "", label: "未分配" },
+                  ...agents.map((a: any) => ({ value: a.id, label: `${a.name} (${a.platform})` })),
+                ]}
+                className="flex-1"
+                style={{ height: 26 }}
+              />
             </div>
 
             {/* P8-13: labels 区域 */}
@@ -459,17 +457,16 @@ export default function TaskDetail() {
             </div>
             <div className="flex items-center gap-1.5">
               <span style={{ minWidth: 50 }}>项目:</span>
-              <select
+              <CustomSelect
                 value={task.project_id || ""}
-                onChange={(e) => handleUpdate({ project_id: e.target.value || null })}
-                className="form-input"
-                style={{ fontSize: 11, padding: "2px 6px", flex: 1 }}
-              >
-                <option value="">未指定</option>
-                {projects.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+                onChange={(value) => handleUpdate({ project_id: value || null })}
+                options={[
+                  { value: "", label: "未指定" },
+                  ...projects.map((p: any) => ({ value: p.id, label: p.name })),
+                ]}
+                className="flex-1"
+                style={{ height: 26 }}
+              />
             </div>
           </div>
         </div>

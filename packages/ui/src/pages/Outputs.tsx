@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { FileText, ChevronDown, ChevronRight, Clock } from "lucide-react";
+import CustomSelect from "../components/CustomSelect";
 
 const DIRECTIONS = ["analysis", "implementation", "decision", "review", "question"];
 const SOURCE_LIST = ["claude-code", "openclaw", "codex", "doubao", "yuanbao", "workbuddy", "manual"];
@@ -12,6 +13,15 @@ const DIRECTION_LABELS: Record<string, string> = {
   review: "审查",
   question: "提问",
 };
+
+const SOURCE_OPTIONS = [
+  { value: "", label: "全部来源" },
+  ...SOURCE_LIST.map((source) => ({ value: source, label: source })),
+];
+const DIRECTION_OPTIONS = [
+  { value: "", label: "全部类型" },
+  ...DIRECTIONS.map((direction) => ({ value: direction, label: DIRECTION_LABELS[direction] || direction })),
+];
 
 export default function Outputs() {
   const [outputs, setOutputs] = useState<any[]>([]);
@@ -33,22 +43,18 @@ export default function Outputs() {
 
       {/* Filters */}
       <div className="flex gap-2 mb-4">
-        <select
+        <CustomSelect
           value={sourceFilter}
-          onChange={(e) => setSourceFilter(e.target.value)}
-          className="form-input text-xs px-3 py-1.5"
-        >
-          <option value="">全部来源</option>
-          {SOURCE_LIST.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select
+          onChange={setSourceFilter}
+          options={SOURCE_OPTIONS}
+          style={{ width: 140 }}
+        />
+        <CustomSelect
           value={directionFilter}
-          onChange={(e) => setDirectionFilter(e.target.value)}
-          className="form-input text-xs px-3 py-1.5"
-        >
-          <option value="">全部类型</option>
-          {DIRECTIONS.map((d) => <option key={d} value={d}>{DIRECTION_LABELS[d] || d}</option>)}
-        </select>
+          onChange={setDirectionFilter}
+          options={DIRECTION_OPTIONS}
+          style={{ width: 130 }}
+        />
       </div>
 
       {/* Timeline */}
