@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import CustomSelect from "../components/CustomSelect";
 import {
   ListTodo, Plus, XCircle, CheckCircle, Play, Clock,
   Pause, AlertTriangle, ChevronUp, Hash, CornerDownLeft,
@@ -25,6 +26,16 @@ const PRIORITY_STYLE: Record<string, { color: string; label: string }> = {
 };
 
 const PRIORITY_ORDER: Record<string, number> = { urgent: 0, high: 1, medium: 2, low: 3 };
+const PRIORITY_OPTIONS = [
+  { value: "urgent", label: "紧急" },
+  { value: "high", label: "高" },
+  { value: "medium", label: "中" },
+  { value: "low", label: "低" },
+];
+const PRIORITY_FILTER_OPTIONS = [
+  { value: "", label: "全部优先级" },
+  ...PRIORITY_OPTIONS,
+];
 
 /* ════════════════════════════════════════════════════════
    MAIN
@@ -128,30 +139,22 @@ export default function Tasks() {
           任务队列 · {tasks.length} 个任务 · {counts.pending} 个待处理
         </span>
         {/* 项目筛选 */}
-        <select
+        <CustomSelect
           value={filterProject}
-          onChange={(e) => setFilterProject(e.target.value)}
-          className="projects-add-input"
+          onChange={setFilterProject}
+          options={[
+            { value: "", label: "全部项目" },
+            ...projects.map((p: any) => ({ value: p.id, label: p.name })),
+          ]}
           style={{ width: 140, height: 28, fontSize: 11 }}
-        >
-          <option value="">全部项目</option>
-          {projects.map((p: any) => (
-            <option key={p.id} value={p.id}>{p.name}</option>
-          ))}
-        </select>
+        />
         {/* 优先级筛选 */}
-        <select
+        <CustomSelect
           value={filterPriority}
-          onChange={(e) => setFilterPriority(e.target.value)}
-          className="projects-add-input"
+          onChange={setFilterPriority}
+          options={PRIORITY_FILTER_OPTIONS}
           style={{ width: 120, height: 28, fontSize: 11 }}
-        >
-          <option value="">全部优先级</option>
-          <option value="urgent">紧急</option>
-          <option value="high">高</option>
-          <option value="medium">中</option>
-          <option value="low">低</option>
-        </select>
+        />
         {(filterProject || filterPriority) && (
           <button
             type="button"
@@ -188,28 +191,21 @@ export default function Tasks() {
                 onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
                 autoFocus
               />
-              <select
+              <CustomSelect
                 value={priority}
-                onChange={(e) => setPriority(e.target.value)}
-                className="projects-add-input"
+                onChange={setPriority}
+                options={PRIORITY_OPTIONS}
                 style={{ width: 120, cursor: "pointer" }}
-              >
-                <option value="urgent">紧急</option>
-                <option value="high">高</option>
-                <option value="medium">中</option>
-                <option value="low">低</option>
-              </select>
-              <select
+              />
+              <CustomSelect
                 value={newProjectId}
-                onChange={(e) => setNewProjectId(e.target.value)}
-                className="projects-add-input"
+                onChange={setNewProjectId}
+                options={[
+                  { value: "", label: "未指定项目" },
+                  ...projects.map((p: any) => ({ value: p.id, label: p.name })),
+                ]}
                 style={{ width: 140, cursor: "pointer" }}
-              >
-                <option value="">未指定项目</option>
-                {projects.map((p: any) => (
-                  <option key={p.id} value={p.id}>{p.name}</option>
-                ))}
-              </select>
+              />
               <button
                 onClick={handleAdd}
                 disabled={!title.trim()}

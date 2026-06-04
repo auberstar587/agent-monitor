@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Send, Square, Trash2, ChevronDown, ChevronRight, Bot } from "lucide-react";
 import { api } from "../lib/api";
+import CustomSelect from "../components/CustomSelect";
 import type { EngineInfo } from "../lib/api";
 
 /* ── 消息类型 ── */
@@ -230,40 +231,32 @@ export default function Chat() {
       {/* ── 顶栏 ── */}
       <div className="chat-header">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <select
-            className="form-input"
+          <CustomSelect
             value={selectedEngine}
-            onChange={(e) => setSelectedEngine(e.target.value)}
-            style={{ minWidth: 140, height: 32, fontSize: 12, padding: "0 8px" }}
-          >
-            {engines.length === 0 && (
-              <option value="claude-code">Claude Code</option>
-            )}
-            {engines.map((eng) => (
-              <option key={eng.id} value={eng.id}>
-                {eng.label}
-                {!eng.installed ? " (未安装)" : ""}
-              </option>
-            ))}
-          </select>
-          <select
-            className="form-input"
+            onChange={setSelectedEngine}
+            options={engines.length === 0
+              ? [{ value: "claude-code", label: "Claude Code" }]
+              : engines.map((eng) => ({
+                value: eng.id,
+                label: `${eng.label}${!eng.installed ? " (未安装)" : ""}`,
+                disabled: !eng.installed,
+              }))}
+            style={{ minWidth: 140 }}
+          />
+          <CustomSelect
             value={selectedProjectId}
-            onChange={(e) => {
-              const id = e.target.value;
+            onChange={(id) => {
               setSelectedProjectId(id);
               const proj = projects.find((p) => p.id === id);
               setWorkingDir(proj ? proj.path : "");
             }}
-            style={{ flex: 1, minWidth: 180, height: 32, fontSize: 12, padding: "0 8px" }}
-          >
-            <option value="">选择项目…</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
+            options={[
+              { value: "", label: "选择项目…" },
+              ...projects.map((p) => ({ value: p.id, label: p.name })),
+            ]}
+            className="flex-1"
+            style={{ minWidth: 180 }}
+          />
         </div>
         <button
           className="button"

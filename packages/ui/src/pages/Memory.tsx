@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { api } from "../lib/api";
+import CustomSelect from "../components/CustomSelect";
 import {
   Brain, Search, Plus, Trash2, Sparkles, BarChart3,
   X, Pin, PinOff, Pencil, Check, AlertTriangle,
@@ -16,6 +17,7 @@ const TYPE_LABELS: Record<string, string> = {
   decision: "决策", rule: "规则", context: "上下文",
   preference: "偏好", experience: "经验",
 };
+const MEMORY_TYPE_OPTIONS = MEM_TYPES.map((type) => ({ value: type, label: TYPE_LABELS[type] }));
 
 const TYPE_COLORS: Record<MemType, { color: string; bg: string; border: string }> = {
   decision:   { color: "var(--accent)",  bg: "var(--accent-soft)",  border: "rgba(18, 215, 255, 0.22)" },
@@ -309,18 +311,24 @@ export default function Memory() {
           <div className="grid grid-cols-2 gap-3" style={{ marginBottom: 12 }}>
             <div>
               <label className="form-label">类型</label>
-              <select value={newType} onChange={(e) => setNewType(e.target.value as MemType)}
-                className="form-input text-xs w-full">
-                {MEM_TYPES.map((t) => <option key={t} value={t}>{TYPE_LABELS[t]}</option>)}
-              </select>
+              <CustomSelect
+                value={newType}
+                onChange={(value) => setNewType(value as MemType)}
+                options={MEMORY_TYPE_OPTIONS}
+                className="w-full"
+              />
             </div>
             <div>
               <label className="form-label">项目（可选）</label>
-              <select value={newProjectId} onChange={(e) => setNewProjectId(e.target.value)}
-                className="form-input text-xs w-full">
-                <option value="">— 跨项目 —</option>
-                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-              </select>
+              <CustomSelect
+                value={newProjectId}
+                onChange={setNewProjectId}
+                options={[
+                  { value: "", label: "— 跨项目 —" },
+                  ...projects.map((p) => ({ value: p.id, label: p.name })),
+                ]}
+                className="w-full"
+              />
             </div>
           </div>
 

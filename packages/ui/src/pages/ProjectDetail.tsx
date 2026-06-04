@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { api } from "../lib/api";
+import CustomSelect from "../components/CustomSelect";
 import {
   ArrowLeft,
   FolderKanban,
@@ -55,6 +56,13 @@ const DIR_LABEL: Record<string, string> = {
   review: "审查",
   question: "提问",
 };
+const PROJECT_STATUS_OPTIONS = [
+  { value: "active", label: "ACTIVE" },
+  { value: "paused", label: "PAUSED" },
+  { value: "archived", label: "ARCHIVED" },
+];
+const RELATION_TYPE_OPTIONS = ["dependency", "reference", "blocks", "related"]
+  .map((type) => ({ value: type, label: type }));
 
 export default function ProjectDetail() {
   const { id } = useParams<{ id: string }>();
@@ -195,17 +203,14 @@ export default function ProjectDetail() {
             <FolderKanban size={11} /> 状态
           </span>
           {/* P8-03: 状态切换下拉 */}
-          <select
+          <CustomSelect
             value={project.status}
-            onChange={(e) => handleStatusChange(e.target.value)}
-            className="pd-telem-value mono bg-transparent border-none cursor-pointer"
-            style={{ color: ch.color, fontSize: 11, fontWeight: 600, padding: 0 }}
+            onChange={handleStatusChange}
+            options={PROJECT_STATUS_OPTIONS}
+            style={{ width: 104, color: ch.color }}
             title="切换项目状态"
-          >
-            <option value="active">ACTIVE</option>
-            <option value="paused">PAUSED</option>
-            <option value="archived">ARCHIVED</option>
-          </select>
+            variant="badge"
+          />
         </div>
         <div className="pd-telem-cell">
           <span className="pd-telem-label">
@@ -532,31 +537,26 @@ export default function ProjectDetail() {
             <div className="flex flex-col gap-2">
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ minWidth: 60, color: "var(--muted)" }}>目标</span>
-                <select
+                <CustomSelect
                   value={relTarget}
-                  onChange={(e) => setRelTarget(e.target.value)}
-                  className="form-input flex-1"
-                  style={{ fontSize: 11 }}
-                >
-                  <option value="">选择项目...</option>
-                  {allProjects.map((p: any) => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
+                  onChange={setRelTarget}
+                  options={[
+                    { value: "", label: "选择项目..." },
+                    ...allProjects.map((p: any) => ({ value: p.id, label: p.name })),
+                  ]}
+                  className="flex-1"
+                  style={{ height: 30 }}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ minWidth: 60, color: "var(--muted)" }}>类型</span>
-                <select
+                <CustomSelect
                   value={relType}
-                  onChange={(e) => setRelType(e.target.value)}
-                  className="form-input flex-1"
-                  style={{ fontSize: 11 }}
-                >
-                  <option value="dependency">dependency</option>
-                  <option value="reference">reference</option>
-                  <option value="blocks">blocks</option>
-                  <option value="related">related</option>
-                </select>
+                  onChange={setRelType}
+                  options={RELATION_TYPE_OPTIONS}
+                  className="flex-1"
+                  style={{ height: 30 }}
+                />
               </div>
               <div className="flex items-center gap-2">
                 <span className="text-xs" style={{ minWidth: 60, color: "var(--muted)" }}>描述</span>
