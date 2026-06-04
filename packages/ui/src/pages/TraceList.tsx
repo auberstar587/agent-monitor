@@ -111,7 +111,7 @@ export default function TraceList() {
   };
 
   return (
-    <div className="tasks-page">
+    <div className="tasks-page traces-scroll">
       {/* ═══ Telemetry bar ═══ */}
       <div className="agents-telemetry">
         <div className="agents-telem-cell">

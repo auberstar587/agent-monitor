@@ -92,7 +92,7 @@ export default function Artifacts() {
   };
 
   return (
-    <div className="tasks-page">
+    <div className="tasks-page artifacts-scroll">
       {/* ═══ Telemetry bar ═══ */}
       <div className="agents-telemetry">
         <div className="agents-telem-cell">

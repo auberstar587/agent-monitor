@@ -136,7 +136,7 @@ export default function Tasks() {
   }));
 
   return (
-    <div className="tasks-page">
+    <div className="tasks-page tasks-scroll">
       {/* ═══ Telemetry bar ═══ */}
       <div className="agents-telemetry">
         <div className="agents-telem-cell">

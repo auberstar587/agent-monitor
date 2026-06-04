@@ -490,7 +490,7 @@ export default function Dashboard() {
   const completedRecent = recentTasks.filter((t: any) => t.status === "completed").slice(0, 5);
 
   return (
-    <div className="cockpit" style={{ gap: 16, display: "flex", flexDirection: "column" }}>
+    <div className="cockpit dashboard-scroll" style={{ gap: 16, display: "flex", flexDirection: "column" }}>
       {/* 区块标题 */}
       <div className="flex items-center justify-between">
         <h1 className="page-title" style={{ fontSize: 20 }}>处理中心</h1>

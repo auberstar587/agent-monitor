@@ -55,8 +55,8 @@
 - **技术栈**：Fastify 5 + TypeScript（后端）、Vite + React 19 + Tailwind v4（前端）
 - **存储**：PostgreSQL 17（独立数据库 `agent_monitor`）
 - **前端风格 / 布局规范**：见 `MEMORY.md` 末尾"前端约定"小节（不在此重复，避免漂移）
-- **当前进度**：Agent 系统重构已完成（Phase 0~8B），3 引擎（Claude Code + Reasonix + Codex CLI）+ 8 Provider + Chat 对话 + Zustand persist 缓存，60 测试全绿
-- **下一阶段**：前端样式改写（design-system skill 指导，保持布局不变）
+- **当前进度**：前端整改方案 Phase 1-8 已完成（8/8，Phase 7 Blueprint 暂缓），CustomSelect 组件统一替换原生 select，路由级 Code Splitting，滚动条/间距/布局统一修复
+- **下一阶段**：前端样式细化（Dashboard 空状态优化、视觉层级增强）
 
 ### 3.1 借鉴与方向（SPEC v2.3.0 锁定）
 

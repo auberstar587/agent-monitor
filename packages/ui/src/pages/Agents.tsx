@@ -331,7 +331,7 @@ export default function Agents() {
   const [tab, setTab] = useState<"agents" | "sessions">("agents");
 
   return (
-    <div className="agents-page">
+    <div className="agents-page agents-scroll">
       {/* ═══ Tab 切换栏 ═══ */}
       <div className="agents-toolbar">
         <div className="agents-filters">

@@ -39,7 +39,7 @@ export default function Outputs() {
   useEffect(() => { load(); }, [sourceFilter, directionFilter]);
 
   return (
-    <div>
+    <div className="outputs-scroll">
 
       {/* Filters */}
       <div className="flex gap-2 mb-4">

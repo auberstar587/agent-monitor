@@ -298,7 +298,13 @@ export default function ProjectDetail() {
   ];
 
   return (
-    <div className="pd-page">
+    <div className="pd-page project-detail-scroll">
+      {/* ═══ Back nav ═══ */}
+      <Link to="/projects" className="pd-back">
+        <ArrowLeft size={13} />
+        <span className="mono">返回项目列表</span>
+      </Link>
+
       {/* ═══ Telemetry bar ═══ */}
       <div className="pd-telemetry">
         <div className="pd-telem-cell">
@@ -358,12 +364,6 @@ export default function ProjectDetail() {
           <Trash2 size={13} />
         </button>
       </div>
-
-      {/* ═══ Back nav ═══ */}
-      <Link to="/projects" className="pd-back">
-        <ArrowLeft size={13} />
-        <span className="mono">返回项目列表</span>
-      </Link>
 
       {/* ═══ Header: 项目名 / 路径 / 状态 / 操作按钮 ═══ */}
       <div className="pd-header-card" style={{ "--ch": ch.color } as any}>

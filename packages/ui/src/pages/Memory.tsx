@@ -223,7 +223,7 @@ export default function Memory() {
   /* ================================================================ */
 
   return (
-    <div>
+    <div className="memory-scroll">
       {/* ---- Page actions (rendered into header via page-header-actions) ---- */}
       <div className="flex items-center gap-2 -mt-1 mb-0">
         <button className="button" onClick={handleDream} disabled={dreaming}

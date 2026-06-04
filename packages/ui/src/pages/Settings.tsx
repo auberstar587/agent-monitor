@@ -62,7 +62,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="p-0 max-w-5xl">
+    <div className="p-0 max-w-5xl settings-scroll">
       <div className="mb-6">
         <p className="page-subtitle">调整本地工作台的外观和空间组织。</p>
       </div>

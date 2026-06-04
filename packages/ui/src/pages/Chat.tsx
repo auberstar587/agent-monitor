@@ -227,7 +227,7 @@ export default function Chat() {
   };
 
   return (
-    <div className="chat-container">
+    <div className="chat-container chat-scroll">
       {/* ── 顶栏 ── */}
       <div className="chat-header">
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

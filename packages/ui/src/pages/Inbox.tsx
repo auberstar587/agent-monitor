@@ -268,7 +268,7 @@ export default function Inbox() {
   /* ═══ 渲染 ══════════════════════════════════════════════ */
 
   return (
-    <div className="tasks-page">
+    <div className="tasks-page inbox-scroll">
       {/* ═══ Telemetry bar ═══ */}
       <div className="agents-telemetry">
         <div className="agents-telem-cell">
