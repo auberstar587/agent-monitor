@@ -91,23 +91,23 @@ function AgentSessionsTab() {
       {/* ═══ Telemetry bar ═══ */}
       <div className="agents-telemetry">
         <div className="agents-telem-cell">
-          <span className="agents-telem-label"><Activity size={11} /> 全部</span>
+          <span className="agents-telem-label"><Activity size={13} /> 全部</span>
           <span className="agents-telem-value mono">{String(counts.total).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--info)" }}><Play size={11} /> 运行中</span>
+          <span className="agents-telem-label" style={{ color: "var(--info)" }}><Play size={13} /> 运行中</span>
           <span className="agents-telem-value mono" style={{ color: "var(--info)" }}>{String(counts.running).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--warning)" }}><AlertTriangle size={11} /> 待用户</span>
+          <span className="agents-telem-label" style={{ color: "var(--warning)" }}><AlertTriangle size={13} /> 待用户</span>
           <span className="agents-telem-value mono" style={{ color: "var(--warning)" }}>{String(counts.waiting).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--success)" }}><CheckCircle size={11} /> 已完成</span>
+          <span className="agents-telem-label" style={{ color: "var(--success)" }}><CheckCircle size={13} /> 已完成</span>
           <span className="agents-telem-value mono" style={{ color: "var(--success)" }}>{String(counts.completed).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--danger)" }}><XCircle size={11} /> 失败</span>
+          <span className="agents-telem-label" style={{ color: "var(--danger)" }}><XCircle size={13} /> 失败</span>
           <span className="agents-telem-value mono" style={{ color: "var(--danger)" }}>{String(counts.failed).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-spacer" />
@@ -120,7 +120,7 @@ function AgentSessionsTab() {
           会话监督 · {sessions.length} 条会话
         </span>
         <select value={filterStatus} onChange={(e) => setFilterStatus(e.target.value)}
-          className="projects-add-input" style={{ width: 120, height: 28, fontSize: 11 }}>
+          className="projects-add-input" style={{ width: 120, height: 28, fontSize: 12 }}>
           <option value="">全部状态</option>
           <option value="running">运行中</option>
           <option value="waiting_user">待用户</option>
@@ -131,7 +131,7 @@ function AgentSessionsTab() {
         {filterStatus && (
           <button type="button"
             onClick={() => setFilterStatus("")}
-            className="button" style={{ fontSize: 11, padding: "0 10px", height: 28 }}>
+            className="button" style={{ fontSize: 12, padding: "0 10px", height: 28 }}>
             清除筛选
           </button>
         )}
@@ -140,7 +140,7 @@ function AgentSessionsTab() {
       {/* ═══ 主体分栏 ═══ */}
       {loading ? (
         <div className="dashboard-feed-empty" style={{ minHeight: 200 }}>
-          <span className="mono" style={{ color: "var(--muted)", fontSize: 11 }}>加载中…</span>
+          <span className="mono" style={{ color: "var(--muted)", fontSize: 12 }}>加载中…</span>
         </div>
       ) : sessions.length === 0 ? (
         <div className="agents-empty">
@@ -183,15 +183,15 @@ function AgentSessionsTab() {
                     {/* 第一行：状态 pill + Agent */}
                     <div className="flex items-center gap-2 mb-1">
                       <span className={`status-pill ${sc.pill}`}>
-                        <Icon size={10} /> {sc.label}
+                        <Icon size={12} /> {sc.label}
                       </span>
                       <span className="text-[13px] font-medium" style={{ color: "var(--text)" }}>
                         {agent?.name ?? s.agent_id ?? "—"}
                       </span>
                     </div>
                     {/* 第二行：项目/任务/最后输出摘要 */}
-                    <div className="flex items-center gap-2" style={{ fontSize: 10, color: "var(--muted)" }}>
-                      {s.project_id && <span><FolderOpen size={10} style={{ display: "inline", verticalAlign: "middle" }} /> {projects.find((p) => p.id === s.project_id)?.name ?? s.project_id}</span>}
+                    <div className="flex items-center gap-2" style={{ fontSize: 12, color: "var(--muted)" }}>
+                      {s.project_id && <span><FolderOpen size={12} style={{ display: "inline", verticalAlign: "middle" }} /> {projects.find((p) => p.id === s.project_id)?.name ?? s.project_id}</span>}
                       {s.task_id && <span>· 任务 {s.task_id.length > 8 ? s.task_id.slice(0, 8) + "…" : s.task_id}</span>}
                       <span style={{ marginLeft: "auto" }}>{relTime(s.updated_at ?? s.created_at)}</span>
                     </div>
@@ -224,13 +224,13 @@ function AgentSessionsTab() {
                         {selAgent?.name ?? selected.agent_id ?? "会话"}
                       </h2>
                       <span className={`status-pill ${sc.pill}`}>
-                        <Icon size={10} /> {sc.label}
+                        <Icon size={12} /> {sc.label}
                       </span>
                     </div>
 
                     {/* 关联对象 */}
                     <div className="mb-4">
-                      <div className="text-[10px] uppercase tracking-widest font-medium mb-1.5" style={{ color: "var(--muted)" }}>
+                      <div className="text-[12px] uppercase tracking-widest font-medium mb-1.5" style={{ color: "var(--muted)" }}>
                         关联
                       </div>
                       <div className="flex items-center gap-3 flex-wrap" style={{ fontSize: 12 }}>
@@ -258,7 +258,7 @@ function AgentSessionsTab() {
                     {/* 最后输出 */}
                     {(selected.last_output || selected.output) && (
                       <div className="mb-4">
-                        <div className="text-[10px] uppercase tracking-widest font-medium mb-1.5" style={{ color: "var(--muted)" }}>
+                        <div className="text-[12px] uppercase tracking-widest font-medium mb-1.5" style={{ color: "var(--muted)" }}>
                           最后输出
                         </div>
                         <div style={{
@@ -274,7 +274,7 @@ function AgentSessionsTab() {
                     )}
 
                     {/* 持续时间 */}
-                    <div className="mb-4" style={{ fontSize: 11, color: "var(--muted)" }}>
+                    <div className="mb-4" style={{ fontSize: 12, color: "var(--muted)" }}>
                       <span>开始: {new Date(selected.created_at).toLocaleString("zh-CN")}</span>
                       {selected.updated_at && <span style={{ marginLeft: 16 }}>更新: {new Date(selected.updated_at).toLocaleString("zh-CN")}</span>}
                     </div>
@@ -335,14 +335,14 @@ export default function Agents() {
       {/* ═══ Tab 切换栏 ═══ */}
       <div className="agents-toolbar">
         <div className="agents-filters">
-          <Filter size={11} style={{ color: "var(--muted)" }} />
+          <Filter size={13} style={{ color: "var(--muted)" }} />
           <button onClick={() => setTab("agents")}
             className={`agents-filter-btn ${tab === "agents" ? "active" : ""}`}>
-            <Bot size={11} /> Agents
+            <Bot size={13} /> Agents
           </button>
           <button onClick={() => setTab("sessions")}
             className={`agents-filter-btn ${tab === "sessions" ? "active" : ""}`}>
-            <Radio size={11} /> Sessions
+            <Radio size={13} /> Sessions
           </button>
         </div>
         <div className="agents-toolbar-spacer" />
@@ -401,15 +401,15 @@ function AgentsTabContent() {
       {/* ===== Telemetry bar (fixed count strip) ===== */}
       <div className="agents-telemetry">
         <div className="agents-telem-cell">
-          <span className="agents-telem-label"><Cpu size={11} /> 总数</span>
+          <span className="agents-telem-label"><Cpu size={13} /> 总数</span>
           <span className="agents-telem-value mono">{String(agents.length).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--success)" }}><Zap size={11} /> 在线</span>
+          <span className="agents-telem-label" style={{ color: "var(--success)" }}><Zap size={13} /> 在线</span>
           <span className="agents-telem-value mono" style={{ color: "var(--success)" }}>{String(onlineCount).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
-          <span className="agents-telem-label" style={{ color: "var(--info)" }}><Radio size={11} /> 忙碌</span>
+          <span className="agents-telem-label" style={{ color: "var(--info)" }}><Radio size={13} /> 忙碌</span>
           <span className="agents-telem-value mono" style={{ color: "var(--info)" }}>{String(busyCount).padStart(3, "0")}</span>
         </div>
         <div className="agents-telem-cell">
@@ -431,7 +431,7 @@ function AgentsTabContent() {
           />
         </div>
         <div className="agents-filters">
-          <Filter size={11} style={{ color: "var(--muted)" }} />
+          <Filter size={13} style={{ color: "var(--muted)" }} />
           {(["all", "online", "busy", "offline"] as const).map((f) => (
             <button
               key={f}
@@ -450,7 +450,7 @@ function AgentsTabContent() {
           title="从 adapter 同步最新 agent 列表"
         >
           <RefreshCw
-            size={11}
+            size={13}
             style={syncing ? { animation: "agents-spin 1s linear infinite" } : undefined}
           />
           {syncing ? "同步中…" : "同步"}
