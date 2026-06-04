@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { api } from "../lib/api";
 
 interface AppState {
@@ -18,39 +19,53 @@ interface AppState {
   toggleSidebar: () => void;
 }
 
-export const useStore = create<AppState>((set) => ({
-  projects: [],
-  outputs: [],
-  agents: [],
-  inbox: [],
-  blueprints: [],
-  loading: false,
-  sidebarCollapsed: false,
+export const useStore = create<AppState>()(
+  persist(
+    (set) => ({
+      projects: [],
+      outputs: [],
+      agents: [],
+      inbox: [],
+      blueprints: [],
+      loading: false,
+      sidebarCollapsed: false,
 
-  fetchProjects: async () => {
-    const projects = await api.listProjects();
-    set({ projects });
-  },
+      fetchProjects: async () => {
+        const projects = await api.listProjects();
+        set({ projects });
+      },
 
-  fetchOutputs: async (filter) => {
-    const outputs = await api.listOutputs(filter);
-    set({ outputs });
-  },
+      fetchOutputs: async (filter) => {
+        const outputs = await api.listOutputs(filter);
+        set({ outputs });
+      },
 
-  fetchAgents: async () => {
-    const agents = await api.listAgents();
-    set({ agents });
-  },
+      fetchAgents: async () => {
+        const agents = await api.listAgents();
+        set({ agents });
+      },
 
-  fetchInbox: async () => {
-    const inbox = await api.listInbox("pending");
-    set({ inbox });
-  },
+      fetchInbox: async () => {
+        const inbox = await api.listInbox("pending");
+        set({ inbox });
+      },
 
-  fetchBlueprints: async () => {
-    const blueprints = await api.listBlueprints();
-    set({ blueprints });
-  },
+      fetchBlueprints: async () => {
+        const blueprints = await api.listBlueprints();
+        set({ blueprints });
+      },
 
-  toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
-}));
+      toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
+    }),
+    {
+      name: "agent-monitor-store",
+      // 只缓存数据，不缓存 loading / sidebar 等瞬态
+      partialize: (state) => ({
+        agents: state.agents,
+        projects: state.projects,
+        outputs: state.outputs,
+        blueprints: state.blueprints,
+      }),
+    },
+  ),
+);

@@ -177,4 +177,43 @@ export const api = {
     ),
   getHome: () => request<{ home: string; recent: string[] }>("/fs/home"),
   getCommon: () => request<{ shortcuts: { key: string; label: string; path: string }[] }>("/fs/common"),
+
+  // Agent 会话 API（v2.4.0+）
+  listAgentSessions: (filter?: Record<string, any>) => {
+    const qs = filter && Object.keys(filter).length > 0 ? "?" + new URLSearchParams(filter).toString() : "";
+    return request<any[]>(`/agent-sessions${qs}`);
+  },
+  getAgentSession: (id: string) => request<any>(`/agent-sessions/${id}`),
+  createAgentSession: (data: any) => request<any>("/agent-sessions", { method: "POST", body: JSON.stringify(data) }),
+  replyAgentSession: (id: string, message: string) =>
+    request<any>(`/agent-sessions/${id}/reply`, { method: "POST", body: JSON.stringify({ message }) }),
+  pauseAgentSession: (id: string) =>
+    request<any>(`/agent-sessions/${id}/pause`, { method: "POST" }),
+  stopAgentSession: (id: string) =>
+    request<any>(`/agent-sessions/${id}/stop`, { method: "POST" }),
+
+  // Artifact 可审查产物
+  listArtifacts: (filter?: Record<string, any>) => {
+    const qs = filter && Object.keys(filter).length > 0
+      ? "?" + Object.entries(filter).filter(([, v]) => v != null && v !== "").map(([k, v]) => `${k}=${encodeURIComponent(String(v))}`).join("&")
+      : "";
+    return request<any[]>(`/artifacts${qs}`);
+  },
+  getArtifact: (id: string) => request<any>(`/artifacts/${id}`),
+  createArtifact: (data: any) =>
+    request<any>("/artifacts", { method: "POST", body: JSON.stringify(data) }),
+  submitArtifact: (id: string) =>
+    request<any>(`/artifacts/${id}/submit`, { method: "POST" }),
+  acceptArtifact: (id: string, comment?: string) =>
+    request<any>(`/artifacts/${id}/accept`, {
+      method: "POST",
+      body: JSON.stringify({ review_comment: comment }),
+    }),
+  rejectArtifact: (id: string, comment: string) =>
+    request<any>(`/artifacts/${id}/reject`, {
+      method: "POST",
+      body: JSON.stringify({ review_comment: comment }),
+    }),
+  deleteArtifact: (id: string) =>
+    request<void>(`/artifacts/${id}`, { method: "DELETE" }),
 };

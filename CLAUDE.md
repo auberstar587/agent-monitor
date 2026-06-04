@@ -55,8 +55,8 @@
 - **技术栈**：Fastify 5 + TypeScript（后端）、Vite + React 19 + Tailwind v4（前端）
 - **存储**：PostgreSQL 17（独立数据库 `agent_monitor`）
 - **前端风格 / 布局规范**：见 `MEMORY.md` 末尾"前端约定"小节（不在此重复，避免漂移）
-- **当前进度**：Phase 6 完成（2 引擎 + 8 Provider + Chat 对话），v2 功能骨架已实施，60 测试全绿
-- **下一阶段**：Agent 系统重构（Runtime→Agent→Presence 模型，详见 `docs/AGENT-SYSTEM-REDESIGN.md`），由子 Agent 并行实施（后端→Reasonix / 前端→Hermes）
+- **当前进度**：Agent 系统重构已完成（Phase 0~8B），3 引擎（Claude Code + Reasonix + Codex CLI）+ 8 Provider + Chat 对话 + Zustand persist 缓存，60 测试全绿
+- **下一阶段**：前端样式改写（design-system skill 指导，保持布局不变）
 
 ### 3.1 借鉴与方向（SPEC v2.3.0 锁定）
 
@@ -121,9 +121,11 @@ pnpm test
 | `MEMORY.md` | 项目长期记忆 + 前端 CSS 约定 |
 | `COLLABORATION-MODEL.md` | 协作模型（角色 / 流程 / 决策机制） |
 | `docs/AGENT-SYSTEM-REDESIGN.md` | Agent 系统重构设计（Runtime→Agent→Presence 模型，借鉴 Multica） |
-| `docs/PRODUCT-REQUIREMENTS.md` | 需求文档 |
-| `docs/DESIGN.md` | 设计文档 |
-| `archive/20260529-old-requirements/` | 旧版需求 / 设计文档（不再维护） |
+| `docs/DATABASE-SCHEMA.md` | 数据库 Schema 参考（14 张表） |
+| `docs/PHASE-8-MODULE-POLISH.md` | Phase 8 核心工作流 + 模块补齐（22/23 完成） |
+| `docs/DEVELOPMENT-WORKFLOW.md` | 中大型需求工作流规范 |
+| `docs/MULTICA-INTEGRATION.md` | Multica HTTP/WS 协议参考 |
+| `docs/TASK-CORE-MGMT.md` | 项目/Agent/任务管理优化方案 |
 | `.workbuddy/memory/YYYY-MM-DD.md` | 每日工作日志（append-only） |
 | `.workbuddy/memory/MEMORY.md` | 跨项目长期记忆（仅 Auber 视角） |
 

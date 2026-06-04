@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import {
   ListTodo, Plus, XCircle, CheckCircle, Play, Clock,
@@ -35,30 +35,45 @@ export default function Tasks() {
   const [showAdd, setShowAdd] = useState(false);
   const [title, setTitle] = useState("");
   const [priority, setPriority] = useState("medium");
+  const [description, setDescription] = useState("");
+  const [taskType, setTaskType] = useState("general");
   // 筛选
   const [filterProject, setFilterProject] = useState("");
   const [filterPriority, setFilterPriority] = useState("");
+  const [filterStatus, setFilterStatus] = useState("");
   const [projects, setProjects] = useState<any[]>([]);
   const [newProjectId, setNewProjectId] = useState("");
   const [agents, setAgents] = useState<any[]>([]);
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
-  const load = (extra?: { project_id?: string; priority?: string }) => {
+  const load = (extra?: { project_id?: string; priority?: string; status?: string }) => {
     const f: Record<string, string> = {};
     if (extra?.project_id) f.project_id = extra.project_id;
     else if (filterProject) f.project_id = filterProject;
     if (extra?.priority) f.priority = extra.priority;
     else if (filterPriority) f.priority = filterPriority;
+    if (extra?.status) f.status = extra.status;
+    else if (filterStatus) f.status = filterStatus;
     return api.listTasks(Object.keys(f).length > 0 ? f : undefined).then(setTasks).finally(() => setLoading(false));
   };
-  useEffect(() => { load(); }, [filterProject, filterPriority]);
+  // 从 URL 参数初始化筛选（只在 mount 时）
+  useEffect(() => {
+    const s = searchParams.get("status");
+    const p = searchParams.get("project_id");
+    if (s) setFilterStatus(s);
+    if (p) setFilterProject(p);
+  }, []);
+  useEffect(() => { load(); }, [filterProject, filterPriority, filterStatus]);
   useEffect(() => { api.listProjects().then(setProjects).catch(() => {}); }, []);
   useEffect(() => { api.listAgents().then(setAgents).catch(() => {}); }, []);
 
   const handleAdd = async () => {
     if (!title.trim()) return;
-    await api.createTask({ title, priority, project_id: newProjectId || undefined });
+    await api.createTask({ title, priority, description: description || undefined, type: taskType, project_id: newProjectId || undefined });
     setTitle("");
+    setDescription("");
+    setTaskType("general");
     setNewProjectId("");
     setShowAdd(false);
     load();
@@ -152,10 +167,24 @@ export default function Tasks() {
           <option value="medium">中</option>
           <option value="low">低</option>
         </select>
-        {(filterProject || filterPriority) && (
+        {/* 状态筛选 */}
+        <select
+          value={filterStatus}
+          onChange={(e) => { setFilterStatus(e.target.value); load({ status: e.target.value }); }}
+          className="projects-add-input"
+          style={{ width: 120, height: 28, fontSize: 11 }}
+        >
+          <option value="">全部状态</option>
+          <option value="pending">待处理</option>
+          <option value="in_progress">进行中</option>
+          <option value="completed">已完成</option>
+          <option value="failed">失败</option>
+          <option value="cancelled">已取消</option>
+        </select>
+        {(filterProject || filterPriority || filterStatus) && (
           <button
             type="button"
-            onClick={() => { setFilterProject(""); setFilterPriority(""); }}
+            onClick={() => { setFilterProject(""); setFilterPriority(""); setFilterStatus(""); }}
             className="button"
             style={{ fontSize: 11, padding: "0 10px", height: 28 }}
           >
@@ -185,14 +214,14 @@ export default function Tasks() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 className="projects-add-input flex-1"
-                onKeyDown={(e) => { if (e.key === "Enter") handleAdd(); }}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) handleAdd(); }}
                 autoFocus
               />
               <select
                 value={priority}
                 onChange={(e) => setPriority(e.target.value)}
                 className="projects-add-input"
-                style={{ width: 120, cursor: "pointer" }}
+                style={{ width: 90, cursor: "pointer" }}
               >
                 <option value="urgent">紧急</option>
                 <option value="high">高</option>
@@ -200,10 +229,22 @@ export default function Tasks() {
                 <option value="low">低</option>
               </select>
               <select
+                value={taskType}
+                onChange={(e) => setTaskType(e.target.value)}
+                className="projects-add-input"
+                style={{ width: 100, cursor: "pointer" }}
+              >
+                <option value="general">通用</option>
+                <option value="bug">缺陷</option>
+                <option value="feature">功能</option>
+                <option value="review">审查</option>
+                <option value="analysis">分析</option>
+              </select>
+              <select
                 value={newProjectId}
                 onChange={(e) => setNewProjectId(e.target.value)}
                 className="projects-add-input"
-                style={{ width: 140, cursor: "pointer" }}
+                style={{ width: 130, cursor: "pointer" }}
               >
                 <option value="">未指定项目</option>
                 {projects.map((p: any) => (
@@ -218,6 +259,16 @@ export default function Tasks() {
               >
                 <CornerDownLeft size={12} /> 提交
               </button>
+            </div>
+            <div className="flex items-center gap-2 mt-2">
+              <textarea
+                placeholder="任务描述（可选）"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="projects-add-input flex-1"
+                style={{ minHeight: 48, maxHeight: 72, resize: "vertical", lineHeight: 1.4, paddingTop: 6, paddingBottom: 6 }}
+                rows={2}
+              />
             </div>
           </div>
         </div>

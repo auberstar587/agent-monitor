@@ -12,7 +12,8 @@ const TYPE_LABELS: Record<string, string> = { general: "通用", bug: "缺陷", 
 // Valid transitions for each status (kept in sync with server task-manager.ts VALID_TRANSITIONS)
 const TRANSITIONS: Record<string, { status: string; label: string; icon: any; color: string }[]> = {
   pending: [
-    { status: "in_progress", label: "开始执行", icon: Play, color: "var(--accent)" },
+    // 真正的执行通过下方"执行面板"的引擎调用完成，状态会自动转为 in_progress
+    // 此处只保留"取消"操作，避免与执行按钮重复
     { status: "cancelled", label: "取消", icon: Ban, color: "var(--muted)" },
   ],
   in_progress: [
@@ -36,19 +37,27 @@ export default function TaskDetail() {
   const [execEngine, setExecEngine] = useState("claude-code");
   const [execOutput, setExecOutput] = useState<string[]>([]);
   const [engines, setEngines] = useState<{id: string; label: string; installed: boolean}[]>([]);
-  // P8-13: labels 编辑态
   const [editingLabels, setEditingLabels] = useState(false);
   const [labelDraft, setLabelDraft] = useState<string[]>([]);
   const [newLabel, setNewLabel] = useState("");
+  const [agents, setAgents] = useState<any[]>([]);
+  const [projects, setProjects] = useState<any[]>([]);
 
   useEffect(() => {
     if (!id) return;
     api.getTask(id).then(setTask);
   }, [id]);
 
-  // 加载引擎列表
   useEffect(() => {
     api.listEngines().then(setEngines).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    api.listAgents().then(setAgents).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    api.listProjects().then(setProjects).catch(() => {});
   }, []);
 
   if (!task) return <div className="p-6 text-sm" style={{ color: "var(--muted)" }}>加载中...</div>;
@@ -77,17 +86,6 @@ export default function TaskDetail() {
     await api.deleteTask(task.id);
     navigate("/tasks");
   };
-
-  // P8-14: 直接编辑 type/priority/assignee（P8-16 错误提示通用此 handler）
-  const [agents, setAgents] = useState<any[]>([]);
-  const [projects, setProjects] = useState<any[]>([]);
-  useEffect(() => {
-    api.listAgents().then(setAgents).catch(() => {});
-  }, []);
-  // 加载项目列表
-  useEffect(() => {
-    api.listProjects().then(setProjects).catch(() => {});
-  }, []);
   const handleUpdate = async (patch: Record<string, any>) => {
     setError(null);
     try {
@@ -282,10 +280,10 @@ export default function TaskDetail() {
         </div>
       )}
 
-      {/* 执行面板 — pending/failed 状态显示 */}
+      {/* 执行控制区 — 仅 pending/failed 状态显示（用于引擎选择和启动执行） */}
       {(task.status === "pending" || task.status === "failed") && (
         <div className="content-card p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
+          <div className="flex items-center gap-2">
             <Rocket size={14} style={{ color: "var(--accent)" }} />
             <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>执行任务</span>
             <select
@@ -308,23 +306,33 @@ export default function TaskDetail() {
               {executing ? <><Loader2 size={12} style={{ animation: "agents-spin 1s linear infinite" }} /> 执行中…</> : <><Play size={12} /> 开始执行</>}
             </button>
           </div>
-          {execOutput.length > 0 && (
-            <div style={{
-              background: "var(--paper-strong)",
-              border: "1px solid var(--line)",
-              borderRadius: "var(--radius-sm)",
-              padding: "8px 12px",
-              maxHeight: 300,
-              overflowY: "auto",
-              fontFamily: "var(--mono)",
-              fontSize: 12,
-              whiteSpace: "pre-wrap",
-              color: "var(--text-secondary)",
-            }}>
-              {execOutput.map((line, i) => <div key={i}>{line}</div>)}
-              {executing && <span style={{ opacity: 0.6 }}>▊</span>}
-            </div>
-          )}
+        </div>
+      )}
+
+      {/* 输出展示区 — 只要有 execOutput 就始终显示（不随状态变化而隐藏） */}
+      {execOutput.length > 0 && (
+        <div className="content-card p-4 mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>
+              {executing ? "执行输出" : "执行记录"}
+            </span>
+            {executing && <Loader2 size={12} style={{ animation: "agents-spin 1s linear infinite", color: "var(--muted)" }} />}
+          </div>
+          <div style={{
+            background: "var(--paper-strong)",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--radius-sm)",
+            padding: "8px 12px",
+            maxHeight: 300,
+            overflowY: "auto",
+            fontFamily: "var(--mono)",
+            fontSize: 12,
+            whiteSpace: "pre-wrap",
+            color: "var(--text-secondary)",
+          }}>
+            {execOutput.map((line, i) => <div key={i}>{line}</div>)}
+            {executing && <span style={{ opacity: 0.6 }}>▊</span>}
+          </div>
         </div>
       )}
 

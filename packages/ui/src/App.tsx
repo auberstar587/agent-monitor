@@ -12,6 +12,10 @@ import BlueprintStudio from "./pages/BlueprintStudio";
 import AgentDetail from "./pages/AgentDetail";
 import Tasks from "./pages/Tasks";
 import TaskDetail from "./pages/TaskDetail";
+import TraceList from "./pages/TraceList";
+import TraceDetail from "./pages/TraceDetail";
+import Artifacts from "./pages/Artifacts";
+import ArtifactDetail from "./pages/ArtifactDetail";
 import Settings from "./pages/Settings";
 import Chat from "./pages/Chat";
 
@@ -26,6 +30,10 @@ export default function App() {
         <Route path="agents/:id" element={<AgentDetail />} />
         <Route path="tasks" element={<Tasks />} />
         <Route path="tasks/:id" element={<TaskDetail />} />
+        <Route path="traces" element={<TraceList />} />
+        <Route path="traces/:taskId" element={<TraceDetail />} />
+        <Route path="artifacts" element={<Artifacts />} />
+        <Route path="artifacts/:id" element={<ArtifactDetail />} />
         <Route path="outputs" element={<Outputs />} />
         <Route path="memory" element={<Memory />} />
         <Route path="inbox" element={<Inbox />} />

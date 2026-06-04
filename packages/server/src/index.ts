@@ -21,6 +21,8 @@ import { fsRoutes } from "./routes/fs.js";
 import { routes as engineRoutes } from "./routes/engines.js";
 import { routes as chatRoutes } from "./routes/chat.js";
 import { routes as skillApiRoutes } from "./routes/skill-api.js";
+import { agentSessionRoutes } from "./routes/agent-sessions.js";
+import { artifactRoutes } from "./routes/artifacts.js";
 import { initScheduler, stopAllSchedulers } from "./services/scheduler.js";
 import { syncRuntimes, startHealthCheck, stopHealthCheck } from "./services/runtime-service.js";
 import { syncAgentsFromRuntimes } from "./services/agent-registry.js";
@@ -72,7 +74,7 @@ await fastify.register(blueprintRoutes);
 await fastify.register(meetingRoutes);
 await fastify.register(schedulerRoutes);
 await fastify.register(decisionRoutes);
-await fastify.register(engineRoutes);
+await fastify.register(engineRoutes, { prefix: "/api/engines" });
 await fastify.register(chatRoutes, { prefix: "/api/chat" });
 await fastify.register(skillApiRoutes);
 
@@ -95,6 +97,8 @@ startHealthCheck();
 await fastify.register(agentRoutes);
 await fastify.register(taskRoutes);
 await fastify.register(fsRoutes);
+await fastify.register(agentSessionRoutes);
+await fastify.register(artifactRoutes);
 
 // --- Adapter-backed routes (legacy) ---
 if (adapter) {

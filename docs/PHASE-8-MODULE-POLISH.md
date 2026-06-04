@@ -3,7 +3,7 @@
 > 版本: 2.0
 > 日期: 2026-06-03
 > 作者: Claude + Auber
-> 状态: **待实施**
+> 状态: **基本完成（22/23，仅 Hermes 适配器未实施）**
 > 目标: 打通 项目 → 任务 → Agent 执行 → 结果回写 的完整工作流，补齐三大模块功能缺口，尽快投入使用
 
 ---
@@ -708,39 +708,39 @@ fastify.get('/api/projects/:id/stats', async (req, reply) => {
 
 ### 核心链路（Phase 8A 验收）
 
-- [ ] 在 Chat 页面选择项目后，Agent 回复中体现项目背景信息
-- [ ] 在任务详情页点击"执行"，Agent 开始执行任务
-- [ ] 执行完成后，任务自动变为 completed
-- [ ] 执行失败后，任务自动变为 failed
-- [ ] Agent 详情页的 quality 数字在任务完成后更新
-- [ ] 创建任务后，"推荐"按钮能推荐最合适的 Agent
-- [ ] 外部通过 API Key 调用 Skill API 创建任务成功
-- [ ] Agent 通过 `--resume` 恢复历史 session 执行任务
+- [x] 在 Chat 页面选择项目后，Agent 回复中体现项目背景信息
+- [x] 在任务详情页点击"执行"，Agent 开始执行任务
+- [x] 执行完成后，任务自动变为 completed
+- [x] 执行失败后，任务自动变为 failed
+- [x] Agent 详情页的 quality 数字在任务完成后更新
+- [x] 创建任务后，"推荐"按钮能推荐最合适的 Agent
+- [x] 外部通过 API Key 调用 Skill API 创建任务成功
+- [x] Agent 通过 `--resume` 恢复历史 session 执行任务
 
 ### UI 补齐（Phase 8B 验收）
 
-- [ ] 项目详情页可编辑 tech_stack、goals、status
-- [ ] 项目详情页可添加/删除项目关系
-- [ ] 项目列表页可按状态筛选
-- [ ] 项目卡片显示任务进度条
-- [ ] Agent 列表页有同步按钮
-- [ ] Agent 详情页可删除 Agent
-- [ ] 任务看板卡片有快捷操作
-- [ ] 任务看板可按项目/优先级筛选
-- [ ] 任务详情页 type/priority/assignee 可编辑
-- [ ] 任务详情页 labels 可编辑
+- [x] 项目详情页可编辑 tech_stack、goals、status
+- [x] 项目详情页可添加/删除项目关系
+- [x] 项目列表页可按状态筛选
+- [x] 项目卡片显示任务进度条
+- [x] Agent 列表页有同步按钮
+- [x] Agent 详情页可删除 Agent
+- [x] 任务看板卡片有快捷操作
+- [x] 任务看板可按项目/优先级筛选
+- [x] 任务详情页 type/priority/assignee 可编辑
+- [x] 任务详情页 labels 可编辑
 
 ### 全局
 
-- [ ] `pnpm typecheck` 通过
-- [ ] `pnpm build` 通过
-- [ ] `pnpm test` 现有测试不被破坏
+- [x] `pnpm typecheck` 通过
+- [x] `pnpm build` 通过
+- [x] `pnpm test` 现有测试不被破坏
 
 ---
 
 ## 8. 多引擎集成方案
 
-### 8.1 已验证：Hermes Agent
+### 8.1 已验证：Hermes Agent（⏳ 适配器待实施）
 
 **版本**: v0.15.1 | **路径**: `~/.hermes/` | **默认模型**: MiniMax-M3
 
@@ -808,7 +808,7 @@ Hermes 作为我们的 Agent 生态成员，通过 **EngineAdapter** 接入：
    - 响应速度依赖 MiniMax 模型（比 Claude 慢）
    - spawn 模式没有结构化输出（纯文本）
 
-### 8.2 待集成：Codex CLI
+### 8.2 ✅ 已完成：Codex CLI
 
 **路径**: `/usr/local/bin/codex` | **默认模型**: o3
 
