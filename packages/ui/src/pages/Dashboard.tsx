@@ -75,7 +75,7 @@ function AttentionQueue({ items }: { items: AttentionItem[] }) {
         <AlertTriangle size={14} style={{ color: "var(--warning)" }} />
         <span className="section-title" style={{ fontSize: 14 }}>待我处理</span>
         <span className="tech-badge mono" style={{
-          fontSize: 10,
+          fontSize: 12,
           color: items.length > 0 ? "var(--warning)" : "var(--muted)",
           borderColor: items.length > 0 ? "var(--warning)" : "var(--line)",
         }}>
@@ -108,7 +108,7 @@ function AttentionQueue({ items }: { items: AttentionItem[] }) {
               )}
               {/* 类型 badge */}
               <span className="tech-badge" style={{
-                fontSize: 10,
+                fontSize: 12,
                 color: it.badgeColor,
                 borderColor: it.badgeColor,
                 background: "transparent",
@@ -129,13 +129,13 @@ function AttentionQueue({ items }: { items: AttentionItem[] }) {
               </span>
               {/* meta */}
               {it.meta && (
-                <span className="mono" style={{ fontSize: 10, color: "var(--muted)", flexShrink: 0 }}>
+                <span className="mono" style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0 }}>
                   {it.meta}
                 </span>
               )}
               {/* 时间 */}
               {it.time && (
-                <span className="mono" style={{ fontSize: 10, color: "var(--muted)", flexShrink: 0, minWidth: 50, textAlign: "right" }}>
+                <span className="mono" style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0, minWidth: 50, textAlign: "right" }}>
                   {it.time}
                 </span>
               )}
@@ -157,7 +157,7 @@ function RunningSection({ tasks, agents }: { tasks: any[]; agents: any[] }) {
         <Play size={14} style={{ color: "var(--info)" }} />
         <span className="section-title" style={{ fontSize: 14 }}>正在运行</span>
         <span className="tech-badge mono" style={{
-          fontSize: 10,
+          fontSize: 12,
           color: tasks.length > 0 ? "var(--info)" : "var(--muted)",
           borderColor: tasks.length > 0 ? "var(--info)" : "var(--line)",
         }}>
@@ -198,11 +198,11 @@ function RunningSection({ tasks, agents }: { tasks: any[]; agents: any[] }) {
                   {t.title || t.id}
                 </span>
                 {agent && (
-                  <span className="mono" style={{ fontSize: 10, color: "var(--muted)", flexShrink: 0 }}>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0 }}>
                     {agent.name}
                   </span>
                 )}
-                <span className="flex items-center gap-1 mono" style={{ fontSize: 10, color: "var(--info)", flexShrink: 0 }}>
+                <span className="flex items-center gap-1 mono" style={{ fontSize: 12, color: "var(--info)", flexShrink: 0 }}>
                   <Clock size={10} />
                   {relTime(t.started_at || t.updated_at || t.created_at)}
                 </span>
@@ -225,7 +225,7 @@ function FailedSection({ tasks, traces }: { tasks: any[]; traces: any[] }) {
         <XCircle size={14} style={{ color: "var(--danger)" }} />
         <span className="section-title" style={{ fontSize: 14 }}>需要关注</span>
         <span className="tech-badge mono" style={{
-          fontSize: 10,
+          fontSize: 12,
           color: tasks.length > 0 ? "var(--danger)" : "var(--muted)",
           borderColor: tasks.length > 0 ? "var(--danger)" : "var(--line)",
         }}>
@@ -255,7 +255,7 @@ function FailedSection({ tasks, traces }: { tasks: any[]; traces: any[] }) {
                 style={{ minHeight: 48, padding: "10px 14px", animationDelay: `${idx * 30}ms` }}
               >
                 <div style={{ width: 3, borderRadius: 2, flexShrink: 0, alignSelf: "stretch", background: "var(--danger)", opacity: 0.7 }} />
-                <span className="status-pill status-failed" style={{ fontSize: 10, padding: "0 6px", minHeight: 20 }}>
+                <span className="status-pill status-failed" style={{ fontSize: 12, padding: "0 6px", minHeight: 20 }}>
                   失败
                 </span>
                 <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -267,14 +267,14 @@ function FailedSection({ tasks, traces }: { tasks: any[]; traces: any[] }) {
                   }}>
                     {t.title || t.id}
                   </span>
-                  <span className="mono" style={{ fontSize: 10, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {errShort}
                   </span>
                 </div>
                 <Link
                   to={`/traces/${t.id}`}
                   className="flex items-center gap-1 no-underline"
-                  style={{ fontSize: 10, color: "var(--accent)", flexShrink: 0 }}
+                  style={{ fontSize: 12, color: "var(--accent)", flexShrink: 0 }}
                 >
                   查看轨迹 <ArrowUpRight size={10} />
                 </Link>
@@ -295,7 +295,7 @@ function RecentSection({ tasks }: { tasks: any[] }) {
       <div className="flex items-center gap-2 mb-3">
         <CheckCircle size={14} style={{ color: "var(--success)" }} />
         <span className="section-title" style={{ fontSize: 14 }}>最近完成</span>
-        <span className="tech-badge mono" style={{ fontSize: 10, color: "var(--muted)", borderColor: "var(--line)" }}>
+        <span className="tech-badge mono" style={{ fontSize: 12, color: "var(--muted)", borderColor: "var(--line)" }}>
           {tasks.length} 项
         </span>
       </div>
@@ -319,7 +319,7 @@ function RecentSection({ tasks }: { tasks: any[] }) {
               style={{ minHeight: 48, padding: "10px 14px", animationDelay: `${idx * 30}ms` }}
             >
               <div style={{ width: 3, borderRadius: 2, flexShrink: 0, alignSelf: "stretch", background: "var(--success)", opacity: 0.7 }} />
-              <span className="status-pill status-succeeded" style={{ fontSize: 10, padding: "0 6px", minHeight: 20 }}>
+              <span className="status-pill status-succeeded" style={{ fontSize: 12, padding: "0 6px", minHeight: 20 }}>
                 完成
               </span>
               <span className="text-sm" style={{
@@ -332,10 +332,10 @@ function RecentSection({ tasks }: { tasks: any[] }) {
               }}>
                 {t.title || t.id}
               </span>
-              <span className="mono" style={{ fontSize: 10, color: "var(--muted)", flexShrink: 0 }}>
+              <span className="mono" style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0 }}>
                 {fmtDuration(t.duration_ms)}
               </span>
-              <span className="mono" style={{ fontSize: 10, color: "var(--muted)", flexShrink: 0, minWidth: 50, textAlign: "right" }}>
+              <span className="mono" style={{ fontSize: 12, color: "var(--muted)", flexShrink: 0, minWidth: 50, textAlign: "right" }}>
                 {relTime(t.completed_at || t.updated_at || t.created_at)}
               </span>
               <ChevronRight size={12} style={{ color: "var(--muted)", flexShrink: 0 }} />
@@ -353,28 +353,28 @@ function SystemStats({
   projects, agents, outputs, inbox, memory,
 }: { projects: number; agents: number; outputs: number; inbox: number; memory?: number }) {
   return (
-    <div className="content-card" style={{ padding: "12px 18px", opacity: 0.65 }}>
+    <div className="content-card" style={{ padding: "12px 18px", opacity: 0.85 }}>
       <div className="flex items-center gap-3 mb-2">
-        <Activity size={11} style={{ color: "var(--muted)" }} />
-        <span className="mono" style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em" }}>
+        <Activity size={13} style={{ color: "var(--muted)" }} />
+        <span className="mono" style={{ fontSize: 12, color: "var(--muted)", letterSpacing: "0.08em" }}>
           SYSTEM STATS
         </span>
       </div>
-      <div className="flex items-center" style={{ gap: 24, fontSize: 11, color: "var(--muted)", flexWrap: "wrap" }}>
+      <div className="flex items-center" style={{ gap: 24, fontSize: 13, color: "var(--muted)", flexWrap: "wrap" }}>
         <Link to="/projects" className="flex items-center gap-1 no-underline" style={{ color: "var(--muted)" }}>
-          <FolderKanban size={11} /> 项目 <span className="mono" style={{ color: "var(--text-secondary)" }}>{projects}</span>
+          <FolderKanban size={13} /> 项目 <span className="mono" style={{ color: "var(--text-secondary)" }}>{projects}</span>
         </Link>
         <Link to="/agents" className="flex items-center gap-1 no-underline" style={{ color: "var(--muted)" }}>
-          <Bot size={11} /> Agent <span className="mono" style={{ color: "var(--text-secondary)" }}>{agents}</span>
+          <Bot size={13} /> Agent <span className="mono" style={{ color: "var(--text-secondary)" }}>{agents}</span>
         </Link>
         <Link to="/outputs" className="flex items-center gap-1 no-underline" style={{ color: "var(--muted)" }}>
-          <FileText size={11} /> 输出 <span className="mono" style={{ color: "var(--text-secondary)" }}>{outputs}</span>
+          <FileText size={13} /> 输出 <span className="mono" style={{ color: "var(--text-secondary)" }}>{outputs}</span>
         </Link>
         <Link to="/inbox" className="flex items-center gap-1 no-underline" style={{ color: "var(--muted)" }}>
-          <InboxIcon size={11} /> Inbox <span className="mono" style={{ color: "var(--text-secondary)" }}>{inbox}</span>
+          <InboxIcon size={13} /> Inbox <span className="mono" style={{ color: "var(--text-secondary)" }}>{inbox}</span>
         </Link>
         <Link to="/memory" className="flex items-center gap-1 no-underline" style={{ color: "var(--muted)" }}>
-          <Brain size={11} /> 记忆 <span className="mono" style={{ color: "var(--text-secondary)" }}>{memory ?? "—"}</span>
+          <Brain size={13} /> 记忆 <span className="mono" style={{ color: "var(--text-secondary)" }}>{memory ?? "—"}</span>
         </Link>
       </div>
     </div>
@@ -494,7 +494,7 @@ export default function Dashboard() {
       {/* 区块标题 */}
       <div className="flex items-center justify-between">
         <h1 className="page-title" style={{ fontSize: 20 }}>处理中心</h1>
-        <span className="mono" style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em" }}>
+        <span className="mono" style={{ fontSize: 12, color: "var(--muted)", letterSpacing: "0.08em" }}>
           {loading ? "LOADING…" : `${attentionLimited.length} 待办 · ${runningTasks.length} 运行中 · ${failedTasks.length} 失败`}
         </span>
       </div>
