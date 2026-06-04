@@ -2062,6 +2062,11 @@ code, pre, .mono {
   align-items: center;
   gap: 6px;
   width: fit-content;
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  padding: 6px 0;
+  background: var(--bg-content);
   color: var(--muted);
   font-size: 11px;
   text-decoration: none;
