@@ -228,9 +228,9 @@ export default function Chat() {
 
   return (
     <div className="chat-container chat-scroll">
-      {/* ── 顶栏 ── */}
-      <div className="chat-header">
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+      {/* ── 顶栏（topbar 风格，与其他页面 telemetry bar 一致） ── */}
+      <div className="chat-topbar">
+        <div className="chat-topbar-left">
           <CustomSelect
             value={selectedEngine}
             onChange={setSelectedEngine}
@@ -264,7 +264,7 @@ export default function Chat() {
           disabled={messages.length === 0 || isStreaming}
           title="清空对话"
         >
-          <Trash2 size={13} />
+          <Trash2 size={14} />
           清空
         </button>
       </div>
@@ -278,7 +278,7 @@ export default function Chat() {
               <div style={{ fontSize: 15, fontWeight: 600, color: "var(--text)" }}>
                 开始对话
               </div>
-              <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+              <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>
                 输入消息，与 Agent 实时交互，流式查看响应
               </div>
             </div>
@@ -303,10 +303,10 @@ export default function Chat() {
           style={{
             flex: 1,
             resize: "none",
-            minHeight: 38,
+            minHeight: 40,
             maxHeight: 120,
             padding: "8px 12px",
-            fontSize: 13,
+            fontSize: 14,
             lineHeight: 1.5,
           }}
         />
@@ -357,7 +357,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
           className="chat-tool-card-header"
           onClick={() => setExpanded((v) => !v)}
         >
-          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           <span style={{ fontFamily: "inherit" }}>{msg.tool ?? "tool"}</span>
         </div>
         {expanded && msg.input && (
@@ -378,7 +378,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
           className="chat-tool-card-header"
           onClick={() => setExpanded((v) => !v)}
         >
-          {expanded ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
           <span style={{ fontFamily: "inherit" }}>{msg.tool ? `${msg.tool} → result` : "result"}</span>
         </div>
         {expanded && (msg.output ?? msg.content) && (
@@ -398,7 +398,7 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
 
   // system
   return (
-    <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 12, padding: "8px 0" }}>
+    <div style={{ textAlign: "center", color: "var(--muted)", fontSize: 13, padding: "8px 0" }}>
       {msg.content}
     </div>
   );

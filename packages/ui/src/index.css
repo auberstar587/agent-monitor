@@ -1449,15 +1449,11 @@ code, pre, .mono {
   flex-direction: column;
   height: calc(100vh - var(--topbar-height) - 72px);
   min-height: 400px;
-  gap: 0;
-  padding: 0 !important;
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
+  gap: 12px;
 }
 
-/* ── 顶栏：引擎选择 + 工作目录 + 清空 ── */
-.chat-header {
+/* ── 顶栏：引擎选择 + 项目选择 + 清空（与其他页面 telemetry bar 一致） ── */
+.chat-topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -1465,6 +1461,11 @@ code, pre, .mono {
   padding: 0 0 12px;
   border-bottom: 1px solid var(--line);
   flex-shrink: 0;
+}
+.chat-topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 /* ── 消息区域 ── */
@@ -1486,11 +1487,11 @@ code, pre, .mono {
 }
 .chat-bubble-user .chat-bubble-content {
   max-width: 72%;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: var(--radius-lg);
   background: var(--accent);
   color: #0a0d14;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.55;
   white-space: pre-wrap;
   word-break: break-word;
@@ -1505,12 +1506,12 @@ code, pre, .mono {
 }
 .chat-bubble-assistant .chat-bubble-content {
   max-width: 85%;
-  padding: 10px 14px;
+  padding: 12px 16px;
   border-radius: var(--radius-lg);
-  background: var(--paper-raised);
+  background: var(--bg-card);
   border: 1px solid var(--line);
   color: var(--text);
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.6;
   word-break: break-word;
 }
@@ -1518,7 +1519,7 @@ code, pre, .mono {
 /* ── 工具调用卡片（可折叠） ── */
 .chat-tool-card {
   margin: 0 4px;
-  border-radius: var(--radius);
+  border-radius: var(--radius-md);
   background: var(--paper-strong);
   border: 1px solid var(--line);
   overflow: hidden;
@@ -1529,7 +1530,7 @@ code, pre, .mono {
   align-items: center;
   gap: 6px;
   padding: 7px 12px;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   letter-spacing: 0.06em;
   color: var(--accent);
@@ -1544,7 +1545,7 @@ code, pre, .mono {
   padding: 8px 12px;
   border-top: 1px solid var(--line);
   background: var(--paper);
-  font-size: 11px;
+  font-size: 12px;
   line-height: 1.5;
   color: var(--text-secondary);
   max-height: 240px;
@@ -1559,7 +1560,7 @@ code, pre, .mono {
   background: var(--danger-bg);
   border: 1px solid rgba(251, 113, 133, 0.25);
   color: var(--danger);
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1.5;
   max-width: 85%;
 }
@@ -1577,8 +1578,8 @@ code, pre, .mono {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
+  width: 40px;
+  height: 40px;
   border-radius: var(--radius);
   border: 1px solid var(--accent);
   background: var(--accent);
@@ -1623,7 +1624,7 @@ code, pre, .mono {
 
 /* ── 响应式 ── */
 @media (max-width: 760px) {
-  .chat-header {
+  .chat-topbar {
     flex-wrap: wrap;
   }
   .chat-bubble-user .chat-bubble-content,
@@ -1634,25 +1635,6 @@ code, pre, .mono {
   .chat-error {
     max-width: 95%;
   }
-}
-
-/* ── Chat 页面覆盖 workspace-content 的内边距和卡片样式 ── */
-.workspace-content:has(.chat-container) {
-  padding: 0;
-  min-height: 0;
-  height: 100%;
-  border: none;
-  border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-  overflow: hidden;
-}
-.workspace-content:has(.chat-container) > div {
-  gap: 0;
-}
-.workspace-main:has(.chat-container) {
-  padding: 0;
-  overflow: hidden;
 }
 
 /* ── Chat Markdown 渲染 ── */
