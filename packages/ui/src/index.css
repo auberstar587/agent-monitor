@@ -1439,6 +1439,31 @@ code, pre, .mono {
   .agents-telem-cell { min-width: 0; flex: 1 1 33%; }
 }
 
+/* === Quick Task === */
+.quick-task-card textarea.quick-task-input {
+  width: 100%;
+  min-height: 52px;
+  max-height: 120px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.5;
+  padding: 10px 12px;
+  resize: vertical;
+  outline: none;
+  font-family: inherit;
+  transition: border-color var(--duration-fast) var(--ease);
+}
+.quick-task-card textarea.quick-task-input:focus {
+  border-color: var(--accent-line);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+.quick-task-card textarea.quick-task-input::placeholder {
+  color: var(--muted);
+}
+
 /* =========================================================
    CHAT PAGE — Agent Conversation Interface
    ========================================================= */

@@ -153,6 +153,12 @@ export const api = {
   transitionTask: (id: string, status: string) =>
     request<any>(`/tasks/${id}/transition`, { method: "POST", body: JSON.stringify({ status }) }),
   deleteTask: (id: string) => request<{ deleted: boolean }>(`/tasks/${id}`, { method: "DELETE" }),
+  smartCreateTask: (data: { title: string; description?: string; project_id?: string; assignee_id?: string }) =>
+    request<any>("/tasks/smart", { method: "POST", body: JSON.stringify(data) }),
+
+  assignRecommend: (taskId: string) =>
+    request<any>(`/tasks/${taskId}/assign-recommend`, { method: "POST" }),
+
   executeTask: (id: string, engine: string) =>
     fetch(`${BASE}/tasks/${id}/execute`, {
       method: "POST",

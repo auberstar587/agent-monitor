@@ -3,9 +3,10 @@ import { Link } from "react-router-dom";
 import {
   AlertTriangle, Play, XCircle, CheckCircle, ChevronRight,
   Inbox as InboxIcon, Bot, FileText, Clock, ArrowUpRight,
-  FolderKanban, Brain, Activity, Eye,
+  FolderKanban, Brain, Activity, Eye, Zap,
 } from "lucide-react";
 import { api } from "../lib/api";
+import CustomSelect from "../components/CustomSelect";
 
 /* ═══ 工具函数 ════════════════════════════════════════════ */
 
@@ -381,6 +382,176 @@ function SystemStats({
   );
 }
 
+/* ═══ 区块：快速任务 ════════════════════════════════════════ */
+
+function QuickTaskSection({ projects, agents }: { projects: any[]; agents: any[] }) {
+  const [description, setDescription] = useState("");
+  const [projectId, setProjectId] = useState("");
+  const [assigneeId, setAssigneeId] = useState("");
+  const [expanded, setExpanded] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSubmit = async () => {
+    if (!description.trim() || submitting) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      const res = await api.smartCreateTask({
+        title: description.trim(),
+        project_id: projectId || undefined,
+        assignee_id: assigneeId || undefined,
+      });
+      setResult(res);
+    } catch (e: any) {
+      setError(e.message || "创建失败");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleReset = () => {
+    setDescription("");
+    setProjectId("");
+    setAssigneeId("");
+    setResult(null);
+    setError(null);
+    setExpanded(false);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+      e.preventDefault();
+      handleSubmit();
+    }
+  };
+
+  // 结果态
+  if (result) {
+    const task = result.task;
+    const proj = result.matched_project;
+    const agent = result.recommended_agents?.[0];
+    return (
+      <div className="content-card quick-task-card">
+        <div className="flex items-center gap-2 mb-3">
+          <CheckCircle size={14} style={{ color: "var(--success)" }} />
+          <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>任务已创建</span>
+        </div>
+        <div className="quick-task-result">
+          <Link to={`/tasks/${task.id}`} className="text-sm font-medium no-underline" style={{ color: "var(--accent)" }}>
+            {task.title}
+          </Link>
+          <div className="flex items-center gap-4 mt-2" style={{ fontSize: 12, color: "var(--muted)" }}>
+            {proj && (
+              <span className="flex items-center gap-1">
+                <FolderKanban size={12} style={{ color: "var(--accent)" }} />
+                匹配项目: <span style={{ color: "var(--text-secondary)" }}>{proj.name}</span>
+              </span>
+            )}
+            {!proj && (
+              <span className="flex items-center gap-1">
+                <FolderKanban size={12} /> 未匹配到项目
+              </span>
+            )}
+            {agent && (
+              <span className="flex items-center gap-1">
+                <Bot size={12} style={{ color: "var(--info)" }} />
+                推荐: <span style={{ color: "var(--text-secondary)" }}>{agent.name}</span>
+                {result.auto_assigned && (
+                  <span className="status-pill status-succeeded" style={{ fontSize: 11, padding: "0 6px", minHeight: 18 }}>
+                    已分配
+                  </span>
+                )}
+              </span>
+            )}
+            {!agent && (
+              <span className="flex items-center gap-1">
+                <Bot size={12} /> 无可用 Agent
+              </span>
+            )}
+          </div>
+          {agent?.reasons?.length > 0 && (
+            <div className="mt-1.5" style={{ fontSize: 11, color: "var(--muted)" }}>
+              {agent.reasons.join(" · ")}
+            </div>
+          )}
+        </div>
+        <button onClick={handleReset} className="button mt-3" style={{ fontSize: 12, padding: "4px 14px" }}>
+          创建新任务
+        </button>
+      </div>
+    );
+  }
+
+  // 输入态
+  return (
+    <div className="content-card quick-task-card">
+      <div className="flex items-center gap-2 mb-3">
+        <Zap size={14} style={{ color: "var(--accent)" }} />
+        <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>快速任务</span>
+        <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>
+          描述任务，自动匹配项目和 Agent
+        </span>
+      </div>
+      <textarea
+        className="quick-task-input"
+        placeholder="描述你的任务… (Cmd+Enter 提交)"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        onKeyDown={handleKeyDown}
+        disabled={submitting}
+        rows={2}
+      />
+      <div className="flex items-center gap-2 mt-2">
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="button"
+          style={{ fontSize: 12, padding: "4px 10px" }}
+        >
+          {expanded ? "收起选项" : "选项"}
+        </button>
+        {expanded && (
+          <>
+            <CustomSelect
+              value={projectId}
+              onChange={setProjectId}
+              options={[
+                { value: "", label: "自动匹配项目" },
+                ...projects.map((p: any) => ({ value: p.id, label: p.name })),
+              ]}
+              style={{ width: 160, height: 28 }}
+            />
+            <CustomSelect
+              value={assigneeId}
+              onChange={setAssigneeId}
+              options={[
+                { value: "", label: "自动推荐 Agent" },
+                ...agents.map((a: any) => ({ value: a.id, label: `${a.name}${a.availability === 'online' ? '' : a.availability === 'busy' ? ' (忙碌)' : ' (离线)'}` })),
+              ]}
+              style={{ width: 160, height: 28 }}
+            />
+          </>
+        )}
+        <div style={{ flex: 1 }} />
+        <button
+          type="button"
+          onClick={handleSubmit}
+          disabled={!description.trim() || submitting}
+          className="button button-primary"
+          style={{ fontSize: 12, padding: "4px 14px" }}
+        >
+          {submitting ? "创建中…" : "智能创建"}
+        </button>
+      </div>
+      {error && (
+        <div className="mt-2" style={{ fontSize: 12, color: "var(--danger)" }}>{error}</div>
+      )}
+    </div>
+  );
+}
+
 /* ═══ 主组件 ══════════════════════════════════════════════ */
 
 export default function Dashboard() {
@@ -498,6 +669,9 @@ export default function Dashboard() {
           {loading ? "LOADING…" : `${attentionLimited.length} 待办 · ${runningTasks.length} 运行中 · ${failedTasks.length} 失败`}
         </span>
       </div>
+
+      {/* 0. 快速任务 */}
+      <QuickTaskSection projects={projects} agents={agents} />
 
       {/* 1. 注意力队列（最高优先级） */}
       <AttentionQueue items={attentionLimited} />

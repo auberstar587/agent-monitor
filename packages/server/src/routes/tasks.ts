@@ -6,6 +6,152 @@ import { getEngine } from "../adapters/registry.js";
 import { buildContext } from "../services/context-injector.js";
 import { listAgents } from "../services/agent-registry.js";
 import { listPresence } from "../services/presence-service.js";
+import { listProjects } from "../services/project-registry.js";
+
+const STOP_WORDS = new Set(["the","a","an","is","for","to","in","of","and","with","on","it","this","that","from","by","at","be","as","or","not","no","do","but","can","will","just","should","now","的","了","在","是","和","与","不","有","这","那","我","你","把","被","让","给","从","到","对","为","以","及","等"]);
+const IGNORE_PATH = new Set(["src","lib","node_modules","dist","build","pkg","cmd","internal","app","web","api","ui","packages","test","tests","spec","docs"]);
+
+function tokenize(text: string): string[] {
+  return text.toLowerCase()
+    .split(/[\s/\-_.:;,\(\)\[\]\{\}]+/)
+    .filter(t => t.length >= 2 && !STOP_WORDS.has(t));
+}
+
+async function matchProject(title: string, description?: string): Promise<any | null> {
+  const projects = await listProjects("active");
+  if (projects.length === 0) return null;
+
+  const userTokens = tokenize([title, description || ""].join(" "));
+  if (userTokens.length === 0) return null;
+
+  let bestProject: any = null;
+  let bestScore = 0;
+
+  for (const proj of projects) {
+    const projTokens = new Set([
+      ...tokenize(proj.name),
+      ...tokenize(proj.path).filter(t => !IGNORE_PATH.has(t)),
+      ...tokenize(proj.description || ""),
+      ...((proj.tech_stack || []).flatMap((s: string) => tokenize(s))),
+      ...((proj.goals || []).flatMap((g: string) => tokenize(g))),
+    ]);
+
+    let score = 0;
+    for (const token of userTokens) {
+      if (projTokens.has(token)) score++;
+    }
+
+    if (score > bestScore || (score === bestScore && score > 0 && proj.updated_at > (bestProject?.updated_at || ""))) {
+      bestScore = score;
+      bestProject = proj;
+    }
+  }
+
+  return bestScore >= 2 ? bestProject : null;
+}
+
+interface AgentRecommendation {
+  agent_id: string;
+  name: string;
+  availability: string;
+  score: number;
+  reasons: string[];
+}
+
+async function scoreAgents(task: any): Promise<AgentRecommendation[]> {
+  const agents = await listAgents();
+  const presenceList = await listPresence();
+  const presenceMap = new Map(presenceList.map((p) => [p.agent_id, p]));
+
+  // 加载项目关键词（注意：local_projects 表没有 labels 列，只用 tech_stack + goals）
+  let projectKeywords: string[] = [];
+  if (task.project_id) {
+    const proj = await queryOne<{ tech_stack: string[]; goals: string[] }>(
+      "SELECT tech_stack, goals FROM local_projects WHERE id = $1",
+      [task.project_id],
+    );
+    projectKeywords = [
+      ...(proj?.tech_stack || []),
+      ...(proj?.goals || []),
+    ];
+  }
+  const taskLabels = task.labels || [];
+  const allKeywords = [...projectKeywords, ...taskLabels].map((s) => s.toLowerCase());
+
+  // 加载历史：每个 agent 在该 project 的 completed 任务数
+  const history = await query<{ assignee_id: string; cnt: number; ok: number }>(
+    `SELECT assignee_id,
+            COUNT(*)::int AS cnt,
+            SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)::int AS ok
+       FROM tasks
+      WHERE assignee_id IS NOT NULL AND ($1::uuid IS NULL OR project_id = $1::uuid)
+      GROUP BY assignee_id`,
+    [task.project_id ?? null],
+  );
+  const histMap = new Map(history.map((h) => [h.assignee_id, h]));
+
+  const scored: AgentRecommendation[] = [];
+
+  for (const agent of agents) {
+    const presence = presenceMap.get(agent.id);
+    const availability = presence?.availability ?? agent.status;
+
+    if (availability === 'offline') continue;
+
+    let score = 0;
+    const reasons: string[] = [];
+
+    // 1. 质量分
+    const q = agent.quality || { successCount: 0, failCount: 0, avgDurationMs: 0 };
+    const total = q.successCount + q.failCount;
+    if (total > 0) {
+      const successRate = q.successCount / total;
+      score += successRate * 40;
+      if (successRate > 0.8) reasons.push(`历史成功率 ${(successRate * 100).toFixed(0)}%`);
+    } else {
+      score += 20;
+      reasons.push("无历史，新 agent");
+    }
+
+    // 2. 能力匹配
+    const caps = (agent.capabilities || []).map((c: string) => c.toLowerCase());
+    const matched = caps.filter((c) => allKeywords.includes(c));
+    if (matched.length > 0) {
+      score += matched.length * 15;
+      reasons.push(`能力匹配: ${matched.join(', ')}`);
+    }
+
+    // 3. 项目历史
+    const hist = histMap.get(agent.id);
+    if (hist && hist.cnt > 0) {
+      score += Math.min(hist.cnt, 5) * 4;
+      if (hist.ok / hist.cnt > 0.7) {
+        score += 10;
+        reasons.push(`同项目 ${hist.cnt} 次任务，${hist.ok} 成功`);
+      }
+    }
+
+    // 4. availability 微调
+    if (availability === 'online') {
+      score += 10;
+      reasons.push("在线");
+    } else if (availability === 'busy') {
+      score -= 20;
+      reasons.push("忙碌中（仍可推荐但降权）");
+    }
+
+    scored.push({
+      agent_id: agent.id,
+      name: agent.name,
+      availability,
+      score: Math.round(score * 10) / 10,
+      reasons,
+    });
+  }
+
+  scored.sort((a, b) => b.score - a.score);
+  return scored;
+}
 
 /** SSE 辅助：写入一条事件，自动检查 writableEnded */
 function sseWrite(res: any, event: string, data: object): boolean {
@@ -281,105 +427,63 @@ export async function taskRoutes(fastify: FastifyInstance) {
     const task = await getTask(id);
     if (!task) return reply.code(404).send({ error: "task not found" });
 
-    const agents = await listAgents();
-    const presenceList = await listPresence();
-    const presenceMap = new Map(presenceList.map((p) => [p.agent_id, p]));
+    const recommendations = await scoreAgents(task);
+    return { task_id: id, recommendations: recommendations.slice(0, 3) };
+  });
 
-    // 加载项目标签
-    let projectLabels: string[] = [];
-    if (task.project_id) {
-      const proj = await queryOne<{ labels: string[]; tech_stack: string[] }>(
-        "SELECT labels, tech_stack FROM local_projects WHERE id = $1",
-        [task.project_id],
-      );
-      projectLabels = [
-        ...(proj?.labels || []),
-        ...(proj?.tech_stack || []),
-      ];
-    }
-    const taskLabels = task.labels || [];
-    const allKeywords = [...projectLabels, ...taskLabels].map((s) => s.toLowerCase());
-
-    // 加载历史：每个 agent 在该 project 的 completed 任务数（成功率代理）
-    const history = await query<{ assignee_id: string; cnt: number; ok: number }>(
-      `SELECT assignee_id,
-              COUNT(*)::int AS cnt,
-              SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END)::int AS ok
-         FROM tasks
-        WHERE assignee_id IS NOT NULL AND ($1::uuid IS NULL OR project_id = $1::uuid)
-        GROUP BY assignee_id`,
-      [task.project_id ?? null],
-    );
-    const histMap = new Map(history.map((h) => [h.assignee_id, h]));
-
-    type Score = {
-      agent_id: string;
-      name: string;
-      availability: string;
-      score: number;
-      reasons: string[];
+  // 智能创建任务：自动匹配项目 + 自动推荐/分配 Agent
+  fastify.post("/api/tasks/smart", async (req: FastifyRequest, reply: FastifyReply) => {
+    const body = req.body as {
+      title?: string;
+      description?: string;
+      project_id?: string;
+      assignee_id?: string;
     };
-    const scored: Score[] = [];
 
-    for (const agent of agents) {
-      const presence = presenceMap.get(agent.id);
-      const availability = presence?.availability ?? agent.status;
-
-      // 跳过 offline 或 busy（不希望推荐繁忙的）
-      if (availability === 'offline') continue;
-
-      let score = 0;
-      const reasons: string[] = [];
-
-      // 1. 质量分（基于 quality JSONB）
-      const q = agent.quality || { successCount: 0, failCount: 0, avgDurationMs: 0 };
-      const total = q.successCount + q.failCount;
-      if (total > 0) {
-        const successRate = q.successCount / total;
-        score += successRate * 40;
-        if (successRate > 0.8) reasons.push(`历史成功率 ${(successRate * 100).toFixed(0)}%`);
-      } else {
-        score += 20; // 全新 agent 给个基线
-        reasons.push("无历史，新 agent");
-      }
-
-      // 2. 能力匹配：agent.capabilities ∩ project/tech keywords
-      const caps = (agent.capabilities || []).map((c) => c.toLowerCase());
-      const matched = caps.filter((c) => allKeywords.includes(c));
-      if (matched.length > 0) {
-        score += matched.length * 15;
-        reasons.push(`能力匹配: ${matched.join(', ')}`);
-      }
-
-      // 3. 项目历史：曾在同 project 完成的加分
-      const hist = histMap.get(agent.id);
-      if (hist && hist.cnt > 0) {
-        score += Math.min(hist.cnt, 5) * 4;
-        if (hist.ok / hist.cnt > 0.7) {
-          score += 10;
-          reasons.push(`同项目 ${hist.cnt} 次任务，${hist.ok} 成功`);
-        }
-      }
-
-      // 4. availability 状态微调
-      if (availability === 'online') {
-        score += 10;
-        reasons.push("在线");
-      } else if (availability === 'busy') {
-        score -= 20;
-        reasons.push("忙碌中（仍可推荐但降权）");
-      }
-
-      scored.push({
-        agent_id: agent.id,
-        name: agent.name,
-        availability,
-        score: Math.round(score * 10) / 10,
-        reasons,
-      });
+    if (!body.title?.trim()) {
+      return reply.code(400).send({ error: "title is required" });
     }
 
-    scored.sort((a, b) => b.score - a.score);
-    return { task_id: id, recommendations: scored.slice(0, 3) };
+    // 1. Auto-match project
+    let matchedProject: any = null;
+    let projectId = body.project_id || null;
+
+    if (!projectId) {
+      matchedProject = await matchProject(body.title, body.description);
+      if (matchedProject) projectId = matchedProject.id;
+    }
+
+    // 2. Create task
+    const task = await createTask({
+      title: body.title,
+      description: body.description,
+      project_id: projectId || undefined,
+      assignee_id: body.assignee_id || undefined,
+    });
+
+    if (!task) {
+      return reply.code(500).send({ error: "failed to create task" });
+    }
+
+    // 3. Auto-recommend and assign agent
+    let recommendedAgents: AgentRecommendation[] = [];
+    let autoAssigned = false;
+
+    if (!body.assignee_id) {
+      recommendedAgents = await scoreAgents(task);
+      if (recommendedAgents.length > 0 && recommendedAgents[0].availability !== "offline") {
+        await updateTask(task.id, { assignee_id: recommendedAgents[0].agent_id });
+        autoAssigned = true;
+      }
+    }
+
+    // 4. Return
+    const updatedTask = await getTask(task.id);
+    return {
+      task: updatedTask,
+      matched_project: matchedProject,
+      recommended_agents: recommendedAgents.slice(0, 3),
+      auto_assigned: autoAssigned,
+    };
   });
 }
