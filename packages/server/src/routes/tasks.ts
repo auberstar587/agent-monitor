@@ -56,6 +56,7 @@ interface AgentRecommendation {
   availability: string;
   score: number;
   reasons: string[];
+  engine_id: string | null;  // manual agent 无 engine → null
 }
 
 async function scoreAgents(task: any): Promise<AgentRecommendation[]> {
@@ -146,6 +147,7 @@ async function scoreAgents(task: any): Promise<AgentRecommendation[]> {
       availability,
       score: Math.round(score * 10) / 10,
       reasons,
+      engine_id: agent.engine_id ?? null,
     });
   }
 
@@ -236,6 +238,10 @@ export async function taskRoutes(fastify: FastifyInstance) {
     // 4. 获取引擎
     const engine = await getEngine(engineName);
     if (!engine) return reply.code(404).send({ error: `engine not found: ${engineName}` });
+
+    // 4.5 检测引擎是否已安装（必须在 transitionTask 之前）
+    const installed = await engine.detectInstalled().catch(() => false);
+    if (!installed) return reply.code(400).send({ error: `Engine not installed: ${engineName}` });
 
     // 5. 自动 transition → in_progress
     await transitionTask(id, "in_progress");
@@ -477,13 +483,39 @@ export async function taskRoutes(fastify: FastifyInstance) {
       }
     }
 
-    // 4. Return
+    // 4. 推荐引擎
+    let recommendedEngine: { id: string; label: string; installed: boolean; reason: string } | null = null;
+    if (autoAssigned && recommendedAgents[0]?.engine_id) {
+      const eng = await getEngine(recommendedAgents[0].engine_id);
+      if (eng) {
+        recommendedEngine = {
+          id: eng.id,
+          label: eng.label,
+          installed: eng.installed,
+          reason: `推荐 Agent ${recommendedAgents[0].name} 使用的引擎`,
+        };
+      }
+    }
+    // fallback：遍历已注册引擎，找第一个 installed 的
+    if (!recommendedEngine) {
+      const engineIds = ['claude-code', 'reasonix', 'codex'];
+      for (const eid of engineIds) {
+        const eng = await getEngine(eid);
+        if (eng?.installed) {
+          recommendedEngine = { id: eng.id, label: eng.label, installed: true, reason: '默认可用引擎' };
+          break;
+        }
+      }
+    }
+
+    // 5. Return
     const updatedTask = await getTask(task.id);
     return {
       task: updatedTask,
       matched_project: matchedProject,
       recommended_agents: recommendedAgents.slice(0, 3),
       auto_assigned: autoAssigned,
+      recommended_engine: recommendedEngine,
     };
   });
 }

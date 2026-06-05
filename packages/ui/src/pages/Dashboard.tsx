@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   AlertTriangle, Play, XCircle, CheckCircle, ChevronRight,
   Inbox as InboxIcon, Bot, FileText, Clock, ArrowUpRight,
@@ -385,6 +385,7 @@ function SystemStats({
 /* ═══ 区块：快速任务 ════════════════════════════════════════ */
 
 function QuickTaskSection({ projects, agents }: { projects: any[]; agents: any[] }) {
+  const navigate = useNavigate();
   const [description, setDescription] = useState("");
   const [projectId, setProjectId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
@@ -403,7 +404,9 @@ function QuickTaskSection({ projects, agents }: { projects: any[]; agents: any[]
         project_id: projectId || undefined,
         assignee_id: assigneeId || undefined,
       });
-      setResult(res);
+      // 跳转到 TaskDetail，带上 autoexec 参数让 TaskDetail 自动执行
+      const engineId = res.recommended_engine?.id ?? "";
+      navigate(`/tasks/${res.task.id}${engineId ? `?autoexec=${encodeURIComponent(engineId)}` : ""}`);
     } catch (e: any) {
       setError(e.message || "创建失败");
     } finally {

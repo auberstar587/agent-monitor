@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useEffect, useRef, useState } from "react";
+import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import CustomSelect from "../components/CustomSelect";
 import { ArrowLeft, Edit3, Check, X, Play, CheckCircle, XCircle, RotateCcw, Ban, Rocket, Loader2, Plus } from "lucide-react";
@@ -47,10 +47,23 @@ export default function TaskDetail() {
   const [agents, setAgents] = useState<any[]>([]);
   const [projects, setProjects] = useState<any[]>([]);
 
+  // autoexec 参数：从 Dashboard 快捷任务跳转时自动执行
+  const [searchParams] = useSearchParams();
+  const autoexec = searchParams.get("autoexec");
+  const autoexecDone = useRef(false);
+
   useEffect(() => {
     if (!id) return;
     api.getTask(id).then(setTask);
   }, [id]);
+
+  // autoexec：从 Dashboard 快捷任务跳转时自动执行
+  useEffect(() => {
+    if (!autoexec || autoexecDone.current || !task) return;
+    if (task.status !== "pending" && task.status !== "failed") return;
+    autoexecDone.current = true;
+    handleExecute(autoexec);
+  }, [autoexec, task]);
 
   useEffect(() => {
     api.listEngines().then(setEngines).catch(() => {});
@@ -104,11 +117,12 @@ export default function TaskDetail() {
   };
 
   // SSE 执行处理
-  const handleExecute = async () => {
+  const handleExecute = async (engineOverride?: string) => {
+    const engine = engineOverride ?? execEngine;
     setExecuting(true);
     setExecOutput([]);
     try {
-      const res = await api.executeTask(task.id, execEngine);
+      const res = await api.executeTask(task.id, engine);
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         throw new Error(text);
@@ -297,7 +311,7 @@ export default function TaskDetail() {
               style={{ minWidth: 140, height: 28 }}
             />
             <button
-              onClick={handleExecute}
+              onClick={() => handleExecute()}
               disabled={executing}
               className="button button-primary text-xs flex items-center gap-1"
               style={{ padding: "4px 12px" }}
