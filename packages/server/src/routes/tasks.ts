@@ -1,12 +1,17 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from "fastify";
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { requireUUID } from "./uuid-util.js";
-import { createTask, listTasks, getTask, updateTask, transitionTask, deleteTask } from "../services/task-manager.js";
+import { createTask, listTasks, getTask, updateTask, transitionTask, deleteTask, finalizeTaskStatus } from "../services/task-manager.js";
 import { queryOne, query } from "../db/client.js";
 import { getEngine } from "../adapters/registry.js";
 import { buildContext } from "../services/context-injector.js";
 import { listAgents } from "../services/agent-registry.js";
 import { listPresence } from "../services/presence-service.js";
 import { listProjects } from "../services/project-registry.js";
+import { loadConfig } from "../config.js";
+
+const execFileAsync = promisify(execFile);
 
 const STOP_WORDS = new Set(["the","a","an","is","for","to","in","of","and","with","on","it","this","that","from","by","at","be","as","or","not","no","do","but","can","will","just","should","now","的","了","在","是","和","与","不","有","这","那","我","你","把","被","让","给","从","到","对","为","以","及","等"]);
 const IGNORE_PATH = new Set(["src","lib","node_modules","dist","build","pkg","cmd","internal","app","web","api","ui","packages","test","tests","spec","docs"]);
@@ -15,6 +20,81 @@ function tokenize(text: string): string[] {
   return text.toLowerCase()
     .split(/[\s/\-_.:;,\(\)\[\]\{\}]+/)
     .filter(t => t.length >= 2 && !STOP_WORDS.has(t));
+}
+
+const ACTION_TASK_PATTERNS = [
+  /优化/,
+  /调整/,
+  /修改/,
+  /改(一下|造|进|掉|成)?/,
+  /修复/,
+  /修(一下|掉|好)?/,
+  /添加/,
+  /新增/,
+  /实现/,
+  /开发/,
+  /重构/,
+  /完善/,
+  /更新/,
+  /接入/,
+  /集成/,
+  /\b(ui|ux)\b/i,
+  /\b(fix|bug|implement|add|update|refactor|improve|optimi[sz]e|polish|build)\b/i,
+];
+
+const WRITE_TOOL_PATTERNS = [
+  /edit/i,
+  /write/i,
+  /multi.?edit/i,
+  /file.?edit/i,
+  /apply.?patch/i,
+  /patch/i,
+  /create/i,
+];
+
+function requiresImplementationActivity(task: any): boolean {
+  if (["feature", "bug"].includes(task.type)) return true;
+  const text = [task.title, task.description || "", ...(task.labels || [])].join(" ");
+  return ACTION_TASK_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function isWriteLikeTool(tool?: string): boolean {
+  if (!tool) return false;
+  return WRITE_TOOL_PATTERNS.some((pattern) => pattern.test(tool));
+}
+
+function uniq(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
+}
+
+async function getImplementationSnapshot(workingDir?: string): Promise<string | null> {
+  if (!workingDir) return null;
+  try {
+    await execFileAsync("git", ["-C", workingDir, "rev-parse", "--is-inside-work-tree"], {
+      timeout: 5000,
+    });
+    const [status, diff, stagedDiff] = await Promise.all([
+      execFileAsync("git", ["-C", workingDir, "status", "--porcelain=v1", "-z"], {
+        timeout: 10000,
+        maxBuffer: 5 * 1024 * 1024,
+      }),
+      execFileAsync("git", ["-C", workingDir, "diff", "--binary"], {
+        timeout: 10000,
+        maxBuffer: 20 * 1024 * 1024,
+      }),
+      execFileAsync("git", ["-C", workingDir, "diff", "--cached", "--binary"], {
+        timeout: 10000,
+        maxBuffer: 20 * 1024 * 1024,
+      }),
+    ]);
+    return [
+      status.stdout,
+      diff.stdout,
+      stagedDiff.stdout,
+    ].join("\n--- implementation-snapshot ---\n");
+  } catch {
+    return null;
+  }
 }
 
 async function matchProject(title: string, description?: string): Promise<any | null> {
@@ -162,6 +242,186 @@ function sseWrite(res: any, event: string, data: object): boolean {
   return true;
 }
 
+async function getLatestTaskTrace(taskId: string, traceId?: string | null, taskStatus?: string): Promise<any | null> {
+  let trace = null;
+  if (traceId) {
+    trace = await queryOne("SELECT * FROM execution_traces WHERE id = $1", [traceId]);
+  }
+  if (!trace) {
+    trace = await queryOne(
+      "SELECT * FROM execution_traces WHERE task_id = $1 ORDER BY updated_at DESC, created_at DESC LIMIT 1",
+      [taskId],
+    );
+  }
+  if (!trace) return null;
+
+  if (trace && taskStatus && ["completed", "failed", "cancelled"].includes(taskStatus) && (trace as any).status === "running") {
+    const reconciledStatus = taskStatus === "completed" ? "completed" : "failed";
+    const updated = await queryOne(
+      `UPDATE execution_traces
+          SET status = $1,
+              completed_at = COALESCE(completed_at, now()),
+              error_message = CASE
+                WHEN $1 = 'failed' AND error_message IS NULL THEN 'Task reached terminal state before trace finalization completed.'
+                ELSE error_message
+              END,
+              updated_at = now()
+        WHERE id = $2
+        RETURNING *`,
+      [reconciledStatus, (trace as any).id],
+    );
+    if (updated) trace = updated;
+  }
+
+  const toolCalls = await query(
+    "SELECT * FROM trace_tool_calls WHERE trace_id = $1 ORDER BY seq",
+    [(trace as any).id],
+  );
+  return { ...(trace as Record<string, unknown>), tool_calls: toolCalls };
+}
+
+async function ensureTaskExecutionSession(input: {
+  task: any;
+  engineName: string;
+  sessionId?: string;
+  traceId: string | null;
+  status: "running" | "completed" | "failed";
+  lastOutput?: string | null;
+}): Promise<string | null> {
+  if (!input.traceId) return null;
+  const agentId = input.task.assignee_id ?? `agent-${input.engineName}`;
+
+  if (input.sessionId) {
+    const updated = await queryOne<{ id: string }>(
+      `UPDATE agent_sessions
+          SET status = $1,
+              agent_id = $2,
+              project_id = $3,
+              task_id = $4,
+              platform = COALESCE(platform, 'engine'),
+              last_output = $5,
+              source_ref = $6,
+              completed_at = CASE WHEN $1 IN ('completed', 'failed') THEN now() ELSE NULL END,
+              last_interaction_at = now(),
+              updated_at = now(),
+              metadata = COALESCE(metadata, '{}'::jsonb) || $7::jsonb
+        WHERE id = $8
+        RETURNING id`,
+      [
+        input.status,
+        agentId,
+        input.task.project_id ?? null,
+        input.task.id,
+        input.lastOutput ?? null,
+        input.traceId,
+        JSON.stringify({ engine: input.engineName, title: input.task.title }),
+        input.sessionId,
+      ],
+    );
+    if (updated?.id) return updated.id;
+  }
+
+  const existing = await queryOne<{ id: string }>(
+    "SELECT id FROM agent_sessions WHERE source_ref = $1 ORDER BY created_at DESC LIMIT 1",
+    [input.traceId],
+  );
+
+  if (existing?.id) {
+    await query(
+      `UPDATE agent_sessions
+          SET status = $1,
+              agent_id = $2,
+              project_id = $3,
+              task_id = $4,
+              platform = 'engine',
+              last_output = COALESCE($5, last_output),
+              last_interaction_at = now(),
+              completed_at = CASE WHEN $1 IN ('completed', 'failed') THEN now() ELSE NULL END,
+              updated_at = now()
+        WHERE id = $6`,
+      [
+        input.status,
+        agentId,
+        input.task.project_id ?? null,
+        input.task.id,
+        input.lastOutput ?? null,
+        existing.id,
+      ],
+    );
+    return existing.id;
+  }
+
+  const inserted = await queryOne<{ id: string }>(
+    `INSERT INTO agent_sessions (
+       agent_id, project_id, task_id, platform, status, last_output, source_ref,
+       can_reply, can_pause, can_stop, metadata
+     ) VALUES ($1,$2,$3,'engine',$4,$5,$6,false,false,false,$7::jsonb)
+     RETURNING id`,
+    [
+      agentId,
+      input.task.project_id ?? null,
+      input.task.id,
+      input.status,
+      input.lastOutput ?? null,
+      input.traceId,
+      JSON.stringify({ engine: input.engineName }),
+    ],
+  );
+  return inserted?.id ?? null;
+}
+
+async function finalizeExecutionState(input: {
+  taskId: string;
+  traceId: string | null;
+  sessionId: string | null;
+  status: "completed" | "failed";
+  summary: string | null;
+  errorMessage: string | null;
+  inputTokens: number;
+  outputTokens: number;
+  model: string | null;
+}): Promise<void> {
+  await finalizeTaskStatus(input.taskId, input.status);
+
+  if (input.traceId) {
+    await query(
+      `UPDATE execution_traces SET
+         status = $1,
+         completed_at = now(),
+         duration_ms = (EXTRACT(EPOCH FROM (now() - started_at)) * 1000)::int,
+         summary = $2,
+         error_message = $3,
+         input_tokens = $4,
+         output_tokens = $5,
+         model = $6,
+         updated_at = now()
+       WHERE id = $7`,
+      [
+        input.status,
+        input.summary,
+        input.errorMessage,
+        input.inputTokens,
+        input.outputTokens,
+        input.model,
+        input.traceId,
+      ],
+    );
+  }
+
+  if (input.sessionId) {
+    await query(
+      `UPDATE agent_sessions
+          SET status = $1,
+              last_output = COALESCE($2, last_output),
+              completed_at = now(),
+              last_interaction_at = now(),
+              updated_at = now()
+        WHERE id = $3`,
+      [input.status, input.errorMessage ?? input.summary, input.sessionId],
+    );
+  }
+}
+
 export async function taskRoutes(fastify: FastifyInstance) {
   fastify.get("/api/tasks", async (req: FastifyRequest) => {
     const filter = req.query as Record<string, string>;
@@ -179,10 +439,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     if (!requireUUID(id, reply)) return;
     const task = await getTask(id);
     if (!task) return reply.code(404).send({ error: "task not found" });
-    let trace = null;
-    if (task.trace_id) {
-      trace = await queryOne("SELECT * FROM execution_traces WHERE id = $1", [task.trace_id]);
-    }
+    const trace = await getLatestTaskTrace(id, task.trace_id, task.status);
     return { ...task, trace };
   });
 
@@ -232,7 +489,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
     }
 
     // 3. 获取请求参数
-    const { engine: engineName } = req.body as { engine: string };
+    const { engine: engineName, session_id, native_session_id } = req.body as { engine: string; session_id?: string; native_session_id?: string };
     if (!engineName) return reply.code(400).send({ error: "engine is required" });
 
     // 4. 获取引擎
@@ -245,6 +502,7 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
     // 5. 自动 transition → in_progress
     await transitionTask(id, "in_progress");
+    const executionAgentId = task.assignee_id ?? `agent-${engineName}`;
 
     // 6. 构造 prompt（从 task title + description）
     let prompt = task.title;
@@ -269,29 +527,77 @@ export async function taskRoutes(fastify: FastifyInstance) {
       } catch { /* 上下文注入失败不阻塞执行 */ }
     }
 
+    // 7.5 注入 Agent 执行守则：避免 Agent 卡在"出方案等用户选"，让任务直接闭环
+    //    适用于通过 monitor 发起的非显式规划类任务。Blueprint 类流程不经过此端点不受影响。
+    const executionGuidelines = [
+      ``,
+      `# Execution Guidelines`,
+      ``,
+      `You are running as a worker agent invoked by the user via an automated task monitor.`,
+      `Follow these rules so the task reaches a terminal state without manual approval:`,
+      ``,
+      `- Pick the most reasonable approach yourself and execute it end-to-end. Do not stop to ask which option to choose among near-equivalent alternatives.`,
+      `- If multiple valid options exist, briefly state which one you chose and why, then continue. Do not wait for confirmation.`,
+      `- Only stop and report back (without doing the work) when: credentials/payment/external accounts are required, OR the user explicitly asked for a recommendation-only / advisory response (e.g. \`只给方案，不要实施\` / \`只要建议\`).`,
+      `- If the task is ambiguous, make the smallest reasonable assumption, note it in one line, and proceed.`,
+    ].join('\n');
+    if (systemPrompt) {
+      systemPrompt = `${systemPrompt}\n${executionGuidelines}`;
+    } else {
+      systemPrompt = executionGuidelines;
+    }
+
     // 8. 写入 execution_traces 起始记录（task_id 是 UNIQUE，使用 ON CONFLICT 幂等）
     let traceId: string | null = null;
+    let executionSessionId: string | null = null;
     let traceSeq = 0;
     try {
       const inserted = await queryOne<{ id: string }>(
         `INSERT INTO execution_traces
-           (task_id, project_id, agent_id, source, status, title, started_at, retry_count)
-         VALUES ($1, $2, $3, $4, 'running', $5, now(), 0)
+           (task_id, project_id, agent_id, source, status, title, description, started_at, completed_at, error_message, summary, retry_count)
+         VALUES ($1, $2, $3, $4, 'running', $5, $6, now(), NULL, NULL, NULL, 0)
          ON CONFLICT (task_id) DO UPDATE
            SET status = 'running',
+               project_id = EXCLUDED.project_id,
+               agent_id = EXCLUDED.agent_id,
+               source = EXCLUDED.source,
+               title = EXCLUDED.title,
+               description = EXCLUDED.description,
                started_at = now(),
                completed_at = NULL,
+               error_message = NULL,
+               summary = NULL,
+               duration_ms = 0,
+               input_tokens = 0,
+               output_tokens = 0,
+               model = NULL,
+               retry_count = execution_traces.retry_count + 1,
                updated_at = now()
          RETURNING id`,
         [
           id,
           task.project_id ?? null,
-          task.assignee_id ?? engineName, // agent_id NOT NULL，回退到引擎名
+          executionAgentId,
           engineName,
           task.title,
+          task.description ?? null,
         ],
       );
       traceId = inserted?.id ?? null;
+      if (traceId) {
+        await query(
+          "UPDATE tasks SET trace_id = $1, assignee_id = COALESCE(assignee_id, $2), updated_at = now() WHERE id = $3",
+          [traceId, executionAgentId, id],
+        );
+        executionSessionId = await ensureTaskExecutionSession({
+          task: { ...task, assignee_id: executionAgentId },
+          engineName,
+          sessionId: session_id,
+          traceId,
+          status: "running",
+          lastOutput: "任务执行已开始",
+        });
+      }
     } catch (err: any) {
       // trace 写入失败不阻塞执行，仅记录
       console.error(`[tasks.execute] failed to insert trace: ${err?.message ?? err}`);
@@ -313,15 +619,63 @@ export async function taskRoutes(fastify: FastifyInstance) {
     let model: string | null = null;
     let errorMessage: string | null = null;
     let runStatus: 'completed' | 'failed' = 'completed';
+    const implementationRequired = requiresImplementationActivity(task);
+    const implementationSnapshotBefore = implementationRequired
+      ? await getImplementationSnapshot(workingDir)
+      : null;
+    let toolUseCount = 0;
+    let writeLikeToolCount = 0;
+    // nativeSession 支持：在 try 之前声明，catch 也能访问
+    let nativeSession: Promise<{ id: string; kind: string } | undefined> | undefined;
+    let nativeSessionResolved: { id: string; kind: string } | undefined;
+    let lastTraceProgressAt = 0;
 
     try {
       sseWrite(res, 'start', { runId: `task_${id}`, taskId: id, traceId });
 
-      const stream = engine.run(prompt, { systemPrompt, workingDir });
+      const runOpts: Record<string, unknown> = { systemPrompt, workingDir };
+      if (session_id) runOpts.sessionId = session_id;
+      if (native_session_id) runOpts.nativeSessionId = native_session_id;
+
+      const stream = engine.run(prompt, runOpts);
+      nativeSession = (stream as any).nativeSession as Promise<{ id: string; kind: string } | undefined> | undefined;
+
       for await (const msg of stream) {
-        // 累积文本片段（用于 summary，最多 2000 字）
+        // 累积文本片段；运行中定期落库，详情页轮询时能看到当前输出。
         if (msg.type === 'text' && typeof msg.content === 'string') {
           textChunks.push(msg.content);
+          const now = Date.now();
+          if (traceId && now - lastTraceProgressAt > 1000) {
+            lastTraceProgressAt = now;
+            const currentSummary = textChunks.join('');
+            void query(
+              `UPDATE execution_traces
+                  SET summary = $1,
+                      updated_at = now()
+                WHERE id = $2`,
+              [currentSummary || null, traceId],
+            ).catch((traceErr: any) => {
+              console.error(`[tasks.execute] failed to update trace summary: ${traceErr?.message ?? traceErr}`);
+            });
+          }
+          if (executionSessionId) {
+            const lastOutput = textChunks.join('').slice(-1000);
+            void query(
+              `UPDATE agent_sessions
+                  SET last_output = $1,
+                      last_interaction_at = now(),
+                      updated_at = now()
+                WHERE id = $2`,
+              [lastOutput, executionSessionId],
+            ).catch((sessionErr: any) => {
+              console.error(`[tasks.execute] failed to update session output: ${sessionErr?.message ?? sessionErr}`);
+            });
+          }
+        }
+
+        if (msg.type === 'tool_use') {
+          toolUseCount += 1;
+          if (isWriteLikeTool(msg.tool)) writeLikeToolCount += 1;
         }
 
         // 记录工具调用
@@ -374,53 +728,78 @@ export async function taskRoutes(fastify: FastifyInstance) {
           if (typeof usage.model === 'string') model = usage.model;
         }
 
-        if (!sseWrite(res, 'message', msg)) break;
+        sseWrite(res, 'message', msg);
+      }
+
+      const implementationSnapshotAfter = implementationRequired
+        ? await getImplementationSnapshot(workingDir)
+        : null;
+      const workspaceChanged = implementationSnapshotBefore !== null
+        && implementationSnapshotAfter !== null
+        && implementationSnapshotBefore !== implementationSnapshotAfter;
+      const noImplementationActivity = implementationRequired
+        && toolUseCount === 0
+        && writeLikeToolCount === 0
+        && !workspaceChanged;
+      if (noImplementationActivity) {
+        errorMessage = [
+          "No implementation activity detected for an action-oriented task.",
+          "The agent returned text, but no tool events or workspace changes were detected, so the task was not marked completed.",
+        ].join(" ");
+        runStatus = 'failed';
+        sseWrite(res, 'error', { error: errorMessage, reason: "no_implementation_activity" });
+        sseWrite(res, 'done', { runId: `task_${id}`, taskId: id, finalStatus: "failed", nativeSession: nativeSessionResolved });
+        return;
       }
 
       // 成功完成 → 自动 transition → completed
-      await transitionTask(id, "completed");
+      // 等待 nativeSession 解析（如果存在）
+      if (nativeSession) {
+        try {
+          nativeSessionResolved = await nativeSession;
+          if (nativeSessionResolved) {
+            sseWrite(res, 'native_session', nativeSessionResolved);
+          }
+        } catch { /* nativeSession 解析失败不阻塞完成 */ }
+      }
+
       runStatus = 'completed';
-      sseWrite(res, 'done', { runId: `task_${id}`, taskId: id, finalStatus: "completed" });
+      sseWrite(res, 'done', { runId: `task_${id}`, taskId: id, finalStatus: "completed", nativeSession: nativeSessionResolved });
     } catch (err: any) {
       // 异常 → 自动 transition → failed
+      // 错误路径也尝试解析 nativeSession（可能已在错误前解析）
+      if (nativeSession) {
+        try {
+          nativeSessionResolved = await nativeSession;
+          if (nativeSessionResolved) {
+            sseWrite(res, 'native_session', nativeSessionResolved);
+          }
+        } catch { /* 错误路径下不阻塞 */ }
+      }
+
       errorMessage = err?.message ?? String(err);
       runStatus = 'failed';
-      try { await transitionTask(id, "failed"); } catch {}
       sseWrite(res, 'error', { error: errorMessage });
-      sseWrite(res, 'done', { runId: `task_${id}`, taskId: id, finalStatus: "failed" });
+      sseWrite(res, 'done', { runId: `task_${id}`, taskId: id, finalStatus: "failed", nativeSession: nativeSessionResolved });
     } finally {
       // 关闭 SSE
       if (!res.writableEnded) res.end();
 
-      // 更新 execution_traces 终态
-      if (traceId) {
-        const summary = textChunks.join('').slice(0, 2000) || null;
-        try {
-          await query(
-            `UPDATE execution_traces SET
-               status = $1,
-               completed_at = now(),
-               duration_ms = (EXTRACT(EPOCH FROM (now() - started_at)) * 1000)::int,
-               summary = $2,
-               error_message = $3,
-               input_tokens = $4,
-               output_tokens = $5,
-               model = $6,
-               updated_at = now()
-             WHERE id = $7`,
-            [
-              runStatus,
-              summary,
-              errorMessage,
-              inputTokens,
-              outputTokens,
-              model,
-              traceId,
-            ],
-          );
-        } catch (updErr: any) {
-          console.error(`[tasks.execute] failed to finalize trace: ${updErr?.message ?? updErr}`);
-        }
+      const summary = textChunks.join('') || null;
+      try {
+        await finalizeExecutionState({
+          taskId: id,
+          traceId,
+          sessionId: executionSessionId,
+          status: runStatus,
+          summary,
+          errorMessage,
+          inputTokens,
+          outputTokens,
+          model,
+        });
+      } catch (updErr: any) {
+        console.error(`[tasks.execute] failed to finalize execution state: ${updErr?.message ?? updErr}`);
       }
     }
   });
@@ -496,13 +875,24 @@ export async function taskRoutes(fastify: FastifyInstance) {
         };
       }
     }
-    // fallback：遍历已注册引擎，找第一个 installed 的
+    // fallback：按配置选择 Router / smart-task 默认引擎，找第一个 installed 的
     if (!recommendedEngine) {
-      const engineIds = ['claude-code', 'reasonix', 'codex'];
+      const cfg = loadConfig();
+      const engineIds = uniq([
+        cfg.workflow.router_engine_id,
+        ...cfg.workflow.router_fallback_engine_ids,
+      ]);
       for (const eid of engineIds) {
         const eng = await getEngine(eid);
         if (eng?.installed) {
-          recommendedEngine = { id: eng.id, label: eng.label, installed: true, reason: '默认可用引擎' };
+          recommendedEngine = {
+            id: eng.id,
+            label: eng.label,
+            installed: true,
+            reason: eid === cfg.workflow.router_engine_id
+              ? '配置的 Router 默认引擎'
+              : '配置的 Router fallback 引擎',
+          };
           break;
         }
       }
