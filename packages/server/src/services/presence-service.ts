@@ -32,9 +32,17 @@ export async function derivePresence(agent: RegisteredAgent): Promise<AgentPrese
     ? await getActiveRunCount(agent.engine_id)
     : 0;
 
-  // 当前任务（assignee_id = agent.id 且 status=in_progress）
+  // 当前任务优先看正式 task 指派，其次看 execute 路由写入的运行中 session。
   const currentTask = await queryOne<{ id: string }>(
-    "SELECT id FROM tasks WHERE assignee_id = $1 AND status = 'in_progress' LIMIT 1",
+    `SELECT id::text AS id
+       FROM tasks
+      WHERE assignee_id = $1 AND status = 'in_progress'
+      UNION ALL
+     SELECT task_id AS id
+       FROM agent_sessions
+      WHERE agent_id = $1 AND status = 'running' AND task_id IS NOT NULL
+      ORDER BY id
+      LIMIT 1`,
     [agent.id],
   );
 

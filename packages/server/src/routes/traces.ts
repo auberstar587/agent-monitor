@@ -27,10 +27,35 @@ export async function traceRoutes(fastify: FastifyInstance) {
   fastify.get("/api/traces/:taskId", async (req: FastifyRequest, reply: FastifyReply) => {
     const { taskId } = req.params as { taskId: string };
     if (!requireUUID(taskId, reply)) return;
-    const trace = await queryOne(
+    let trace = await queryOne(
       "SELECT * FROM execution_traces WHERE task_id = $1", [taskId],
     );
     if (!trace) return reply.code(404).send({ error: "trace not found" });
+
+    const task = await queryOne<{ status: string }>(
+      "SELECT status FROM tasks WHERE id = $1",
+      [taskId],
+    );
+    if (
+      task &&
+      ["completed", "failed", "cancelled"].includes(task.status) &&
+      (trace as any).status === "running"
+    ) {
+      const reconciledStatus = task.status === "completed" ? "completed" : "failed";
+      trace = await queryOne(
+        `UPDATE execution_traces
+            SET status = $1,
+                completed_at = COALESCE(completed_at, now()),
+                error_message = CASE
+                  WHEN $1 = 'failed' AND error_message IS NULL THEN 'Task reached terminal state before trace finalization completed.'
+                  ELSE error_message
+                END,
+                updated_at = now()
+          WHERE task_id = $2
+          RETURNING *`,
+        [reconciledStatus, taskId],
+      );
+    }
 
     const toolCalls = await query(
       "SELECT * FROM trace_tool_calls WHERE task_id = $1 ORDER BY seq", [taskId],

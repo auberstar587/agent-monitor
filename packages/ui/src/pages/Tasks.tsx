@@ -346,45 +346,30 @@ export default function Tasks() {
                                 </span>
                               );
                             })()}
-                            {/* 看板快捷操作（阻止 Link 跳转） */}
-                            {(task.status === "pending" || task.status === "in_progress") && (
+                            {/* 看板快捷操作（阻止 Link 跳转）。pending 任务必须进入详情页真实执行，不能只切 in_progress。 */}
+                            {task.status === "in_progress" && (
                               <div
                                 className="task-card-actions"
                                 onClick={(e) => e.preventDefault()}
                               >
-                                {task.status === "pending" && (
-                                  <button
-                                    type="button"
-                                    onClick={(e) => { e.preventDefault(); handleTransition(task.id, "in_progress"); }}
-                                    disabled={busy}
-                                    className="icon-btn"
-                                    title="开始执行"
-                                  >
-                                    <Play size={11} />
-                                  </button>
-                                )}
-                                {task.status === "in_progress" && (
-                                  <>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.preventDefault(); handleTransition(task.id, "completed"); }}
-                                      disabled={busy}
-                                      className="icon-btn"
-                                      title="完成"
-                                    >
-                                      <CheckCircle size={11} />
-                                    </button>
-                                    <button
-                                      type="button"
-                                      onClick={(e) => { e.preventDefault(); handleTransition(task.id, "failed"); }}
-                                      disabled={busy}
-                                      className="icon-btn"
-                                      title="标记失败"
-                                    >
-                                      <XCircle size={11} />
-                                    </button>
-                                  </>
-                                )}
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.preventDefault(); handleTransition(task.id, "completed"); }}
+                                  disabled={busy}
+                                  className="icon-btn"
+                                  title="完成"
+                                >
+                                  <CheckCircle size={11} />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.preventDefault(); handleTransition(task.id, "failed"); }}
+                                  disabled={busy}
+                                  className="icon-btn"
+                                  title="标记失败"
+                                >
+                                  <XCircle size={11} />
+                                </button>
                               </div>
                             )}
                           </div>

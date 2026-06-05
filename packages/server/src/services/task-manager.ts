@@ -82,8 +82,9 @@ export async function transitionTask(id: string, newStatus: string): Promise<Tas
 
   const extraSets: string[] = ["status = $1", "updated_at = now()"];
   const params: unknown[] = [newStatus];
-  if (newStatus === "in_progress" && !task.started_at) {
+  if (newStatus === "in_progress") {
     extraSets.push("started_at = now()");
+    extraSets.push("completed_at = NULL");
   }
   if (["completed", "failed", "cancelled"].includes(newStatus)) {
     extraSets.push("completed_at = now()");
@@ -100,6 +101,34 @@ export async function transitionTask(id: string, newStatus: string): Promise<Tas
       await updateAgentQuality(task.assignee_id, newStatus === "completed", durationMs);
     } catch (err) {
       // 质量更新失败不影响主流程
+      console.warn("[task-manager] updateAgentQuality failed:", err);
+    }
+  }
+
+  return updated;
+}
+
+export async function finalizeTaskStatus(id: string, status: "completed" | "failed" | "cancelled"): Promise<Task | null> {
+  const task = await getTask(id);
+  if (!task) return null;
+
+  const updated = await queryOne<Task>(
+    `UPDATE tasks
+        SET status = $1,
+            completed_at = now(),
+            updated_at = now()
+      WHERE id = $2
+      RETURNING *`,
+    [status, id],
+  );
+
+  if (updated && (status === "completed" || status === "failed") && task.assignee_id) {
+    const durationMs = task.started_at
+      ? Date.now() - new Date(task.started_at).getTime()
+      : 0;
+    try {
+      await updateAgentQuality(task.assignee_id, status === "completed", durationMs);
+    } catch (err) {
       console.warn("[task-manager] updateAgentQuality failed:", err);
     }
   }

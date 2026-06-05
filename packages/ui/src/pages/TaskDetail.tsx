@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import CustomSelect from "../components/CustomSelect";
@@ -24,8 +24,9 @@ const TRANSITIONS: Record<string, { status: string; label: string; icon: any; co
     { status: "failed", label: "标记失败", icon: XCircle, color: "var(--danger)" },
     { status: "cancelled", label: "取消", icon: Ban, color: "var(--muted)" },
   ],
-  failed: [{ status: "in_progress", label: "重试", icon: RotateCcw, color: "var(--warning)" }],
-  cancelled: [{ status: "in_progress", label: "重新打开", icon: Play, color: "var(--accent)" }],
+  // failed 状态的重跑应走下方执行面板，直接调用 /execute，而不是只把状态切到 in_progress。
+  failed: [],
+  cancelled: [],
   completed: [],
 };
 
@@ -52,10 +53,27 @@ export default function TaskDetail() {
   const autoexec = searchParams.get("autoexec");
   const autoexecDone = useRef(false);
 
+  const loadTask = useCallback(async () => {
+    if (!id) return null;
+    const next = await api.getTask(id);
+    setTask(next);
+    return next;
+  }, [id]);
+
   useEffect(() => {
     if (!id) return;
-    api.getTask(id).then(setTask);
-  }, [id]);
+    loadTask().catch((err: any) => setError(err?.message || "任务加载失败"));
+  }, [id, loadTask]);
+
+  useEffect(() => {
+    if (!id || !task) return;
+    const traceRunning = task.trace?.status === "running";
+    if (task.status !== "in_progress" && !traceRunning && !executing) return;
+    const timer = window.setInterval(() => {
+      loadTask().catch(() => {});
+    }, 2500);
+    return () => window.clearInterval(timer);
+  }, [id, task?.status, task?.trace?.status, executing, loadTask]);
 
   // autoexec：从 Dashboard 快捷任务跳转时自动执行
   useEffect(() => {
@@ -152,8 +170,7 @@ export default function TaskDetail() {
             } else if (eventType === "message" && data.type === "tool_use") {
               setExecOutput(prev => [...prev, `▸ ${data.tool || "tool"}(${data.input ? JSON.stringify(data.input).slice(0, 80) : ""})`]);
             } else if (eventType === "done") {
-              const updated = await api.getTask(task.id);
-              setTask(updated);
+              await loadTask();
             } else if (eventType === "error") {
               setExecOutput(prev => [...prev, `❌ ${data.error}`]);
             }
@@ -163,6 +180,7 @@ export default function TaskDetail() {
     } catch (err: any) {
       setExecOutput(prev => [...prev, `❌ ${err?.message || "执行失败"}`]);
     } finally {
+      await loadTask().catch(() => {});
       setExecuting(false);
     }
   };
@@ -196,6 +214,15 @@ export default function TaskDetail() {
   };
 
   const transitions = TRANSITIONS[task.status] || [];
+  const trace = task.trace;
+  const traceToolCalls = trace?.tool_calls ?? [];
+  const traceStatusClass =
+    trace?.status === "completed" ? "status-succeeded"
+    : trace?.status === "failed" ? "status-failed"
+    : trace?.status === "running" ? "status-running"
+    : "status-queued";
+  const persistedOutput = trace?.summary ? [trace.summary] : [];
+  const displayOutput = execOutput.length > 0 ? execOutput : persistedOutput;
 
   return (
     <div className="p-6 max-w-3xl">
@@ -274,25 +301,23 @@ export default function TaskDetail() {
           </button>
         </div>
       )}
-      {transitions.length > 0 && (
-        <div className="flex items-center gap-2 mb-6">
-          {transitions.map((t) => {
-            const Icon = t.icon;
-            return (
-              <button key={t.status} onClick={() => handleTransition(t.status)}
-                className="button text-xs flex items-center gap-1.5"
-                style={{ borderColor: t.color, color: t.color }}>
-                <Icon size={13} /> {t.label}
-              </button>
-            );
-          })}
-          <button onClick={handleDelete} className="button text-xs" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
-            <XCircle size={13} /> 删除
-          </button>
-        </div>
-      )}
+      <div className="flex items-center gap-2 mb-6">
+        {transitions.map((t) => {
+          const Icon = t.icon;
+          return (
+            <button key={t.status} onClick={() => handleTransition(t.status)}
+              className="button text-xs flex items-center gap-1.5"
+              style={{ borderColor: t.color, color: t.color }}>
+              <Icon size={13} /> {t.label}
+            </button>
+          );
+        })}
+        <button onClick={handleDelete} className="button text-xs" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
+          <XCircle size={13} /> 删除
+        </button>
+      </div>
 
-      {/* 执行控制区 — 仅 pending/failed 状态显示（用于引擎选择和启动执行） */}
+      {/* 执行控制区 — pending 用于首次执行，failed 用于真正重跑 */}
       {(task.status === "pending" || task.status === "failed") && (
         <div className="content-card p-4 mb-6">
           <div className="flex items-center gap-2">
@@ -316,21 +341,38 @@ export default function TaskDetail() {
               className="button button-primary text-xs flex items-center gap-1"
               style={{ padding: "4px 12px" }}
             >
-              {executing ? <><Loader2 size={12} style={{ animation: "agents-spin 1s linear infinite" }} /> 执行中…</> : <><Play size={12} /> 开始执行</>}
+              {executing
+                ? <><Loader2 size={12} style={{ animation: "agents-spin 1s linear infinite" }} /> 执行中…</>
+                : <>{task.status === "failed" ? <RotateCcw size={12} /> : <Play size={12} />} {task.status === "failed" ? "重新执行" : "开始执行"}</>}
             </button>
           </div>
         </div>
       )}
 
-      {/* 输出展示区 — 只要有 execOutput 就始终显示（不随状态变化而隐藏） */}
-      {execOutput.length > 0 && (
+      {/* 输出展示区 — SSE 输出和已落库 trace 都展示，避免运行中/失败后空白 */}
+      {(displayOutput.length > 0 || trace?.error_message || traceToolCalls.length > 0 || trace?.status === "running") && (
         <div className="content-card p-4 mb-6">
           <div className="flex items-center gap-2 mb-2">
             <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>
-              {executing ? "执行输出" : "执行记录"}
+              {executing || trace?.status === "running" ? "执行中" : "执行过程记录"}
             </span>
-            {executing && <Loader2 size={12} style={{ animation: "agents-spin 1s linear infinite", color: "var(--muted)" }} />}
+            {trace?.status && (
+              <span className={`status-pill ${traceStatusClass}`} style={{ fontSize: 10 }}>
+                {trace.status}
+              </span>
+            )}
+            {(executing || trace?.status === "running") && <Loader2 size={12} style={{ animation: "agents-spin 1s linear infinite", color: "var(--muted)" }} />}
+            {trace?.task_id && (
+              <Link to={`/traces/${trace.task_id}`} className="text-xs ml-auto" style={{ color: "var(--accent)" }}>
+                查看完整轨迹
+              </Link>
+            )}
           </div>
+          {trace?.error_message && (
+            <div className="chat-error mb-3" role="alert" style={{ whiteSpace: "pre-wrap" }}>
+              {trace.error_message}
+            </div>
+          )}
           <div style={{
             background: "var(--paper-strong)",
             border: "1px solid var(--line)",
@@ -343,9 +385,29 @@ export default function TaskDetail() {
             whiteSpace: "pre-wrap",
             color: "var(--text-secondary)",
           }}>
-            {execOutput.map((line, i) => <div key={i}>{line}</div>)}
-            {executing && <span style={{ opacity: 0.6 }}>▊</span>}
+            {displayOutput.length > 0
+              ? displayOutput.map((line, i) => <div key={i}>{line}</div>)
+              : <span style={{ color: "var(--muted)" }}>执行已开始，等待 Agent 输出…</span>}
+            {(executing || trace?.status === "running") && <span style={{ opacity: 0.6 }}>▊</span>}
           </div>
+          {traceToolCalls.length > 0 && (
+            <div className="mt-3" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
+                工具调用 · {traceToolCalls.length}
+              </div>
+              {traceToolCalls.slice(-6).map((call: any, i: number) => (
+                <div key={`${call.seq ?? i}-${call.tool_name ?? "tool"}`} className="list-row" style={{ padding: "8px 10px", minHeight: 0 }}>
+                  <span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+                    #{String(call.seq ?? i + 1).padStart(2, "0")}
+                  </span>
+                  <span className="text-xs" style={{ color: "var(--text)", flex: 1 }}>
+                    {call.tool_name || call.type || "tool"}
+                  </span>
+                  {call.error_text && <span className="text-xs" style={{ color: "var(--danger)" }}>失败</span>}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -490,15 +552,44 @@ export default function TaskDetail() {
       {task.trace && (
         <div>
           <h3 className="section-title mb-3">关联执行轨迹</h3>
-          <Link to={`/traces/${task.trace.task_id}`} className="list-row no-underline cursor-pointer">
-            <span className={`status-pill ${task.trace.status === 'completed' ? 'status-succeeded' : 'status-failed'}`}>
-              {task.trace.status}
-            </span>
-            <span className="text-sm flex-1" style={{ color: "var(--text)" }}>{task.trace.title || task.trace.task_id}</span>
-            <span className="text-xs" style={{ color: "var(--muted)" }}>
-              {task.trace.input_tokens + task.trace.output_tokens > 0 ? `${task.trace.input_tokens + task.trace.output_tokens} tokens` : ""}
-            </span>
-          </Link>
+          <div className="content-card" style={{ padding: 0, overflow: "hidden" }}>
+            <Link to={`/traces/${task.trace.task_id}`} className="list-row no-underline cursor-pointer">
+              <span className={`status-pill ${task.trace.status === 'completed' ? 'status-succeeded' : task.trace.status === 'running' ? 'status-running' : 'status-failed'}`}>
+                {task.trace.status === "running" ? "运行中" : task.trace.status === "completed" ? "已完成" : "失败"}
+              </span>
+              <span className="text-sm flex-1" style={{ color: "var(--text)" }}>{task.trace.title || task.trace.task_id}</span>
+              <span className="text-xs" style={{ color: "var(--muted)" }}>
+                {(task.trace.input_tokens ?? 0) + (task.trace.output_tokens ?? 0) > 0 ? `${(task.trace.input_tokens ?? 0) + (task.trace.output_tokens ?? 0)} tokens` : "查看详情"}
+              </span>
+            </Link>
+            {(task.trace.error_message || task.trace.summary) && (
+              <div style={{
+                borderTop: "1px solid var(--line)",
+                padding: "10px 14px",
+                background: "var(--paper-strong)",
+              }}>
+                {task.trace.error_message && (
+                  <div className="chat-error mb-2" role="alert" style={{ fontSize: 12 }}>
+                    {task.trace.error_message}
+                  </div>
+                )}
+                {task.trace.summary && (
+                  <pre className="mono" style={{
+                    margin: 0,
+                    color: "var(--text-secondary)",
+                    fontSize: 11,
+                    lineHeight: 1.5,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    maxHeight: 220,
+                    overflowY: "auto",
+                  }}>
+                    {task.trace.summary}
+                  </pre>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
