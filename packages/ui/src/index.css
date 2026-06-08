@@ -79,6 +79,16 @@
   --duration-fast: 120ms;
   --duration-base: 200ms;
 
+  /* === Spacing — 4px base (design-system scale 4/8/12/16/24/32/48/64) === */
+  --space-1:  4px;
+  --space-2:  8px;
+  --space-3:  12px;
+  --space-4:  16px;
+  --space-6:  24px;
+  --space-8:  32px;
+  --space-12: 48px;
+  --space-16: 64px;
+
   /* === Pseudo-element helpers === */
   --highlight-top: rgba(240, 160, 48, 0.03);
   --scan-line-color: var(--accent);
@@ -532,6 +542,7 @@ code, pre, .mono {
 
 /* === Content Card (floating card style) === */
 .content-card {
+  padding: var(--space-4);
   border: 1px solid var(--line);
   background: var(--bg-card);
   border-radius: var(--radius-lg);
