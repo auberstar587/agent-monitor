@@ -13,6 +13,8 @@ export interface CodexAdapterOptions {
 /** Codex CLI JSONL 事件（exec --json 输出） */
 interface CodexEvent {
   type: string;
+  // thread.started
+  thread_id?: string;
   // item.started / item.completed
   item?: {
     type: string; // 'agent_message' | 'command_execution' | 'file_change' | 'mcp_tool_call'
@@ -56,12 +58,29 @@ export async function createCodexAdapter(
 
     run(prompt: string, opts?: Record<string, unknown>) {
       const runId = `codex_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const model = (opts?.model as string) || 'o4-mini';
+      const explicitModel = opts?.model as string | undefined;
       const extraArgs = (opts?.extraArgs as string[] | undefined) ?? [];
-      const metrics = startMetrics(runId, { model, engineId: 'codex', persist: true });
+      const effectiveWorkingDir = (opts?.workingDir as string | undefined) ?? workingDir;
+      // CORE-06: 支持 resume 已有 thread (sessionId / nativeSessionId)
+      const resumeThreadId = (opts?.sessionId as string | undefined)
+        ?? (opts?.nativeSessionId as string | undefined);
+      // metrics model: 仅当 caller 显式传入时才记录（不伪造默认值）
+      const metricsModel = explicitModel || undefined;
+      const metrics = startMetrics(runId, { model: metricsModel, engineId: 'codex', persist: true });
 
       // pre-spawn 占位，支持 cancel
       _runningChildren.set(runId, null as unknown as ChildProcess);
+
+      // nativeSession 通过 deferred promise 暴露（解析到 thread.started 的 thread_id）
+      let nativeSessionResolve: (v: { id: string; kind: string } | undefined) => void;
+      let nativeSessionSettled = false;
+      const nativeSessionPromise = new Promise<{ id: string; kind: string } | undefined>((resolve) => {
+        nativeSessionResolve = (value) => {
+          if (nativeSessionSettled) return;
+          nativeSessionSettled = true;
+          resolve(value);
+        };
+      });
 
       async function* gen(): AsyncGenerator<EngineMessage> {
         let seq = 0;
@@ -72,18 +91,27 @@ export async function createCodexAdapter(
           content: `[Codex CLI] 收到 prompt（${prompt.length} 字符）→ spawn ${codexPath}`,
         };
 
-        const args: string[] = [
+        // 构建参数：无 resume 时直接 prompt，有 resume 时 "resume <id> <prompt>"
+        const baseArgs: string[] = [
           'exec',
           '--json',
           '--sandbox', 'workspace-write',
           '--color', 'never',
-          '--model', model,
-          ...extraArgs,
-          prompt,
         ];
 
+        // 仅当 caller 显式传入 model 时才附加 --model（不伪造默认值）
+        const modelArg = explicitModel ? ['--model', explicitModel] : [];
+
+        const systemPrompt = opts?.systemPrompt as string | undefined;
+        const effectivePrompt = systemPrompt
+          ? `${systemPrompt}\n\n---\n\n${prompt}`
+          : prompt;
+        const args: string[] = resumeThreadId
+          ? [...baseArgs, ...modelArg, 'resume', resumeThreadId, effectivePrompt]
+          : [...baseArgs, ...modelArg, effectivePrompt];
+
         const child = spawn(codexPath, args, {
-          cwd: workingDir,
+          cwd: effectiveWorkingDir,
           env: process.env,
           stdio: ['ignore', 'pipe', 'pipe'],
         });
@@ -109,6 +137,11 @@ export async function createCodexAdapter(
             } catch {
               // 忽略非 JSON 行
               continue;
+            }
+
+            // 解析 thread.started 事件，提取 thread_id → nativeSession
+            if (evt.type === 'thread.started' && (evt as any).thread_id && nativeSessionResolve) {
+              nativeSessionResolve({ id: (evt as any).thread_id, kind: 'codex_thread' });
             }
 
             yield* handleCodexEvent(evt, metrics, () => {
@@ -138,13 +171,18 @@ export async function createCodexAdapter(
         } catch (err: any) {
           yield { seq: ++seq, type: 'error', content: err?.message || 'spawn/parse error' };
         } finally {
+          nativeSessionResolve(undefined);
           metrics.finish();
           _runningChildren.delete(runId);
         }
       }
 
-      const it = gen() as AsyncGenerator<EngineMessage> & { runId: string };
+      const it = gen() as AsyncGenerator<EngineMessage> & {
+        runId: string;
+        nativeSession: Promise<{ id: string; kind: string } | undefined>;
+      };
       (it as unknown as { runId: string }).runId = runId;
+      (it as unknown as { nativeSession: Promise<{ id: string; kind: string } | undefined> }).nativeSession = nativeSessionPromise;
       return it;
     },
 
