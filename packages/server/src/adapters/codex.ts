@@ -97,6 +97,8 @@ export async function createCodexAdapter(
           '--json',
           '--sandbox', 'workspace-write',
           '--color', 'never',
+          '-c', 'model_reasoning_effort="high"',
+          '--enable', 'web_search_cached',
         ];
 
         // 仅当 caller 显式传入 model 时才附加 --model（不伪造默认值）
@@ -106,15 +108,24 @@ export async function createCodexAdapter(
         const effectivePrompt = systemPrompt
           ? `${systemPrompt}\n\n---\n\n${prompt}`
           : prompt;
+        // 当有 systemPrompt 时 prompt 较长，用 stdin 传入避免命令行参数过长
+        const useStdin = !!systemPrompt && effectivePrompt.length > 500;
         const args: string[] = resumeThreadId
           ? [...baseArgs, ...modelArg, 'resume', resumeThreadId, effectivePrompt]
-          : [...baseArgs, ...modelArg, effectivePrompt];
+          : useStdin
+            ? [...baseArgs, ...modelArg, '-']
+            : [...baseArgs, ...modelArg, effectivePrompt];
 
         const child = spawn(codexPath, args, {
           cwd: effectiveWorkingDir,
           env: process.env,
-          stdio: ['ignore', 'pipe', 'pipe'],
+          stdio: [useStdin ? 'pipe' : 'ignore', 'pipe', 'pipe'],
         });
+        // 通过 stdin 传入长 prompt
+        if (useStdin) {
+          child.stdin!.write(effectivePrompt);
+          child.stdin!.end();
+        }
 
         // 检查是否已被 pre-spawn cancel
         if (!_runningChildren.has(runId)) {
