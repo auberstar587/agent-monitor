@@ -365,6 +365,24 @@ body {
   flex-direction: column;
 }
 
+/* TaskDetail: rely on the standard workspace-main + workspace-content padding for outer whitespace,
+   matching all other pages (21px gap). Inner gap controls card spacing and scrollbar only. */
+.task-detail-scroll {
+  gap: 14px;
+  padding-right: 6px; /* room for the 6px scrollbar */
+}
+/* TaskDetail: page content can exceed viewport — ultra-thin scrollbar pinned to right edge. */
+.task-detail-scroll {
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.task-detail-scroll::-webkit-scrollbar { width: 6px; }
+.task-detail-scroll::-webkit-scrollbar-track { background: transparent; }
+.task-detail-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+.task-detail-scroll::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
 .sidebar-backdrop {
   display: none;
 }
@@ -913,14 +931,14 @@ code, pre, .mono {
   color: var(--accent);
 }
 .custom-select--badge {
-  height: 24px;
+  height: 30px;
 }
 .custom-select--badge .custom-select-trigger {
   border-color: var(--line);
   border-radius: var(--radius);
   background: rgba(110, 116, 144, 0.08);
   padding: 0 7px 0 8px;
-  font-size: 11px;
+  font-size: 12px;
 }
 .custom-select-menu {
   position: fixed;
@@ -1579,15 +1597,14 @@ code, pre, .mono {
 
 /* ── 错误消息 ── */
 .chat-error {
-  margin: 0 4px;
-  padding: 8px 14px;
+  margin: 0;
+  padding: 12px 14px;
   border-radius: var(--radius);
   background: var(--danger-bg);
   border: 1px solid rgba(251, 113, 133, 0.25);
   color: var(--danger);
   font-size: 13px;
   line-height: 1.5;
-  max-width: 85%;
 }
 .chat-input-bar {
   display: flex;
@@ -1656,8 +1673,7 @@ code, pre, .mono {
   .chat-bubble-assistant .chat-bubble-content {
     max-width: 92%;
   }
-  .chat-tool-card,
-  .chat-error {
+  .chat-tool-card {
     max-width: 95%;
   }
 }
