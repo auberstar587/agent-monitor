@@ -370,9 +370,6 @@ body {
 .task-detail-scroll {
   gap: 14px;
   padding-right: 6px; /* room for the 6px scrollbar */
-}
-/* TaskDetail: page content can exceed viewport — ultra-thin scrollbar pinned to right edge. */
-.task-detail-scroll {
   overflow-y: auto;
   overflow-x: hidden;
   scrollbar-width: thin;
