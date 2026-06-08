@@ -305,7 +305,7 @@ body {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 20px 28px 0 28px;
+  padding: 24px 24px 0 24px;
   flex-shrink: 0;
 }
 
@@ -348,7 +348,7 @@ body {
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  padding: 16px 20px 20px 20px;
+  padding: 16px 24px 24px 24px;
   scrollbar-width: thin;
   scrollbar-color: var(--line) transparent;
 }
@@ -363,7 +363,7 @@ body {
   border: 1px solid var(--line);
   border-radius: var(--radius-xl);
   box-shadow: var(--shadow-sm);
-  padding: 24px 28px;
+  padding: 24px;
   overflow: hidden;
 }
 
