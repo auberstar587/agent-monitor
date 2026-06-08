@@ -19,7 +19,7 @@ interface CodexEvent {
   item?: {
     type: string; // 'agent_message' | 'command_execution' | 'file_change' | 'mcp_tool_call'
     text?: string;
-    command?: string[];
+    command?: string[] | string;
     path?: string;
     // mcp_tool_call
     tool_name?: string;
@@ -279,7 +279,7 @@ function* handleCodexEvent(
           seq: nextSeq(),
           type: 'tool_use',
           tool: 'command',
-          input: { command: item.command?.join(' ') || '' },
+          input: { command: Array.isArray(item.command) ? item.command.join(' ') : (item.command || '') },
         };
         break;
 
