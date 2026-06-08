@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, Link, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../lib/api";
 import CustomSelect from "../components/CustomSelect";
-import { ArrowLeft, Edit3, Check, X, Play, CheckCircle, XCircle, RotateCcw, Ban, Rocket, Loader2, Plus } from "lucide-react";
+import { ArrowLeft, Edit3, Check, X, Play, CheckCircle, XCircle, RotateCcw, Ban, Loader2, Plus } from "lucide-react";
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "待处理", in_progress: "进行中", completed: "已完成", failed: "失败", cancelled: "已取消",
@@ -224,29 +224,22 @@ export default function TaskDetail() {
   const persistedOutput = trace?.summary ? [trace.summary] : [];
   const displayOutput = execOutput.length > 0 ? execOutput : persistedOutput;
 
-  return (
-    <div className="p-6 max-w-3xl">
-      <div className="flex items-center mb-4">
-        <Link to="/tasks" className="flex items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
-          <ArrowLeft size={14} /> 返回任务列表
-        </Link>
-        {task.project_id && (() => {
-          const proj = projects.find((p: any) => p.id === task.project_id);
-          return proj ? (
-            <Link
-              to={`/projects/${task.project_id}`}
-              className="flex items-center gap-1 text-xs ml-4"
-              style={{ color: "var(--accent)" }}
-            >
-              📁 {proj.name}
-            </Link>
-          ) : null;
-        })()}
-      </div>
+  const project = task.project_id ? projects.find((p: any) => p.id === task.project_id) : null;
+  const priorityColor =
+    task.priority === 'urgent' ? 'var(--danger)' :
+    task.priority === 'high' ? 'var(--warning)' :
+    'var(--muted)';
+  const priorityBg =
+    task.priority === 'urgent' ? 'var(--danger-bg)' :
+    task.priority === 'high' ? 'var(--warning-bg)' :
+    'transparent';
 
-      {/* Title + actions */}
-      <div className="flex items-start gap-3 mb-4">
-        <div className="flex-1">
+  return (
+    <div className="flex flex-col h-full min-h-0">
+      {/* === Fixed header: title+description on first row, breadcrumb on second === */}
+      <div className="shrink-0 task-detail-header">
+        {/* Title + description row */}
+        <div className="shrink-0" style={{ marginBottom: 8 }}>
           {editing === "title" ? (
             <div className="flex items-center gap-1">
               <input value={editVal} onChange={(e) => setEditVal(e.target.value)}
@@ -257,72 +250,101 @@ export default function TaskDetail() {
           ) : (
             <div className="flex items-center gap-2">
               <h1 className="page-title">{task.title}</h1>
-              <button onClick={() => startEdit("title", task.title)} className="icon-btn"><Edit3 size={12} /></button>
+              {task.description ? (
+                <>
+                  <span className="text-sm" style={{ color: "var(--text-secondary)", cursor: "pointer" }} onClick={() => startEdit("description", task.description)}>— {task.description}</span>
+                  <button onClick={() => startEdit("description", task.description)} className="icon-btn" title="编辑描述"><Edit3 size={12} /></button>
+                </>
+              ) : (
+                <span className="text-sm" style={{ color: "var(--muted)", cursor: "pointer" }} onClick={() => { setEditing("description"); setEditVal(""); }}>— 添加描述</span>
+              )}
+              <button onClick={() => startEdit("title", task.title)} className="icon-btn" title="编辑标题"><Edit3 size={12} /></button>
             </div>
           )}
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className={`status-pill ${task.status === 'completed' ? 'status-succeeded' : task.status === 'failed' ? 'status-failed' : task.status === 'in_progress' ? 'status-running' : 'status-queued'}`}>
-              {STATUS_LABELS[task.status] || task.status}
-            </span>
-            <CustomSelect
-              style={{
-                color: task.priority === 'urgent' ? 'var(--danger)' : task.priority === 'high' ? 'var(--warning)' : 'var(--muted)',
-                background: task.priority === 'urgent' ? 'var(--danger-bg)' : task.priority === 'high' ? 'var(--warning-bg)' : 'transparent',
-              }}
-              value={task.priority}
-              onChange={(value) => handleUpdate({ priority: value })}
-              options={PRIORITY_OPTIONS}
-              title="优先级"
-              variant="badge"
-            />
-            <CustomSelect
-              style={{ width: 88 }}
-              value={task.type}
-              onChange={(value) => handleUpdate({ type: value })}
-              options={TYPE_OPTIONS}
-              title="类型"
-              variant="badge"
-            />
-          </div>
+          {editing === "description" && (
+            <div className="flex items-start gap-1 mt-1">
+              <textarea value={editVal} onChange={(e) => setEditVal(e.target.value)}
+                className="config-input text-xs" rows={2} style={{ width: "100%" }} autoFocus />
+              <button onClick={() => saveEdit("description")} className="icon-btn mt-1"><Check size={14} /></button>
+              <button onClick={() => setEditing(null)} className="icon-btn mt-1"><X size={14} /></button>
+            </div>
+          )}
+        </div>
+
+        {/* Breadcrumb row */}
+        <div className="flex items-center gap-2 text-xs" style={{ color: "var(--muted)" }}>
+          <Link to="/tasks" className="flex items-center gap-1 hover:opacity-80" style={{ color: "var(--muted)" }}>
+            <ArrowLeft size={13} /> 返回任务列表
+          </Link>
+          {project && (
+            <>
+              <span style={{ color: "var(--line-strong)" }}>/</span>
+              <Link
+                to={`/projects/${task.project_id}`}
+                className="flex items-center gap-1 hover:opacity-80"
+                style={{ color: "var(--accent)" }}
+              >
+                📁 {project.name}
+              </Link>
+            </>
+          )}
+          <span className="ml-auto" style={{ color: "var(--text-secondary)" }}>
+            #{task.id?.slice?.(0, 8) || task.id}
+          </span>
         </div>
       </div>
 
-      {/* Transition buttons */}
+      {/* === Scrollable content === */}
+      <div className="flex-1 min-h-0 overflow-y-auto task-detail-scroll">
+
+      {/* === Status / Priority / Type strip (scrolls with content) === */}
+      <div className="flex items-center flex-wrap gap-2" style={{ marginBottom: 14 }}>
+        <span className={`status-pill ${task.status === 'completed' ? 'status-succeeded' : task.status === 'failed' ? 'status-failed' : task.status === 'in_progress' ? 'status-running' : 'status-queued'}`}>
+          {STATUS_LABELS[task.status] || task.status}
+        </span>
+        <CustomSelect
+          style={{ color: priorityColor, background: priorityBg, minHeight: 30 }}
+          value={task.priority}
+          onChange={(value) => handleUpdate({ priority: value })}
+          options={PRIORITY_OPTIONS}
+          title="优先级"
+          variant="badge"
+        />
+        <CustomSelect
+          style={{ width: 88, minHeight: 30 }}
+          value={task.type}
+          onChange={(value) => handleUpdate({ type: value })}
+          options={TYPE_OPTIONS}
+          title="类型"
+          variant="badge"
+        />
+        <div className="ml-auto flex items-center gap-1.5">
+          <button onClick={handleDelete} className="button text-xs flex items-center gap-1" style={{ borderColor: "var(--danger)", color: "var(--danger)", minHeight: 30, padding: "0 12px" }} title="删除">
+            <XCircle size={12} /> 删除
+          </button>
+        </div>
+      </div>
+
       {error && (
-        <div className="chat-error mb-3" role="alert">
+        <div className="chat-error" role="alert" style={{ marginBottom: 14 }}>
           {error}
           <button
             type="button"
             onClick={() => setError(null)}
             className="ml-2 opacity-70 hover:opacity-100"
-            style={{ fontSize: 10 }}
+            style={{ fontSize: 12 }}
           >
             ✕
           </button>
         </div>
       )}
-      <div className="flex items-center gap-2 mb-6">
-        {transitions.map((t) => {
-          const Icon = t.icon;
-          return (
-            <button key={t.status} onClick={() => handleTransition(t.status)}
-              className="button text-xs flex items-center gap-1.5"
-              style={{ borderColor: t.color, color: t.color }}>
-              <Icon size={13} /> {t.label}
-            </button>
-          );
-        })}
-        <button onClick={handleDelete} className="button text-xs" style={{ borderColor: "var(--danger)", color: "var(--danger)" }}>
-          <XCircle size={13} /> 删除
-        </button>
-      </div>
 
-      {/* 执行控制区 — pending 用于首次执行，failed 用于真正重跑 */}
-      {(task.status === "pending" || task.status === "failed") && (
-        <div className="content-card p-4 mb-6">
-          <div className="flex items-center gap-2">
-            <Rocket size={14} style={{ color: "var(--accent)" }} />
-            <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>执行任务</span>
+      {/* === Main content stack === */}
+
+      {/* 执行控制区 — pending 首次执行，failed 重跑，completed 再次执行；in_progress 状态展示 transition 按钮 */}
+      {(task.status === "pending" || task.status === "failed" || task.status === "completed" || task.status === "in_progress" || task.status === "cancelled") && (
+        <div className="content-card p-4">
+          <div className="flex items-center gap-2 flex-wrap">
             <CustomSelect
               value={execEngine}
               onChange={setExecEngine}
@@ -333,31 +355,44 @@ export default function TaskDetail() {
                   label: `${eng.label}${!eng.installed ? " (未安装)" : ""}`,
                   disabled: !eng.installed,
                 }))}
-              style={{ minWidth: 140, height: 28 }}
+              style={{ minWidth: 140, height: 30 }}
             />
-            <button
-              onClick={() => handleExecute()}
-              disabled={executing}
-              className="button button-primary text-xs flex items-center gap-1"
-              style={{ padding: "4px 12px" }}
-            >
-              {executing
-                ? <><Loader2 size={12} style={{ animation: "agents-spin 1s linear infinite" }} /> 执行中…</>
-                : <>{task.status === "failed" ? <RotateCcw size={12} /> : <Play size={12} />} {task.status === "failed" ? "重新执行" : "开始执行"}</>}
-            </button>
+            {(task.status === "pending" || task.status === "failed" || task.status === "completed") && (
+              <button
+                onClick={() => handleExecute()}
+                disabled={executing}
+                className="button button-primary text-xs flex items-center gap-1"
+                style={{ padding: "0 14px" }}
+              >
+                {executing
+                  ? <><Loader2 size={12} style={{ animation: "agents-spin 1s linear infinite" }} /> 执行中…</>
+                  : <>{task.status === "failed" ? <RotateCcw size={12} /> : <Play size={12} />} {task.status === "failed" ? "重新执行" : task.status === "completed" ? "再次执行" : "开始执行"}</>}
+              </button>
+            )}
+            {transitions.length > 0 && <span style={{ width: 1, height: 20, background: "var(--line)" }} />}
+            {transitions.map((t) => {
+              const Icon = t.icon;
+              return (
+                <button key={t.status} onClick={() => handleTransition(t.status)}
+                  className="button text-xs flex items-center gap-1.5"
+                  style={{ borderColor: t.color, color: t.color, padding: "0 12px" }}>
+                  <Icon size={12} /> {t.label}
+                </button>
+              );
+            })}
           </div>
         </div>
       )}
 
       {/* 输出展示区 — SSE 输出和已落库 trace 都展示，避免运行中/失败后空白 */}
       {(displayOutput.length > 0 || trace?.error_message || traceToolCalls.length > 0 || trace?.status === "running") && (
-        <div className="content-card p-4 mb-6">
-          <div className="flex items-center gap-2 mb-2">
+        <div className="content-card p-4">
+          <div className="flex items-center gap-4">
             <span className="text-xs font-semibold" style={{ color: "var(--text)" }}>
               {executing || trace?.status === "running" ? "执行中" : "执行过程记录"}
             </span>
             {trace?.status && (
-              <span className={`status-pill ${traceStatusClass}`} style={{ fontSize: 10 }}>
+              <span className={`status-pill ${traceStatusClass}`} style={{ fontSize: 11 }}>
                 {trace.status}
               </span>
             )}
@@ -369,16 +404,17 @@ export default function TaskDetail() {
             )}
           </div>
           {trace?.error_message && (
-            <div className="chat-error mb-3" role="alert" style={{ whiteSpace: "pre-wrap" }}>
+            <div className="chat-error" role="alert" style={{ whiteSpace: "pre-wrap", marginTop: 20, marginBottom: 20 }}>
               {trace.error_message}
             </div>
           )}
           <div style={{
+            marginTop: 20,
             background: "var(--paper-strong)",
             border: "1px solid var(--line)",
             borderRadius: "var(--radius-sm)",
-            padding: "8px 12px",
-            maxHeight: 300,
+            padding: "12px 16px",
+            maxHeight: 320,
             overflowY: "auto",
             fontFamily: "var(--mono)",
             fontSize: 12,
@@ -391,13 +427,13 @@ export default function TaskDetail() {
             {(executing || trace?.status === "running") && <span style={{ opacity: 0.6 }}>▊</span>}
           </div>
           {traceToolCalls.length > 0 && (
-            <div className="mt-3" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
+            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+              <div className="text-xs uppercase tracking-wider font-semibold" style={{ color: "var(--muted)" }}>
                 工具调用 · {traceToolCalls.length}
               </div>
               {traceToolCalls.slice(-6).map((call: any, i: number) => (
-                <div key={`${call.seq ?? i}-${call.tool_name ?? "tool"}`} className="list-row" style={{ padding: "8px 10px", minHeight: 0 }}>
-                  <span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+                <div key={`${call.seq ?? i}-${call.tool_name ?? "tool"}`} className="list-row" style={{ padding: "10px 14px", minHeight: 0 }}>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>
                     #{String(call.seq ?? i + 1).padStart(2, "0")}
                   </span>
                   <span className="text-xs" style={{ color: "var(--text)", flex: 1 }}>
@@ -411,36 +447,41 @@ export default function TaskDetail() {
         </div>
       )}
 
-      {/* Detail grid */}
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="content-card p-4">
-          <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>描述</div>
-          {editing === "description" ? (
-            <div className="flex items-start gap-1">
-              <textarea value={editVal} onChange={(e) => setEditVal(e.target.value)}
-                className="config-input text-xs" rows={3} autoFocus />
-              <button onClick={() => saveEdit("description")} className="icon-btn mt-1"><Check size={14} /></button>
-              <button onClick={() => setEditing(null)} className="icon-btn mt-1"><X size={14} /></button>
-            </div>
-          ) : (
-            <div className="flex items-start gap-2">
-              <p className="text-sm" style={{ color: task.description ? "var(--text)" : "var(--muted)" }}>
-                {task.description || "暂无描述"}
-              </p>
-              <button onClick={() => startEdit("description", task.description || "")} className="icon-btn shrink-0"><Edit3 size={12} /></button>
-            </div>
+      {/* Detail card — quick nav + metadata */}
+      <div className="content-card p-4">
+        {/* Quick nav — useful when scrolled down far */}
+        <div className="flex items-center gap-4 text-xs" style={{ color: "var(--muted)" }}>
+          <Link to="/tasks" className="flex items-center gap-1 hover:opacity-80" style={{ color: "var(--accent)" }}>
+            ← 任务列表
+          </Link>
+          {task.trace && (
+            <Link to={`/traces/${task.trace.task_id}`} className="flex items-center gap-1 hover:opacity-80" style={{ color: "var(--accent)" }}>
+              查看执行轨迹
+            </Link>
           )}
         </div>
-        <div className="content-card p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>元数据</div>
-          </div>
-          <div className="text-xs space-y-1.5" style={{ color: "var(--text-secondary)" }}>
-            <div>创建: {new Date(task.created_at).toLocaleString("zh-CN")}</div>
-            {task.started_at && <div>开始: {new Date(task.started_at).toLocaleString("zh-CN")}</div>}
-            {task.completed_at && <div>完成: {new Date(task.completed_at).toLocaleString("zh-CN")}</div>}
-            <div className="flex items-center gap-1.5">
-              <span style={{ minWidth: 50 }}>指派人:</span>
+
+        <div style={{ borderTop: "1px solid var(--line)", marginTop: 16, paddingTop: 14 }}>
+          <div className="text-xs uppercase tracking-wider font-semibold mb-3" style={{ color: "var(--muted)" }}>元数据</div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs" style={{ color: "var(--text-secondary)" }}>
+            <div className="flex items-center gap-2">
+              <span className="shrink-0" style={{ minWidth: 56, color: "var(--muted)" }}>创建</span>
+              <span>{new Date(task.created_at).toLocaleString("zh-CN")}</span>
+            </div>
+            {task.started_at && (
+              <div className="flex items-center gap-2">
+                <span className="shrink-0" style={{ minWidth: 56, color: "var(--muted)" }}>开始</span>
+                <span>{new Date(task.started_at).toLocaleString("zh-CN")}</span>
+              </div>
+            )}
+            {task.completed_at && (
+              <div className="flex items-center gap-2">
+                <span className="shrink-0" style={{ minWidth: 56, color: "var(--muted)" }}>完成</span>
+                <span>{new Date(task.completed_at).toLocaleString("zh-CN")}</span>
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <span className="shrink-0" style={{ minWidth: 56, color: "var(--muted)" }}>指派人</span>
               <CustomSelect
                 value={task.assignee_id || ""}
                 onChange={(value) => handleUpdate({ assignee_id: value || null })}
@@ -449,90 +490,11 @@ export default function TaskDetail() {
                   ...agents.map((a: any) => ({ value: a.id, label: `${a.name} (${a.platform})` })),
                 ]}
                 className="flex-1"
-                style={{ height: 26 }}
+                style={{ height: 32 }}
               />
             </div>
-
-            {/* P8-13: labels 区域 */}
-            <div className="mt-2">
-              <div className="flex items-center gap-1.5 mb-1.5">
-                <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>标签</span>
-                {!editingLabels && (
-                  <button
-                    type="button"
-                    onClick={startEditLabels}
-                    className="icon-btn"
-                    style={{ width: 22, height: 22 }}
-                    title="编辑标签"
-                  >
-                    <Edit3 size={10} />
-                  </button>
-                )}
-              </div>
-              {editingLabels ? (
-                <div>
-                  <div className="flex flex-wrap gap-1 mb-1.5">
-                    {labelDraft.length === 0 && (
-                      <span className="text-[11px]" style={{ color: "var(--muted)" }}>暂无标签</span>
-                    )}
-                    {labelDraft.map((l) => (
-                      <span key={l} className="tech-badge flex items-center gap-1">
-                        {l}
-                        <button
-                          type="button"
-                          onClick={() => { setLabelDraft(labelDraft.filter((x) => x !== l)); }}
-                          className="icon-btn"
-                          style={{ width: 16, height: 16, padding: 0 }}
-                          title="移除"
-                        >
-                          <X size={9} />
-                        </button>
-                      </span>
-                    ))}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <input
-                      type="text"
-                      placeholder="新标签"
-                      value={newLabel}
-                      onChange={(e) => setNewLabel(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") { e.preventDefault(); const v = newLabel.trim(); if (v && !labelDraft.includes(v)) { setLabelDraft([...labelDraft, v]); setNewLabel(""); } }
-                      }}
-                      className="form-input"
-                      style={{ fontSize: 11, padding: "2px 6px", flex: 1 }}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => { const v = newLabel.trim(); if (v && !labelDraft.includes(v)) { setLabelDraft([...labelDraft, v]); setNewLabel(""); } }}
-                      className="icon-btn"
-                      style={{ width: 24, height: 24, color: "var(--accent)" }}
-                      title="添加"
-                    >
-                      <Plus size={11} />
-                    </button>
-                  </div>
-                  <div className="flex items-center gap-1 mt-2">
-                    <button type="button" onClick={saveLabels} className="button text-[11px]" style={{ padding: "2px 10px", height: 24 }}>
-                      <Check size={11} /> 保存
-                    </button>
-                    <button type="button" onClick={cancelEditLabels} className="button text-[11px]" style={{ padding: "2px 10px", height: 24 }}>
-                      <X size={11} /> 取消
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-wrap gap-1">
-                  {(!task.labels || task.labels.length === 0) ? (
-                    <span className="text-[11px]" style={{ color: "var(--muted)" }}>暂无标签</span>
-                  ) : (
-                    task.labels.map((l: string) => <span key={l} className="tech-badge">{l}</span>)
-                  )}
-                </div>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span style={{ minWidth: 50 }}>项目:</span>
+            <div className="flex items-center gap-2">
+              <span className="shrink-0" style={{ minWidth: 56, color: "var(--muted)" }}>项目</span>
               <CustomSelect
                 value={task.project_id || ""}
                 onChange={(value) => handleUpdate({ project_id: value || null })}
@@ -541,57 +503,111 @@ export default function TaskDetail() {
                   ...projects.map((p: any) => ({ value: p.id, label: p.name })),
                 ]}
                 className="flex-1"
-                style={{ height: 26 }}
+                style={{ height: 32 }}
               />
             </div>
           </div>
-        </div>
-      </div>
 
-      {/* Trace */}
-      {task.trace && (
-        <div>
-          <h3 className="section-title mb-3">关联执行轨迹</h3>
-          <div className="content-card" style={{ padding: 0, overflow: "hidden" }}>
-            <Link to={`/traces/${task.trace.task_id}`} className="list-row no-underline cursor-pointer">
-              <span className={`status-pill ${task.trace.status === 'completed' ? 'status-succeeded' : task.trace.status === 'running' ? 'status-running' : 'status-failed'}`}>
-                {task.trace.status === "running" ? "运行中" : task.trace.status === "completed" ? "已完成" : "失败"}
-              </span>
-              <span className="text-sm flex-1" style={{ color: "var(--text)" }}>{task.trace.title || task.trace.task_id}</span>
-              <span className="text-xs" style={{ color: "var(--muted)" }}>
-                {(task.trace.input_tokens ?? 0) + (task.trace.output_tokens ?? 0) > 0 ? `${(task.trace.input_tokens ?? 0) + (task.trace.output_tokens ?? 0)} tokens` : "查看详情"}
-              </span>
-            </Link>
-            {(task.trace.error_message || task.trace.summary) && (
-              <div style={{
-                borderTop: "1px solid var(--line)",
-                padding: "10px 14px",
-                background: "var(--paper-strong)",
-              }}>
-                {task.trace.error_message && (
-                  <div className="chat-error mb-2" role="alert" style={{ fontSize: 12 }}>
-                    {task.trace.error_message}
-                  </div>
-                )}
-                {task.trace.summary && (
-                  <pre className="mono" style={{
-                    margin: 0,
-                    color: "var(--text-secondary)",
-                    fontSize: 11,
-                    lineHeight: 1.5,
-                    whiteSpace: "pre-wrap",
-                    wordBreak: "break-word",
-                    maxHeight: 220,
-                    overflowY: "auto",
-                  }}>
-                    {task.trace.summary}
-                  </pre>
+          {/* P8-13: labels 区域 */}
+          <div className="mt-4">
+            <div className="flex items-center gap-1.5 mb-2">
+              <span className="text-xs uppercase tracking-wider font-semibold" style={{ color: "var(--muted)" }}>标签</span>
+              {!editingLabels && (
+                <button
+                  type="button"
+                  onClick={startEditLabels}
+                  className="icon-btn"
+                  style={{ width: 26, height: 26 }}
+                  title="编辑标签"
+                >
+                  <Edit3 size={12} />
+                </button>
+              )}
+            </div>
+            {editingLabels ? (
+              <div>
+                <div className="flex flex-wrap gap-1 mb-1.5">
+                  {labelDraft.length === 0 && (
+                    <span className="text-xs" style={{ color: "var(--muted)" }}>暂无标签</span>
+                  )}
+                  {labelDraft.map((l) => (
+                    <span key={l} className="tech-badge flex items-center gap-1">
+                      {l}
+                      <button
+                        type="button"
+                        onClick={() => { setLabelDraft(labelDraft.filter((x) => x !== l)); }}
+                        className="icon-btn"
+                        style={{ width: 18, height: 18, padding: 0 }}
+                        title="移除"
+                      >
+                        <X size={11} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="text"
+                    placeholder="新标签"
+                    value={newLabel}
+                    onChange={(e) => setNewLabel(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") { e.preventDefault(); const v = newLabel.trim(); if (v && !labelDraft.includes(v)) { setLabelDraft([...labelDraft, v]); setNewLabel(""); } }
+                    }}
+                    className="form-input"
+                    style={{ fontSize: 12, padding: "4px 8px", flex: 1 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => { const v = newLabel.trim(); if (v && !labelDraft.includes(v)) { setLabelDraft([...labelDraft, v]); setNewLabel(""); } }}
+                    className="icon-btn"
+                    style={{ width: 28, height: 28, color: "var(--accent)" }}
+                    title="添加"
+                  >
+                    <Plus size={14} />
+                  </button>
+                </div>
+                <div className="flex items-center gap-1 mt-2">
+                  <button type="button" onClick={saveLabels} className="button text-xs" style={{ padding: "4px 10px", height: 28 }}>
+                    <Check size={12} /> 保存
+                  </button>
+                  <button type="button" onClick={cancelEditLabels} className="button text-xs" style={{ padding: "4px 10px", height: 28 }}>
+                    <X size={12} /> 取消
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-1">
+                {(!task.labels || task.labels.length === 0) ? (
+                  <span className="text-xs" style={{ color: "var(--muted)" }}>暂无标签</span>
+                ) : (
+                  task.labels.map((l: string) => <span key={l} className="tech-badge">{l}</span>)
                 )}
               </div>
             )}
           </div>
         </div>
+      </div>
+
+      {/* Trace — only status badge + link; summary/error live in the output block above */}
+      {task.trace && (
+        <div>
+          <h3 className="section-title mb-3">关联执行轨迹</h3>
+          <Link
+            to={`/traces/${task.trace.task_id}`}
+            className="list-row no-underline cursor-pointer"
+          >
+            <span className={`status-pill ${task.trace.status === 'completed' ? 'status-succeeded' : task.trace.status === 'running' ? 'status-running' : 'status-failed'}`}>
+              {task.trace.status === "running" ? "运行中" : task.trace.status === "completed" ? "已完成" : "失败"}
+            </span>
+            <span className="text-sm flex-1" style={{ color: "var(--text)" }}>{task.trace.title || task.trace.task_id}</span>
+            <span className="text-xs" style={{ color: "var(--muted)" }}>
+              {(task.trace.input_tokens ?? 0) + (task.trace.output_tokens ?? 0) > 0 ? `${(task.trace.input_tokens ?? 0) + (task.trace.output_tokens ?? 0)} tokens` : "查看详情"}
+            </span>
+          </Link>
+        </div>
       )}
+    </div>
     </div>
   );
 }
