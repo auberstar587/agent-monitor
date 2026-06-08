@@ -527,6 +527,35 @@ export async function taskRoutes(fastify: FastifyInstance) {
       } catch { /* 上下文注入失败不阻塞执行 */ }
     }
 
+    // 7.6 fallback: 无项目上下文时，注入项目列表让 Agent 自行判断
+    if (!systemPrompt) {
+      try {
+        const projects = await listProjects();
+        const activeProjects = projects.filter((p: any) => p.status === 'active');
+        if (activeProjects.length > 0) {
+          const lines = [
+            '# Available Projects',
+            '',
+            'No project was automatically matched. Here are the available active projects:',
+            '',
+          ];
+          for (const p of activeProjects) {
+            let desc = `- **${p.name}** (\`${p.path}\`)`;
+            if (p.description) desc += ` — ${p.description}`;
+            if (p.tech_stack?.length) desc += ` [${p.tech_stack.join(', ')}]`;
+            lines.push(desc);
+          }
+          lines.push('', 'Determine which project is most relevant to the task and work in that directory.');
+          systemPrompt = lines.join('\n');
+          // workingDir 不设，让 Agent 自己通过 -C 或 cd 选择
+          // 但为了兼容引擎不支持自动 cd 的情况，用第一个项目作为 fallback
+          if (!workingDir && activeProjects.length === 1) {
+            workingDir = activeProjects[0].path;
+          }
+        }
+      } catch { /* fallback 失败不阻塞执行 */ }
+    }
+
     // 7.5 注入 Agent 执行守则：避免 Agent 卡在"出方案等用户选"，让任务直接闭环
     //    适用于通过 monitor 发起的非显式规划类任务。Blueprint 类流程不经过此端点不受影响。
     const executionGuidelines = [
