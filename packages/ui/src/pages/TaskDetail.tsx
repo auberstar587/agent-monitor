@@ -239,7 +239,7 @@ export default function TaskDetail() {
       {/* === Fixed header: title+description on first row, breadcrumb on second === */}
       <div className="shrink-0 task-detail-header">
         {/* Title + description row */}
-        <div className="shrink-0" style={{ marginBottom: 8 }}>
+        <div className="shrink-0" style={{ marginBottom: "var(--space-2)" }}>
           {editing === "title" ? (
             <div className="flex items-center gap-1">
               <input value={editVal} onChange={(e) => setEditVal(e.target.value)}
@@ -298,7 +298,7 @@ export default function TaskDetail() {
       <div className="flex-1 min-h-0 overflow-y-auto task-detail-scroll">
 
       {/* === Status / Priority / Type strip (scrolls with content) === */}
-      <div className="flex items-center flex-wrap gap-2" style={{ marginBottom: 14 }}>
+      <div className="flex items-center flex-wrap gap-2" style={{ marginBottom: "var(--space-3)" }}>
         <span className={`status-pill ${task.status === 'completed' ? 'status-succeeded' : task.status === 'failed' ? 'status-failed' : task.status === 'in_progress' ? 'status-running' : 'status-queued'}`}>
           {STATUS_LABELS[task.status] || task.status}
         </span>
@@ -326,7 +326,7 @@ export default function TaskDetail() {
       </div>
 
       {error && (
-        <div className="chat-error" role="alert" style={{ marginBottom: 14 }}>
+        <div className="chat-error" role="alert" style={{ marginBottom: "var(--space-3)" }}>
           {error}
           <button
             type="button"
@@ -404,16 +404,16 @@ export default function TaskDetail() {
             )}
           </div>
           {trace?.error_message && (
-            <div className="chat-error" role="alert" style={{ whiteSpace: "pre-wrap", marginTop: 20, marginBottom: 20 }}>
+            <div className="chat-error" role="alert" style={{ whiteSpace: "pre-wrap", marginTop: "var(--space-6)", marginBottom: "var(--space-6)" }}>
               {trace.error_message}
             </div>
           )}
           <div style={{
-            marginTop: 20,
+            marginTop: "var(--space-6)",
             background: "var(--paper-strong)",
             border: "1px solid var(--line)",
             borderRadius: "var(--radius-sm)",
-            padding: "12px 16px",
+            padding: "var(--space-3) var(--space-4)",
             maxHeight: 320,
             overflowY: "auto",
             fontFamily: "var(--mono)",
@@ -427,12 +427,12 @@ export default function TaskDetail() {
             {(executing || trace?.status === "running") && <span style={{ opacity: 0.6 }}>▊</span>}
           </div>
           {traceToolCalls.length > 0 && (
-            <div style={{ marginTop: 20, display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ marginTop: "var(--space-6)", display: "flex", flexDirection: "column", gap: "var(--space-2)" }}>
               <div className="text-xs uppercase tracking-wider font-semibold" style={{ color: "var(--muted)" }}>
                 工具调用 · {traceToolCalls.length}
               </div>
               {traceToolCalls.slice(-6).map((call: any, i: number) => (
-                <div key={`${call.seq ?? i}-${call.tool_name ?? "tool"}`} className="list-row" style={{ padding: "10px 14px", minHeight: 0 }}>
+                <div key={`${call.seq ?? i}-${call.tool_name ?? "tool"}`} className="list-row" style={{ padding: "var(--space-2) var(--space-4)", minHeight: 0 }}>
                   <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>
                     #{String(call.seq ?? i + 1).padStart(2, "0")}
                   </span>
@@ -449,20 +449,8 @@ export default function TaskDetail() {
 
       {/* Detail card — quick nav + metadata */}
       <div className="content-card p-4">
-        {/* Quick nav — useful when scrolled down far */}
-        <div className="flex items-center gap-4 text-xs" style={{ color: "var(--muted)" }}>
-          <Link to="/tasks" className="flex items-center gap-1 hover:opacity-80" style={{ color: "var(--accent)" }}>
-            ← 任务列表
-          </Link>
-          {task.trace && (
-            <Link to={`/traces/${task.trace.task_id}`} className="flex items-center gap-1 hover:opacity-80" style={{ color: "var(--accent)" }}>
-              查看执行轨迹
-            </Link>
-          )}
-        </div>
-
-        <div style={{ borderTop: "1px solid var(--line)", marginTop: 16, paddingTop: 14 }}>
-          <div className="text-xs uppercase tracking-wider font-semibold mb-3" style={{ color: "var(--muted)" }}>元数据</div>
+        <div style={{ borderTop: "1px solid var(--line)", marginTop: 0, paddingTop: "var(--space-3)" }}>
+          <div className="text-xs uppercase tracking-wider font-semibold" style={{ color: "var(--muted)", marginBottom: "var(--space-3)" }}>元数据</div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs" style={{ color: "var(--text-secondary)" }}>
             <div className="flex items-center gap-2">
               <span className="shrink-0" style={{ minWidth: 56, color: "var(--muted)" }}>创建</span>
@@ -555,7 +543,7 @@ export default function TaskDetail() {
                       if (e.key === "Enter") { e.preventDefault(); const v = newLabel.trim(); if (v && !labelDraft.includes(v)) { setLabelDraft([...labelDraft, v]); setNewLabel(""); } }
                     }}
                     className="form-input"
-                    style={{ fontSize: 12, padding: "4px 8px", flex: 1 }}
+                    style={{ fontSize: 12, padding: "var(--space-1) var(--space-2)", flex: 1 }}
                   />
                   <button
                     type="button"
@@ -568,10 +556,10 @@ export default function TaskDetail() {
                   </button>
                 </div>
                 <div className="flex items-center gap-1 mt-2">
-                  <button type="button" onClick={saveLabels} className="button text-xs" style={{ padding: "4px 10px", height: 28 }}>
+                  <button type="button" onClick={saveLabels} className="button text-xs" style={{ padding: "var(--space-1) var(--space-2)", height: 28 }}>
                     <Check size={12} /> 保存
                   </button>
-                  <button type="button" onClick={cancelEditLabels} className="button text-xs" style={{ padding: "4px 10px", height: 28 }}>
+                  <button type="button" onClick={cancelEditLabels} className="button text-xs" style={{ padding: "var(--space-1) var(--space-2)", height: 28 }}>
                     <X size={12} /> 取消
                   </button>
                 </div>
@@ -591,8 +579,8 @@ export default function TaskDetail() {
 
       {/* Trace — only status badge + link; summary/error live in the output block above */}
       {task.trace && (
-        <div>
-          <h3 className="section-title mb-3">关联执行轨迹</h3>
+        <div className="content-card p-4">
+          <h3 className="section-title" style={{ marginBottom: "var(--space-3)" }}>关联执行轨迹</h3>
           <Link
             to={`/traces/${task.trace.task_id}`}
             className="list-row no-underline cursor-pointer"

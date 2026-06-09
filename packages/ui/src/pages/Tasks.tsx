@@ -176,28 +176,28 @@ export default function Tasks() {
             { value: "", label: "全部项目" },
             ...projects.map((p: any) => ({ value: p.id, label: p.name })),
           ]}
-          style={{ width: 140, height: 28, fontSize: 11 }}
+          style={{ width: 140, height: 30, fontSize: 11 }}
         />
         {/* 优先级筛选 */}
         <CustomSelect
           value={filterPriority}
           onChange={setFilterPriority}
           options={PRIORITY_FILTER_OPTIONS}
-          style={{ width: 120, height: 28, fontSize: 11 }}
+          style={{ width: 120, height: 30, fontSize: 11 }}
         />
         {/* 状态筛选 */}
         <CustomSelect
           value={filterStatus}
           onChange={(v) => { setFilterStatus(v); load({ status: v }); }}
           options={STATUS_FILTER_OPTIONS}
-          style={{ width: 120, height: 28, fontSize: 11 }}
+          style={{ width: 120, height: 30, fontSize: 11 }}
         />
         {(filterProject || filterPriority || filterStatus) && (
           <button
             type="button"
             onClick={() => { setFilterProject(""); setFilterPriority(""); setFilterStatus(""); }}
             className="button"
-            style={{ fontSize: 11, padding: "0 10px", height: 28 }}
+            style={{ fontSize: 11, padding: "0 12px", height: 30 }}
           >
             清除筛选
           </button>
@@ -264,7 +264,7 @@ export default function Tasks() {
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 className="projects-add-input flex-1"
-                style={{ minHeight: 48, maxHeight: 72, resize: "vertical", lineHeight: 1.4, paddingTop: 6, paddingBottom: 6 }}
+                style={{ minHeight: 48, maxHeight: 72, resize: "vertical", lineHeight: 1.4, paddingTop: "var(--space-2)", paddingBottom: "var(--space-2)" }}
                 rows={2}
               />
             </div>
@@ -281,7 +281,7 @@ export default function Tasks() {
         <div className="agents-empty">
           <div className="agents-empty-grid" />
           <div className="agents-empty-body">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2" style={{ marginBottom: "var(--space-3)" }}>
               <Radio size={14} style={{ color: "var(--muted)" }} />
               <span className="agents-eyebrow">暂无任务</span>
             </div>
@@ -333,7 +333,7 @@ export default function Tasks() {
                             {task.project_id && (() => {
                               const proj = projects.find((p: any) => p.id === task.project_id);
                               return proj ? (
-                                <span className="mono" style={{ fontSize: 9, color: "var(--muted)", display: "block", marginTop: 2 }}>
+                                <span className="mono" style={{ fontSize: 9, color: "var(--muted)", display: "block", marginTop: "var(--space-1)" }}>
                                   📁 {proj.name}
                                 </span>
                               ) : null;

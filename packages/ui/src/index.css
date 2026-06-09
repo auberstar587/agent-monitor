@@ -390,6 +390,42 @@ body {
 .task-detail-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
 .task-detail-scroll::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
+/* TaskDetail: fixed header (no scroll) — sits above the scroll container with breathing room */
+.task-detail-header {
+  flex-shrink: 0;
+  padding-bottom: var(--space-4);
+}
+
+/* TraceDetail: fixed header (breadcrumb + title) on top, content scrolls below.
+   Mirrors TaskDetail's two-layer pattern so the "返回轨迹列表" link is never scrolled away. */
+.traces-page {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.traces-header {
+  flex-shrink: 0;
+  padding-bottom: var(--space-4);
+}
+.traces-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  /* offset scrollbar to viewport edge (same trick as other scroll containers) */
+  margin-right: calc(-1 * var(--space-6));
+  padding-right: var(--space-6);
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.traces-content::-webkit-scrollbar { width: 6px; }
+.traces-content::-webkit-scrollbar-track { background: transparent; }
+.traces-content::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+.traces-content::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
 .sidebar-backdrop {
   display: none;
 }

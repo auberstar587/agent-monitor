@@ -96,7 +96,7 @@ function MetricCard({ label, value, icon: Icon }: {
   label: string; value: string; icon: typeof Zap;
 }) {
   return (
-    <div className="metric-card" style={{ padding: 16 }}>
+    <div className="metric-card" style={{ padding: "var(--space-4)" }}>
       <div className="flex items-center gap-1.5 mb-2">
         <Icon size={12} style={{ color: "var(--muted)" }} />
         <span className="text-[10px] uppercase tracking-widest font-medium" style={{ color: "var(--muted)" }}>
@@ -115,13 +115,13 @@ function ToolCallItem({ call, index }: { call: ToolCall; index: number }) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="content-card" style={{ padding: 0, overflow: "hidden" }}>
+    <div className="content-card" style={{ padding: "var(--space-0)", overflow: "hidden" }}>
       {/* 头部 */}
       <button
         type="button"
         onClick={() => setOpen(!open)}
         className="flex items-center gap-2 w-full text-left"
-        style={{ padding: "10px 14px", background: "transparent", border: "none", cursor: "pointer", color: "var(--text)" }}
+        style={{ padding: "var(--space-2) var(--space-4)", background: "transparent", border: "none", cursor: "pointer", color: "var(--text)" }}
       >
         {open ? <ChevronDown size={14} style={{ color: "var(--muted)" }} /> : <ChevronRight size={14} style={{ color: "var(--muted)" }} />}
         <Wrench size={12} style={{ color: "var(--accent)" }} />
@@ -141,16 +141,16 @@ function ToolCallItem({ call, index }: { call: ToolCall; index: number }) {
 
       {/* 展开内容 */}
       {open && (
-        <div style={{ padding: "0 14px 14px 14px", borderTop: "1px solid var(--line)" }}>
+        <div style={{ padding: "0 var(--space-4) var(--space-4) var(--space-4)", borderTop: "1px solid var(--line)" }}>
           {/* Input */}
-          <div className="mb-3">
+          <div style={{ marginBottom: "var(--space-3)" }}>
             <div className="text-[10px] uppercase tracking-widest font-medium mb-1.5" style={{ color: "var(--muted)" }}>
               输入
             </div>
             <pre className="mono" style={{
               fontSize: 11, lineHeight: 1.5, color: "var(--text-secondary)",
               background: "var(--paper-strong)", border: "1px solid var(--line)",
-              borderRadius: "var(--radius-sm)", padding: "8px 10px",
+              borderRadius: "var(--radius-sm)", padding: "var(--space-2) var(--space-3)",
               whiteSpace: "pre-wrap", wordBreak: "break-word",
               maxHeight: 200, overflowY: "auto", margin: 0,
             }}>
@@ -167,7 +167,7 @@ function ToolCallItem({ call, index }: { call: ToolCall; index: number }) {
               color: call.error_text ? "var(--danger)" : "var(--text-secondary)",
               background: "var(--paper-strong)",
               border: `1px solid ${call.error_text ? "var(--danger)" : "var(--line)"}`,
-              borderRadius: "var(--radius-sm)", padding: "8px 10px",
+              borderRadius: "var(--radius-sm)", padding: "var(--space-2) var(--space-3)",
               whiteSpace: "pre-wrap", wordBreak: "break-word",
               maxHeight: 200, overflowY: "auto", margin: 0,
             }}>
@@ -203,15 +203,21 @@ export default function TraceDetail() {
   }, []);
 
   if (loading) {
-    return <div className="p-6 text-sm" style={{ color: "var(--muted)" }}>加载中...</div>;
+    return (
+      <div className="flex-1 min-h-0 flex items-center justify-center text-sm" style={{ color: "var(--muted)" }}>
+        加载中...
+      </div>
+    );
   }
 
   if (!trace) {
     return (
-      <div className="p-6">
-        <Link to="/traces" className="flex items-center gap-1 text-xs mb-4" style={{ color: "var(--muted)" }}>
-          <ArrowLeft size={14} /> 返回轨迹列表
-        </Link>
+      <div className="flex-1 min-h-0 overflow-y-auto traces-scroll">
+        <div style={{ marginBottom: "var(--space-4)" }}>
+          <Link to="/traces" className="flex items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
+            <ArrowLeft size={14} /> 返回轨迹列表
+          </Link>
+        </div>
         <div className="agents-empty">
           <div className="agents-empty-body">
             <p className="agents-empty-title">轨迹未找到</p>
@@ -230,160 +236,172 @@ export default function TraceDetail() {
   const agent = agents.find((a) => a.id === trace.agent_id);
 
   return (
-    <div className="p-6" style={{ maxWidth: 900 }}>
-      {/* ═══ 面包屑 ═══ */}
-      <div className="flex items-center mb-4">
-        <Link to="/traces" className="flex items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
-          <ArrowLeft size={14} /> 返回轨迹列表
-        </Link>
-      </div>
+    <div className="traces-page">
+      {/* ═══ Fixed header：面包屑 + 标题 + 状态（不随内容滚动）═══ */}
+      <div className="traces-header">
+        {/* 面包屑 */}
+        <div className="flex items-center" style={{ marginBottom: "var(--space-4)" }}>
+          <Link to="/traces" className="flex items-center gap-1 text-xs" style={{ color: "var(--muted)" }}>
+            <ArrowLeft size={14} /> 返回轨迹列表
+          </Link>
+        </div>
 
-      {/* ═══ 标题 + 状态 ═══ */}
-      <div className="flex items-start gap-3 mb-6">
-        <div className="flex-1">
-          <h1 className="page-title">{trace.title || trace.task_id}</h1>
-          <div className="flex items-center gap-2 mt-1.5">
-            <span className={`status-pill ${sc.pill}`}>
-              <SIcon size={10} /> {sc.label}
-            </span>
-            {trace.model && (
-              <span className="tech-badge mono" style={{ fontSize: 10 }}>{trace.model}</span>
-            )}
-            {trace.source && (
-              <span className="mono" style={{ fontSize: 9, color: "var(--muted)" }}>
-                via {trace.source}
+        {/* 标题 + 状态 */}
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <h1 className="page-title">{trace.title || trace.task_id}</h1>
+            <div className="flex items-center gap-2 mt-1.5">
+              <span className={`status-pill ${sc.pill}`}>
+                <SIcon size={10} /> {sc.label}
               </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* ═══ 错误信息 ═══ */}
-      {trace.error_message && (
-        <div className="chat-error mb-6" role="alert" style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-          <AlertTriangle size={14} style={{ color: "var(--danger)", flexShrink: 0, marginTop: 1 }} />
-          <div>
-            <div className="text-xs font-semibold mb-1" style={{ color: "var(--danger)" }}>错误信息</div>
-            <div className="text-xs" style={{ color: "var(--danger)", opacity: 0.85, whiteSpace: "pre-wrap" }}>
-              {trace.error_message}
+              {trace.model && (
+                <span className="tech-badge mono" style={{ fontSize: 10 }}>{trace.model}</span>
+              )}
+              {trace.source && (
+                <span className="mono" style={{ fontSize: 9, color: "var(--muted)" }}>
+                  via {trace.source}
+                </span>
+              )}
             </div>
           </div>
         </div>
-      )}
-
-      {/* ═══ 成本指标卡片 ═══ */}
-      <h3 className="section-title mb-3">成本指标</h3>
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        <MetricCard label="输入 Tokens" value={fmtTokens(trace.input_tokens)} icon={Zap} />
-        <MetricCard label="输出 Tokens" value={fmtTokens(trace.output_tokens)} icon={Zap} />
-        <MetricCard label="缓存 Tokens" value={fmtTokens(trace.cache_tokens)} icon={Hash} />
-        <MetricCard label="总 Tokens" value={fmtTokens(totalTokens)} icon={Activity} />
-        <MetricCard label="耗时" value={fmtDuration(trace.duration_ms)} icon={Timer} />
-        <MetricCard label="成本" value={fmtCost(trace.cost_cents)} icon={Coins} />
       </div>
 
-      {/* ═══ 基本信息 ═══ */}
-      {(trace.description || trace.summary) && (
-        <>
-          <h3 className="section-title mb-3">基本信息</h3>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            {trace.description && (
-              <div className="content-card" style={{ padding: 16 }}>
-                <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>
-                  描述
-                </div>
-                <p className="text-sm" style={{ color: "var(--text-secondary)", whiteSpace: "pre-wrap" }}>
-                  {trace.description}
-                </p>
-              </div>
-            )}
-            {trace.summary && (
-              <div className="content-card" style={{ padding: 16 }}>
-                <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>
-                  总结
-                </div>
-                <p className="text-sm" style={{ color: "var(--text-secondary)", whiteSpace: "pre-wrap" }}>
-                  {trace.summary}
-                </p>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* ═══ 工具调用时间线 ═══ */}
-      {toolCalls.length > 0 && (
-        <>
-          <h3 className="section-title mb-3">
-            工具调用 · {toolCalls.length} 次
-          </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 24 }}>
-            {toolCalls.map((call, idx) => (
-              <ToolCallItem key={idx} call={call} index={idx} />
-            ))}
-          </div>
-        </>
-      )}
-
-      {/* ═══ 关联对象 ═══ */}
-      <h3 className="section-title mb-3">关联对象</h3>
-      <div className="grid grid-cols-3 gap-3 mb-6">
-        {proj && (
-          <Link to={`/projects/${proj.id}`} className="content-card no-underline" style={{ padding: 12 }}>
-            <div className="flex items-center gap-2">
-              <FolderOpen size={14} style={{ color: "var(--accent)" }} />
-              <div>
-                <div className="text-[10px] uppercase tracking-widest" style={{ color: "var(--muted)" }}>项目</div>
-                <div className="text-sm" style={{ color: "var(--text)" }}>{proj.name}</div>
-              </div>
-            </div>
-          </Link>
-        )}
-        {agent && (
-          <Link to={`/agents/${agent.id}`} className="content-card no-underline" style={{ padding: 12 }}>
-            <div className="flex items-center gap-2">
-              <Bot size={14} style={{ color: "var(--accent)" }} />
-              <div>
-                <div className="text-[10px] uppercase tracking-widest" style={{ color: "var(--muted)" }}>Agent</div>
-                <div className="text-sm" style={{ color: "var(--text)" }}>{agent.name}</div>
-              </div>
-            </div>
-          </Link>
-        )}
-        <Link to={`/tasks/${trace.task_id}`} className="content-card no-underline" style={{ padding: 12 }}>
-          <div className="flex items-center gap-2">
-            <Link2 size={14} style={{ color: "var(--accent)" }} />
+      {/* ═══ 滚动内容区 ═══ */}
+      <div className="traces-content">
+        {/* 错误信息 */}
+        {trace.error_message && (
+          <div className="chat-error" role="alert" style={{ display: "flex", alignItems: "flex-start", gap: "var(--space-2)" }}>
+            <AlertTriangle size={14} style={{ color: "var(--danger)", flexShrink: 0, marginTop: 1 }} />
             <div>
-              <div className="text-[10px] uppercase tracking-widest" style={{ color: "var(--muted)" }}>任务</div>
-              <div className="text-sm mono" style={{ color: "var(--text)" }}>
-                {trace.task_id.length > 16 ? trace.task_id.slice(0, 8) + "…" : trace.task_id}
+              <div className="text-xs font-semibold mb-1" style={{ color: "var(--danger)" }}>错误信息</div>
+              <div className="text-xs" style={{ color: "var(--danger)", opacity: 0.85, whiteSpace: "pre-wrap" }}>
+                {trace.error_message}
               </div>
             </div>
           </div>
-        </Link>
-      </div>
+        )}
 
-      {/* ═══ 时间信息 ═══ */}
-      <h3 className="section-title mb-3">时间信息</h3>
-      <div className="content-card" style={{ padding: 16 }}>
-        <div className="grid grid-cols-2 gap-3 text-xs" style={{ color: "var(--text-secondary)" }}>
-          <div>
-            <span style={{ color: "var(--muted)" }}>创建时间：</span>{fmtTime(trace.created_at)}
+        {/* 成本指标卡片 */}
+        <div>
+          <h3 className="section-title" style={{ marginBottom: "var(--space-3)" }}>成本指标</h3>
+          <div className="grid grid-cols-3 gap-3">
+            <MetricCard label="输入 Tokens" value={fmtTokens(trace.input_tokens)} icon={Zap} />
+            <MetricCard label="输出 Tokens" value={fmtTokens(trace.output_tokens)} icon={Zap} />
+            <MetricCard label="缓存 Tokens" value={fmtTokens(trace.cache_tokens)} icon={Hash} />
+            <MetricCard label="总 Tokens" value={fmtTokens(totalTokens)} icon={Activity} />
+            <MetricCard label="耗时" value={fmtDuration(trace.duration_ms)} icon={Timer} />
+            <MetricCard label="成本" value={fmtCost(trace.cost_cents)} icon={Coins} />
           </div>
+        </div>
+
+        {/* 基本信息 */}
+        {(trace.description || trace.summary) && (
           <div>
-            <span style={{ color: "var(--muted)" }}>开始时间：</span>{fmtTime(trace.started_at)}
-          </div>
-          <div>
-            <span style={{ color: "var(--muted)" }}>完成时间：</span>{fmtTime(trace.completed_at)}
-          </div>
-          <div>
-            <span style={{ color: "var(--muted)" }}>更新时间：</span>{fmtTime(trace.updated_at)}
-          </div>
-          {trace.retry_count != null && trace.retry_count > 0 && (
-            <div>
-              <span style={{ color: "var(--muted)" }}>重试次数：</span>{trace.retry_count}
+            <h3 className="section-title" style={{ marginBottom: "var(--space-3)" }}>基本信息</h3>
+            <div className="grid grid-cols-2 gap-4">
+              {trace.description && (
+                <div className="content-card" style={{ padding: "var(--space-4)" }}>
+                  <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>
+                    描述
+                  </div>
+                  <p className="text-sm" style={{ color: "var(--text-secondary)", whiteSpace: "pre-wrap" }}>
+                    {trace.description}
+                  </p>
+                </div>
+              )}
+              {trace.summary && (
+                <div className="content-card" style={{ padding: "var(--space-4)" }}>
+                  <div className="text-[10px] uppercase tracking-widest font-medium mb-2" style={{ color: "var(--muted)" }}>
+                    总结
+                  </div>
+                  <p className="text-sm" style={{ color: "var(--text-secondary)", whiteSpace: "pre-wrap" }}>
+                    {trace.summary}
+                  </p>
+                </div>
+              )}
             </div>
-          )}
+          </div>
+        )}
+
+        {/* 工具调用时间线 */}
+        {toolCalls.length > 0 && (
+          <div>
+            <h3 className="section-title" style={{ marginBottom: "var(--space-3)" }}>
+              工具调用 · {toolCalls.length} 次
+            </h3>
+            <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-1)" }}>
+              {toolCalls.map((call, idx) => (
+                <ToolCallItem key={idx} call={call} index={idx} />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* 关联对象 */}
+        <div>
+          <h3 className="section-title" style={{ marginBottom: "var(--space-3)" }}>关联对象</h3>
+          <div className="grid grid-cols-3 gap-3">
+            {proj && (
+              <Link to={`/projects/${proj.id}`} className="content-card no-underline" style={{ padding: "var(--space-3)" }}>
+                <div className="flex items-center gap-2">
+                  <FolderOpen size={14} style={{ color: "var(--accent)" }} />
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest" style={{ color: "var(--muted)" }}>项目</div>
+                    <div className="text-sm" style={{ color: "var(--text)" }}>{proj.name}</div>
+                  </div>
+                </div>
+              </Link>
+            )}
+            {agent && (
+              <Link to={`/agents/${agent.id}`} className="content-card no-underline" style={{ padding: "var(--space-3)" }}>
+                <div className="flex items-center gap-2">
+                  <Bot size={14} style={{ color: "var(--accent)" }} />
+                  <div>
+                    <div className="text-[10px] uppercase tracking-widest" style={{ color: "var(--muted)" }}>Agent</div>
+                    <div className="text-sm" style={{ color: "var(--text)" }}>{agent.name}</div>
+                  </div>
+                </div>
+              </Link>
+            )}
+            <Link to={`/tasks/${trace.task_id}`} className="content-card no-underline" style={{ padding: "var(--space-3)" }}>
+              <div className="flex items-center gap-2">
+                <Link2 size={14} style={{ color: "var(--accent)" }} />
+                <div>
+                  <div className="text-[10px] uppercase tracking-widest" style={{ color: "var(--muted)" }}>任务</div>
+                  <div className="text-sm mono" style={{ color: "var(--text)" }}>
+                    {trace.task_id.length > 16 ? trace.task_id.slice(0, 8) + "…" : trace.task_id}
+                  </div>
+                </div>
+              </div>
+            </Link>
+          </div>
+        </div>
+
+        {/* 时间信息 */}
+        <div>
+          <h3 className="section-title" style={{ marginBottom: "var(--space-3)" }}>时间信息</h3>
+          <div className="content-card" style={{ padding: "var(--space-4)" }}>
+            <div className="grid grid-cols-2 gap-3 text-xs" style={{ color: "var(--text-secondary)" }}>
+              <div>
+                <span style={{ color: "var(--muted)" }}>创建时间：</span>{fmtTime(trace.created_at)}
+              </div>
+              <div>
+                <span style={{ color: "var(--muted)" }}>开始时间：</span>{fmtTime(trace.started_at)}
+              </div>
+              <div>
+                <span style={{ color: "var(--muted)" }}>完成时间：</span>{fmtTime(trace.completed_at)}
+              </div>
+              <div>
+                <span style={{ color: "var(--muted)" }}>更新时间：</span>{fmtTime(trace.updated_at)}
+              </div>
+              {trace.retry_count != null && trace.retry_count > 0 && (
+                <div>
+                  <span style={{ color: "var(--muted)" }}>重试次数：</span>{trace.retry_count}
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>
