@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { api } from "../lib/api";
 import CustomSelect from "../components/CustomSelect";
+import QuotaSnapshot from "../components/QuotaSnapshot";
 
 /* ═══ 工具函数 ════════════════════════════════════════════ */
 
@@ -673,7 +674,10 @@ export default function Dashboard() {
         </span>
       </div>
 
-      {/* 0. 快速任务 */}
+      {/* 0. 套餐余量速览 */}
+      <QuotaSnapshot />
+
+      {/* 1. 快速任务 */}
       <QuickTaskSection projects={projects} agents={agents} />
 
       {/* 1. 注意力队列（最高优先级） */}

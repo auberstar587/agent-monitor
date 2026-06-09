@@ -1,8 +1,35 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RefreshCw, AlertCircle, Clock, Zap, Database, Sparkles } from "lucide-react";
+import { RefreshCw, AlertCircle, Clock, Zap, Sparkles, Infinity as InfinityIcon } from "lucide-react";
 import { api } from "../lib/api";
+import QuotaSnapshot from "../components/QuotaSnapshot";
 
 const REFRESH_MS = 10 * 60 * 1000;
+
+const UNIT_LABEL: Record<number, string> = {
+  1: "天",
+  3: "小时",
+  5: "月",
+  6: "日",
+};
+
+function relMin(ms: number) {
+  if (!Number.isFinite(ms) || ms <= 0) return "已重置";
+  const m = Math.floor(ms / 60_000);
+  if (m >= 60) return `${Math.floor(m / 60)}小时${m % 60}分`;
+  return `${m}分钟`;
+}
+
+function formatReset(ts?: number) {
+  if (!ts) return "—";
+  const d = new Date(ts);
+  return d.toLocaleString("zh-CN", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hour12: false });
+}
+
+function pctClass(pct: number) {
+  if (pct >= 90) return "danger" as const;
+  if (pct >= 70) return "warn" as const;
+  return "" as const;
+}
 
 interface GlmLimit {
   type: string;
@@ -24,44 +51,8 @@ interface MinimaxModel {
   current_interval_total_count: number;
   current_weekly_usage_count: number;
   current_weekly_total_count: number;
-  start_time: number;
-  end_time: number;
-  weekly_end_time: number;
   remains_time: number;
   weekly_remains_time: number;
-}
-
-const UNIT_LABEL: Record<number, string> = {
-  1: "天",
-  3: "小时",
-  5: "月",
-  6: "日",
-};
-
-function formatReset(ts?: number) {
-  if (!ts) return "—";
-  const d = new Date(ts);
-  return d.toLocaleString("zh-CN", { hour12: false });
-}
-
-function formatRemain(ms: number) {
-  if (!Number.isFinite(ms) || ms <= 0) return "已重置";
-  const s = Math.floor(ms / 1000);
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  if (h >= 24) return `${Math.floor(h / 24)}天${h % 24}时`;
-  if (h > 0) return `${h}时${m}分`;
-  return `${m}分`;
-}
-
-function pctColor(pct: number) {
-  if (pct >= 90) return "var(--danger, #ef4444)";
-  if (pct >= 70) return "var(--warning, #f59e0b)";
-  return "var(--success)";
-}
-
-function pctBar(pct: number) {
-  return { width: `${Math.max(0, Math.min(100, pct))}%` };
 }
 
 export default function QuotaPage() {
@@ -93,9 +84,14 @@ export default function QuotaPage() {
   const ageSec = lastFetch ? Math.floor((Date.now() - lastFetch) / 1000) : null;
   const nextAuto = useMemo(() => (lastFetch ? new Date(lastFetch + REFRESH_MS) : null), [lastFetch]);
 
+  const glmOk = data?.glm?.ok;
+  const mmxOk = data?.minimax?.ok;
+  const glmOnline = glmOk ? "ok" : "danger";
+  const mmxOnline = mmxOk ? "ok" : "danger";
+
   return (
-    <div className="p-0 max-w-6xl">
-      <div className="mb-6 flex items-end justify-between gap-4">
+    <div className="p-0 max-w-6xl" style={{ ["--glm-blue" as any]: "#2F6BFF", ["--mmx-purple" as any]: "#8B5CF6", ["--mmx-green" as any]: "#4CB782" }}>
+      <div className="mb-5 flex items-end justify-between gap-4">
         <div>
           <p className="page-subtitle">智谱 GLM Coding Plan 与 Minimax 套餐实时余量</p>
         </div>
@@ -123,123 +119,147 @@ export default function QuotaPage() {
         </div>
       )}
 
-      <div className="quota-grid">
-        {/* GLM */}
-        <section className="quota-panel">
-          <header className="quota-panel-head">
-            <div className="quota-icon"><Zap size={17} /></div>
-            <div>
-              <h2>智谱 GLM <small>Coding Plan</small></h2>
-              <p>套餐等级：{data?.glm?.level ?? "—"} · {data?.glm?.ok ? "在线" : "异常"}</p>
-            </div>
-          </header>
+      {/* === 顶部：Dashboard 风格速览卡 === */}
+      <div className="mb-5">
+        <QuotaSnapshot />
+      </div>
 
-          {!data?.glm?.ok && data?.glm?.error && (
-            <div className="quota-error-inner">
-              <AlertCircle size={12} /> {data.glm.error}
-            </div>
-          )}
+      {/* === Region 1: 智谱 GLM（智谱风：3 卡并排 + 蓝条） === */}
+      <section className="quota-page-region" style={{ marginBottom: 28 }}>
+        <div className="quota-page-region-head">
+          <div className="quota-page-region-mark glm">智</div>
+          <div>
+            <span className="quota-page-region-name">智谱 GLM</span>
+            <span className="quota-page-region-meta">
+              Coding Plan · Level {data?.glm?.level ?? "—"}
+            </span>
+          </div>
+          <div className="quota-page-region-status">
+            <span className={`quota-page-region-dot ${glmOnline === "danger" ? "danger" : ""}`} />
+            {glmOk ? "在线" : "异常"}
+            {data?.glm?.error && (
+              <span style={{ color: "var(--danger)" }}>· {data.glm.error}</span>
+            )}
+          </div>
+        </div>
 
+        <div className="quota-page-card-row cols-3">
+          {(data?.glm?.limits ?? []).map((l: GlmLimit, i: number) => {
+            const cls = pctClass(l.percentage);
+            return (
+              <div key={i} className="quota-mcard">
+                <div className="quota-mcard-title">
+                  {l.type === "TIME_LIMIT" ? "调用次数" : "Token 额度"}
+                  <span className="info">ⓘ</span>
+                </div>
+                <div className={`quota-mcard-pct ${cls} mono`}>
+                  {l.percentage}<small>%</small>
+                </div>
+                <div className="quota-mcard-used">已使用</div>
+                <div className="quota-mcard-bar">
+                  <div className="quota-mcard-bar-fill glm" style={{ width: `${Math.min(100, l.percentage)}%` }} />
+                </div>
+                <div className="quota-mcard-foot">
+                  <strong>每 {l.number} {UNIT_LABEL[l.unit] ?? `unit=${l.unit}`}</strong>
+                </div>
+                <div className="quota-mcard-foot">
+                  重置时间：<strong>{formatReset(l.nextResetTime)}</strong>
+                </div>
+                {l.usageDetails && l.usageDetails.length > 0 && (
+                  <div className="quota-mcard-chips">
+                    {l.usageDetails.map((d) => (
+                      <span key={d.modelCode} className="quota-mcard-chip">{d.modelCode} ×{d.usage}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           {data?.glm?.ok && data.glm.limits.length === 0 && (
             <div className="quota-empty">该账号暂无可显示的限额</div>
           )}
+        </div>
+      </section>
 
-          <ul className="quota-list">
-            {(data?.glm?.limits ?? []).map((l: GlmLimit, i: number) => {
-              const reset = formatReset(l.nextResetTime);
-              const isTime = l.type === "TIME_LIMIT";
-              return (
-                <li key={i} className="quota-row">
-                  <div className="quota-row-head">
-                    <span className="quota-tag">
-                      {isTime ? <Database size={11} /> : <Zap size={11} />}
-                      {isTime ? "调用次数" : "Token 额度"}
-                    </span>
-                    <span className="quota-period">每 {l.number} {UNIT_LABEL[l.unit] ?? `unit=${l.unit}`}</span>
-                    <span className="quota-reset">下次重置 {reset}</span>
-                  </div>
-                  <div className="quota-bar-track">
-                    <div
-                      className="quota-bar-fill"
-                      style={{ ...pctBar(l.percentage), background: pctColor(l.percentage) }}
-                    />
-                  </div>
-                  <div className="quota-row-foot">
-                    <span>已用 <strong>{l.percentage}%</strong></span>
-                    {isTime && l.remaining != null && (
-                      <span>剩余 <strong>{l.remaining}</strong> / {l.usage}</span>
-                    )}
-                    {!isTime && l.currentValue != null && (
-                      <span>当前 <strong>{l.currentValue}</strong></span>
-                    )}
-                  </div>
-                  {l.usageDetails && l.usageDetails.length > 0 && (
-                    <div className="quota-details">
-                      {l.usageDetails.map((d) => (
-                        <span key={d.modelCode} className="quota-chip">{d.modelCode} ×{d.usage}</span>
-                      ))}
+      {/* === Region 2: Minimax（Minimax 风：横向左标 / 中条 / 右数字） === */}
+      <section className="quota-page-region">
+        <div className="quota-page-region-head">
+          <div className="quota-page-region-mark mmx">M</div>
+          <div>
+            <span className="quota-page-region-name">Minimax</span>
+            <span className="quota-page-region-meta">mmx CLI · 本地探测</span>
+          </div>
+          <div className="quota-page-region-status">
+            <span className={`quota-page-region-dot ${mmxOnline === "danger" ? "danger" : ""}`} />
+            {mmxOk ? "在线" : "异常"}
+            {data?.minimax?.error && (
+              <span style={{ color: "var(--danger)" }}>· {data.minimax.error}</span>
+            )}
+          </div>
+        </div>
+
+        <div className="quota-page-card-row cols-2">
+          {(data?.minimax?.models ?? []).map((m: MinimaxModel) => {
+            const intervalPct = 100 - (m.current_interval_remaining_percent ?? 100);
+            const weeklyPct = 100 - (m.current_weekly_remaining_percent ?? 100);
+            const weeklyUnlimited = m.current_weekly_total_count === 0 && m.current_weekly_usage_count === 0;
+            return (
+              <div key={m.model_name} className="quota-mcard" style={{ gap: 14 }}>
+                {/* 5h 行（Minimax 风横向） */}
+                <div>
+                  <div className="quota-mmx-grid">
+                    <div className="quota-mmx-label">
+                      <span className="quota-mmx-label-name">5h 限额</span>
+                      <span className="quota-mmx-label-meta mono">区间 {m.current_interval_usage_count}/{m.current_interval_total_count}</span>
                     </div>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
+                    <div className="quota-mcard-bar">
+                      <div className="quota-mcard-bar-fill mmx-green" style={{ width: `${Math.min(100, intervalPct)}%` }} />
+                    </div>
+                    <div className="quota-mmx-end">
+                      <span className="quota-mmx-end-num mono">{intervalPct}<small style={{ color: "var(--muted)", fontSize: 11, marginLeft: 1 }}>%</small></span>
+                      <span className="quota-mmx-end-meta">已用</span>
+                    </div>
+                  </div>
+                  <div className="quota-mcard-foot" style={{ marginTop: 8 }}>
+                    {relMin(m.remains_time * 1000)}后重置
+                  </div>
+                </div>
 
-        {/* Minimax */}
-        <section className="quota-panel">
-          <header className="quota-panel-head">
-            <div className="quota-icon"><Sparkles size={17} /></div>
-            <div>
-              <h2>Minimax <small>mmx CLI</small></h2>
-              <p>本地 mmx 探测 · {data?.minimax?.ok ? "在线" : "异常"}</p>
-            </div>
-          </header>
+                <div style={{ height: 1, background: "var(--line)" }} />
 
-          {!data?.minimax?.ok && data?.minimax?.error && (
-            <div className="quota-error-inner">
-              <AlertCircle size={12} /> {data.minimax.error}
-            </div>
-          )}
-
+                {/* 周行（紫色渐变） */}
+                <div>
+                  <div className="quota-mmx-grid">
+                    <div className="quota-mmx-label">
+                      <span className="quota-mmx-label-name">周限额</span>
+                      <span className="quota-mmx-label-meta mono">周限 {m.current_weekly_usage_count}/{m.current_weekly_total_count}</span>
+                    </div>
+                    <div className="quota-mcard-bar">
+                      <div className="quota-mcard-bar-fill mmx-purple" style={{ width: `${Math.min(100, weeklyPct)}%` }} />
+                    </div>
+                    <div className="quota-mmx-end">
+                      {weeklyUnlimited ? (
+                        <span className="quota-mmx-unlimit"><InfinityIcon size={12} /> 无限</span>
+                      ) : (
+                        <>
+                          <span className="quota-mmx-end-num mono">{weeklyPct}<small style={{ color: "var(--muted)", fontSize: 11, marginLeft: 1 }}>%</small></span>
+                          <span className="quota-mmx-end-meta">已用</span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                  <div className="quota-mcard-foot" style={{ marginTop: 8 }}>
+                    {relMin(m.weekly_remains_time * 1000)}后重置
+                  </div>
+                </div>
+              </div>
+            );
+          })}
           {data?.minimax?.ok && data.minimax.models.length === 0 && (
             <div className="quota-empty">暂无模型余量数据</div>
           )}
-
-          <ul className="quota-list">
-            {(data?.minimax?.models ?? []).map((m: MinimaxModel) => {
-              const intervalPct = 100 - (m.current_interval_remaining_percent ?? 0);
-              const weeklyPct = 100 - (m.current_weekly_remaining_percent ?? 0);
-              return (
-                <li key={m.model_name} className="quota-row">
-                  <div className="quota-row-head">
-                    <span className="quota-tag"><Sparkles size={11} />{m.model_name}</span>
-                    <span className="quota-period">区间 {m.current_interval_usage_count}/{m.current_interval_total_count}</span>
-                    <span className="quota-reset">剩余 {formatRemain(m.remains_time * 1000)}</span>
-                  </div>
-                  <div className="quota-bar-track">
-                    <div
-                      className="quota-bar-fill"
-                      style={{ ...pctBar(intervalPct), background: pctColor(intervalPct) }}
-                    />
-                  </div>
-                  <div className="quota-row-foot">
-                    <span>区间已用 <strong>{intervalPct}%</strong></span>
-                    <span>周剩余 <strong>{m.current_weekly_remaining_percent}%</strong></span>
-                    <span>周限 {m.current_weekly_usage_count}/{m.current_weekly_total_count}</span>
-                  </div>
-                  <div className="quota-bar-track quota-bar-track-mini">
-                    <div
-                      className="quota-bar-fill"
-                      style={{ ...pctBar(weeklyPct), background: pctColor(weeklyPct) }}
-                    />
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

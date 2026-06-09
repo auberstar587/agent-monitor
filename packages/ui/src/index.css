@@ -3779,3 +3779,290 @@ code, pre, .mono {
   background: color-mix(in srgb, var(--muted) 10%, transparent);
   color: var(--muted);
 }
+
+/* === Quota Snapshot (Dashboard 顶部速览) === */
+.quota-snapshot {
+  --glm-blue: #2F6BFF;
+  --mmx-purple: #8B5CF6;
+  --mmx-green: #4CB782;
+}
+
+.quota-snap-spin {
+  animation: quota-spin 1.2s linear infinite;
+}
+
+.quota-snap-error {
+  border-color: color-mix(in srgb, var(--danger) 30%, var(--line));
+}
+
+.quota-snap-link {
+  text-decoration: none;
+  transition: color 150ms var(--ease);
+}
+.quota-snap-link:hover {
+  color: var(--accent-strong) !important;
+}
+
+.quota-snap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 12px;
+}
+
+.quota-snap-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bg-app) 60%, transparent);
+}
+
+.quota-snap-cell-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.quota-snap-source {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--text-secondary);
+}
+
+.quota-snap-source.glm    { color: var(--glm-blue); }
+.quota-snap-source.mmx-5h { color: var(--mmx-green); }
+.quota-snap-source.mmx-week { color: var(--mmx-purple); }
+
+.quota-snap-pct {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.quota-snap-bar {
+  width: 100%;
+  height: 4px;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.quota-snap-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 400ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.quota-snap-bar-fill.glm      { background: var(--glm-blue); }
+.quota-snap-bar-fill.mmx-5h   { background: var(--mmx-green); }
+.quota-snap-bar-fill.mmx-week { background: linear-gradient(90deg, var(--mmx-purple), #6D5DD6); }
+
+.quota-snap-meta {
+  font-size: 10px;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+/* === QuotaPage v3: 上下大区 + 智谱/智谱 + Minimax/Minimax === */
+.quota-page-region {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.quota-page-region-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+}
+
+.quota-page-region-mark {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  flex-shrink: 0;
+}
+.quota-page-region-mark.glm { background: var(--glm-blue); }
+.quota-page-region-mark.mmx { background: var(--mmx-purple); }
+
+.quota-page-region-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+.quota-page-region-meta {
+  font-size: 11px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+.quota-page-region-status {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.quota-page-region-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--success) 20%, transparent);
+}
+.quota-page-region-dot.danger {
+  background: var(--danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 20%, transparent);
+}
+
+.quota-page-card-row {
+  display: grid;
+  gap: 14px;
+}
+.quota-page-card-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
+.quota-page-card-row.cols-2 { grid-template-columns: repeat(2, 1fr); }
+@media (max-width: 900px) {
+  .quota-page-card-row.cols-3 { grid-template-columns: 1fr; }
+  .quota-page-card-row.cols-2 { grid-template-columns: 1fr; }
+}
+
+.quota-mcard {
+  background: var(--bg-card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.quota-mcard-title {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.quota-mcard-title .info { color: var(--muted); }
+
+.quota-mcard-pct {
+  font-size: 40px;
+  font-weight: 600;
+  line-height: 1.1;
+  margin: 12px 0 2px;
+  color: var(--text);
+}
+.quota-mcard-pct.warn   { color: var(--warning); }
+.quota-mcard-pct.danger { color: var(--danger); }
+.quota-mcard-pct small {
+  font-size: 18px;
+  color: var(--muted);
+  font-weight: 500;
+  margin-left: 1px;
+}
+
+.quota-mcard-used {
+  font-size: 11px;
+  color: var(--muted);
+  margin-bottom: 12px;
+}
+
+.quota-mcard-bar {
+  width: 100%;
+  height: 6px;
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.quota-mcard-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 400ms cubic-bezier(0.2, 0, 0, 1);
+}
+.quota-mcard-bar-fill.glm      { background: var(--glm-blue); }
+.quota-mcard-bar-fill.mmx-green  { background: var(--mmx-green); }
+.quota-mcard-bar-fill.mmx-purple { background: linear-gradient(90deg, var(--mmx-purple), #6D5DD6); }
+
+.quota-mcard-foot {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+.quota-mcard-foot strong {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.quota-mcard-chips {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.quota-mcard-chip {
+  font-size: 10px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  background: var(--bg-card-hover);
+  color: var(--text-secondary);
+  border: 1px solid var(--line);
+}
+
+/* Minimax 风：左标 / 中条 / 右数字 */
+.quota-mmx-grid {
+  display: grid;
+  grid-template-columns: 100px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 6px;
+}
+.quota-mmx-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.quota-mmx-label-name {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+.quota-mmx-label-meta {
+  font-size: 10px;
+  color: var(--muted);
+}
+.quota-mmx-end {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+.quota-mmx-end-num {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.quota-mmx-end-meta {
+  font-size: 11px;
+  color: var(--muted);
+}
+.quota-mmx-unlimit {
+  font-size: 11px;
+  color: var(--mmx-purple);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 500;
+}
