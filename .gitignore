@@ -45,3 +45,15 @@ pnpm-lock.yaml
 AGENTS.md
 console-errors.md
 docs/DEVELOPMENT-WORKFLOW.md
+
+# Temporary files: screenshots, test artifacts, debug HTML, screen recordings
+# (项目规则 2026-06-09 — 测试/截图/临时 HTML 不入库)
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.hmp4
+*.mp4
+# 仅根目录拦 demo-*.html / page-*.html；packages/ui/index.html 是 Vite 模板，必须保留
+/*.html
+/*.htm
