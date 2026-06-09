@@ -1,8 +1,8 @@
 # Agent Monitor — 项目规范 (SPEC.md)
 
-> 版本: 2.3.9
-> 更新: 2026-06-04
-> 状态: **前端整改 Phase 1-8 完成** — CustomSelect 统一替换 + 路由拆包 + 滚动条/布局统一修复
+> 版本: 2.4.2
+> 更新: 2026-06-05
+> 状态: **产品定位校正** — Agent Monitor 是代码逻辑 + Agent 决策 + Prompt/Skill 运行时的复合系统，不是纯代码任务执行器
 > 历史版本: 1.4.0 已归档至 `archive/20260529-old-requirements/`
 
 ---
@@ -22,7 +22,15 @@
 
 ## 1. 项目定位
 
-**Agent Monitor** 是一个个人 AI Agent 统一管理平台。
+**Agent Monitor** 是一个个人 AI Agent 统一管理平台，也是本地 AI 工作流的“运行控制层”。
+
+它不是一个纯代码编写工具，也不是只靠后端代码规则做逻辑处理的系统。真实能力由三部分共同构成：
+
+1. **代码逻辑**：项目、任务、Agent、Trace、Artifact、Inbox、数据库状态机、前端交互。
+2. **Agent 决策处理**：意图识别、项目匹配、Agent 派遣、方案评审、失败判定、handoff 与用户介入。
+3. **Prompt / Skill 工程**：给不同 Agent 的角色提示词、项目级技能、执行约束、产物格式、评审协议和上下文注入规则。
+
+代码负责边界、持久化和可追溯；Agent 负责理解、判断和执行；Prompt/Skill 负责把项目经验、角色职责和执行规范稳定注入 Agent。
 
 核心目标不是从零造轮子，而是在优秀的开源基座项目上，增强我们真正需要的差异化能力。
 
@@ -34,6 +42,7 @@
 | **② 多 Agent 协作** | 不同 Agent 围绕同一项目协作，跨工具上下文连续。A Agent 知道 B Agent 做了什么，不用反复解释 |
 | **③ 跨工具上下文** | 同一个项目可以穿梭使用 Claude Code / Codex / OpenClaw 等工具产生的上下文，不因工具切换而丢失 |
 | **④ 自主决策** | 多 Agent 可通过会议/编排自主决定方案和推进方向，减少人工确认断点，工作流可离线持续推进 |
+| **⑤ Skill 化项目能力** | 项目自身维护可复用 skills / prompts / context packs，让 Agent 接任务时继承项目方法论，而不是每次重新解释 |
 
 ### 1.2 技术战略：基座 + 增强层
 
@@ -55,7 +64,9 @@ agent-monitor（增强层）
     ├── ⑤ ExecutionTrace   → 带记忆+成本的全链路可追溯
     ├── ⑥ Inbox            → 决策/权限/阻塞/review 统一介入
     ├── ⑦ Artifact Review  → 多 Agent 产出物审查闭环
-    └── ⑧ Git/Worktree     → 任务级分支隔离 + diff 关联
+    ├── ⑧ Git/Worktree     → 任务级分支隔离 + diff 关联
+    ├── ⑨ Intent Router     → 任务意图分析 + 项目/Agent 匹配 + 执行策略选择
+    └── ⑩ Project Skills    → 项目自身 prompt/skill/context 协议
 ```
 
 ### 1.3 借鉴来源
@@ -107,6 +118,12 @@ agent-monitor（增强层）
 7. **Git 是协作基础设施**
    代码类任务的 worktree 隔离、diff 追踪、review 都围绕 Git 展开。
 
+8. **显式信息直达，缺失信息路由**
+   用户已经明确项目和 Agent 时，系统应直接发起任务并执行；用户只给自然语言时，系统应先启动意图路由 Agent 分析项目、任务类型、风险和候选执行 Agent，再派遣执行。
+
+9. **Agent 完成必须有可审计证据**
+   对代码、UI、文档、配置等执行型任务，不能只因为 Agent 正常退出或输出一段文字就标记 completed。完成必须有工具活动、文件变更、Artifact、测试报告或明确可审查产物。
+
 ---
 
 ## 4. 核心信息架构
@@ -116,6 +133,7 @@ Agent Monitor
 ├── 项目总览（Multica Kanban 基础上增强）
 │   ├── 项目列表 + 状态
 │   ├── Agent 在线状态
+│   ├── 快捷任务入口（显式项目/Agent 直达执行；缺失信息进入 Intent Router）
 │   └── 待我处理 (Inbox)
 ├── 项目详情
 │   ├── 目标 + 技术栈 + Context Pack
@@ -123,6 +141,7 @@ Agent Monitor
 │   ├── Blueprint 编排可视化
 │   ├── 跨工具记忆时间线
 │   ├── Git 状态 + Worktree 列表
+│   ├── Project Skills / Prompt Pack
 │   └── 产物索引
 ├── Agent View
 │   ├── 所有活跃 Agent 会话总览
@@ -143,6 +162,11 @@ Agent Monitor
 │   ├── 测试结果
 │   ├── 成本追踪（token / latency）
 │   └── 关联记忆条目
+├── Intent Router
+│   ├── 自然语言任务意图分析
+│   ├── 项目匹配 / Agent 推荐 / 风险判断
+│   ├── 直达执行 vs 先评审 vs 需要用户补充
+│   └── 路由决策写入 ExecutionTrace
 ├── Artifact Review
 │   ├── Git Diff / Commit / Branch
 │   ├── 文档 / 报告 / 调研笔记
@@ -221,11 +245,96 @@ Agent Monitor
 
 内容：项目目标 / 技术栈 / 关键目录 / 常用命令 / 编码规则 / 最近决策 / 当前风险 / 禁止事项
 
+### 5.11 ProjectSkill
+项目自身需要的可复用技能、提示词和执行协议。ProjectSkill 不等同于前端功能，它是给 Agent 使用的项目方法论。
+
+关键字段：id / projectId / name / type (prompt/skill/checklist/workflow/policy) / content / appliesTo (agent/taskType/route) / status (active/draft/deprecated) / version / createdAt / updatedAt
+
+典型内容：
+- 快捷任务意图分析 prompt。
+- 代码任务执行前检查清单。
+- UI 任务的设计系统约束。
+- 文档更新的状态口径（区分“已实施”和“已验证通过”）。
+- 方案评审的多 Agent 发言顺序和产物格式。
+
+### 5.12 IntentRoute
+一次自然语言任务从“用户输入”到“项目/Agent/执行策略”的路由决策。
+
+关键字段：id / taskId / projectId / sourceText / selectedProjectId / selectedAgentId / selectedEngineId / routeType (direct_execute/agent_router/review_first/needs_user_input) / confidence / reasons[] / risks[] / createdAt
+
+Intent Router 是“代码壳 + Agent 判断”的组合：
+- **IntentRouterService（代码）**：接收快捷任务，判断用户是否已明确 project/agent，准备候选项目、Agent、ProjectSkill 和历史 Trace，上下文交给 Router Agent；校验结构化输出；写入 IntentRoute；决定 direct_execute / review_first / needs_user_input / agent_router。
+- **Router Agent（Agent）**：理解自然语言任务，判断项目、任务类型、风险、所需 skill 和候选执行 Agent。它只给结构化建议，不直接修改任务最终状态。
+
+Router Agent 的执行引擎必须可配置，不能隐式绑定 Claude Code。配置来源：
+- `workflow.router_engine_id`：Router Agent 首选 engine。
+- `workflow.router_fallback_engine_ids`：首选 engine 不可用时的 fallback 顺序。
+- `AGENT_MONITOR_ROUTER_ENGINE` / `AGENT_MONITOR_ROUTER_FALLBACK_ENGINES`：本地或部署环境覆盖。
+
+路由原则：
+- 用户明确提供 projectId + agentId/engineId：直接执行，不再启动额外匹配 Agent。
+- 用户只提供自然语言：启动 Router Agent 分析意图、项目、候选 Agent、风险和所需 skill。
+- 低置信度或高风险：进入 Inbox 请求用户确认，而不是盲目执行。
+
+### 5.13 PromptPack
+某个 Agent 执行任务时最终收到的提示词组合。
+
+组成：基础 system prompt / 项目 ContextPack / ProjectSkill / IntentRoute 决策 / 上游 Artifact / 用户原始任务 / 安全边界
+
+PromptPack 必须可追溯。一次任务为什么这样分配、为什么这样执行，应该能在 ExecutionTrace 中看到对应来源。
+
+### 5.14 DecisionRequest
+执行中需要用户拍板的结构化决策项。它解决 Agent 在日志里直接问“选 A 还是 B”但前端无法接住的问题。
+
+关键字段：id / taskId / traceId / sessionId / nativeSessionId / type (option_select/text_input/approval/permission) / title / question / options[] / recommendedOptionId / confidence / reason / status (pending/resolved/cancelled/expired) / response / createdAt / resolvedAt
+
+状态影响：
+- 创建 DecisionRequest 时，任务状态进入 `waiting_user`，ExecutionTrace 记录 `decision_required` 事件。
+- 用户在 TaskDetail 或 Inbox 选择后，后端把回答作为后续输入，用同一个 `nativeSessionId` resume 原 Agent 会话。
+- resume 后任务回到 `in_progress`；如果用户取消或超时，任务进入 `cancelled` 或 `failed`，不能静默 completed。
+
+原则：
+- 能由 Router 或执行 Agent低风险决定的事项，直接采用推荐方案，并在 Trace 里记录 assumption。
+- 真正阻塞执行的选择，必须生成 DecisionRequest，不能只输出自然语言问题。
+- “派哪个子 Agent”属于 Router/Orchestrator 决策，不应该由执行 Agent 在执行中反问用户。
+- DecisionRequest 必须可审查，包含选项、推荐项、理由、风险和 resume session 信息。
+
 ---
 
 ## 6. 功能需求（新）
 
 只列入 Multica 覆盖范围之外的功能需求。
+
+### 6.0 P0: 快捷任务意图路由与一键执行
+
+目标：Dashboard 输入一段自然语言后，系统能按信息完整度选择正确路径，而不是把所有任务都交给固定代码逻辑或固定 Agent。
+
+执行路径：
+
+| 场景 | 路径 | 说明 |
+|------|------|------|
+| 用户明确 project + agent/engine | `direct_execute` | 直接创建任务并调用指定 Agent 执行，不再浪费一次匹配 |
+| 用户明确 project，未指定 agent | `agent_router` | Router Agent 或轻量规则选择候选 Agent/engine，再执行 |
+| 用户未明确 project | `agent_router` | 启动 Router Agent 分析意图、项目、风险、所需 skill，再派遣 Agent |
+| 高风险 / 低置信度 / 缺关键上下文 | `needs_user_input` | 生成 Inbox 项，请用户确认项目、范围或执行权限 |
+| 方案讨论或架构分歧 | `review_first` | 先进入多 Agent 方案评审，再决定是否执行 |
+
+需求：
+- Dashboard 快捷任务支持用户显式选择项目和 Agent。
+- `POST /api/tasks/smart` 返回 IntentRoute：routeType、selectedProject、selectedAgent/engine、confidence、reasons、risks。
+- `IntentRouterService` 负责流程、安全和状态；Router Agent 只负责语义判断和结构化建议。
+- Router Agent 的 engine 可在配置中切换，默认值只是兜底，不应写死在业务路由里。
+- Router Agent 可以读取项目列表、Agent 能力、ProjectSkill、历史 ExecutionTrace 和当前任务文本。
+- Router Agent 的输出必须结构化，不能只返回自然语言。
+- 路由决策写入 ExecutionTrace，后续可解释“为什么派给这个 Agent”。
+- 对执行型任务，执行端点必须验证是否产生实现活动或可审查产物，避免“只说不做”被标记 completed。
+
+验收：
+- 明确选择 project + codex 后，任务直接执行，不启动 Router Agent。
+- 只输入“快速任务 UI 太拥挤了”时，Router Agent 能匹配 agent-monitor 项目，并选择前端能力更合适的 Agent/engine。
+- 将 `workflow.router_engine_id` 配成 `codex` 后，Router/快捷任务 fallback 优先使用 Codex，而不是 Claude Code。
+- Router 低置信度时不自动执行，而是进入 Inbox。
+- Agent 只输出文字、没有工具调用或产物时，执行型任务标记 failed，并写明失败原因。
 
 ### 6.1 P0: Blueprint 多 Agent 决策编排
 
@@ -324,6 +433,24 @@ Agent Monitor
 - 打开总览页看到"我现在需要处理什么"。
 - Blueprint 运行时，仅预定义的 Approve 节点才产生 Inbox。
 
+### 6.6.1 P0: DecisionRequest（执行中用户决策）
+
+目标：执行中 Agent 需要用户选择、授权或补充信息时，系统能暂停任务并提供可点击的结构化决策界面，而不是让问题淹没在 SSE 文本日志里。
+
+需求：
+- Agent 输出中出现阻塞型选择时，执行层将其转换为 DecisionRequest，并暂停任务到 `waiting_user`。
+- DecisionRequest 支持选项、推荐项、风险说明、自由文本补充和权限确认。
+- TaskDetail / Inbox 展示决策面板，用户可以直接选择 A/B、填写文本或拒绝。
+- 用户响应后，后端使用同一个 `nativeSessionId` resume 原 Agent 会话，并把用户选择作为下一条输入。
+- 每次 DecisionRequest 创建、响应、resume 都写入 ExecutionTrace。
+- 如果 Agent 只是偏好咨询但不阻塞执行，系统应允许它采用推荐方案并记录 assumption，不创建 DecisionRequest。
+
+验收：
+- Agent 问“选 A 还是 B”时，TaskDetail 显示 A/B 按钮和推荐项，而不是只显示文本日志。
+- 用户选择 A 后，任务用原 native session 继续执行，不新开任务。
+- waiting_user 状态的任务在 Dashboard / Agent View / Inbox 都可见。
+- 用户未响应时，任务不会被标记 completed。
+
 ### 6.7 P0: Artifact Review（产物审查闭环）
 
 目标：任务结果可审查、可接受、可退回。
@@ -363,6 +490,23 @@ Agent Monitor
 验收：
 - Agent 接任务时能从 ContextPack 获取上下文。
 - 交接时能复用 ContextPack。
+
+### 6.9.1 P1: ProjectSkill / PromptPack
+
+目标：把项目自身需要的工作方法、提示词、评审协议和执行约束沉淀为可复用 skill，而不是散落在聊天记录或代码注释里。
+
+需求：
+- 每个项目可维护 ProjectSkill 列表，支持 prompt / checklist / workflow / policy 四类。
+- Agent 接任务时根据 taskType、projectId、agentId 自动拼装 PromptPack。
+- ProjectSkill 可关联到 Router、Coder、Reviewer、Tester 等不同执行角色。
+- ProjectSkill 变更需要版本号，ExecutionTrace 记录本次使用的 skill version。
+- 项目级 skill 与全局 agent persona 分离：persona 定义“谁在说话”，ProjectSkill 定义“这个项目怎么做事”。
+
+验收：
+- UI 优化任务能自动注入前端设计约束和当前项目 UI 规范。
+- 文档任务能自动注入“已实施 vs 已验证通过”的状态口径。
+- 方案评审任务能自动注入多 Agent 讨论顺序和输出格式。
+- 同一个 Agent 在不同项目接任务时，收到不同 ProjectSkill。
 
 ### 6.10 P1: Handoff 会话交接
 
@@ -456,38 +600,49 @@ Agent Monitor
 - 实时数据流 + 状态同步
 - 当前状态：页面已铺开；实时数据流仍待 socket.io 接入，错误态和空态需 QA 收口。
 
-### Phase 6: 多引擎适配层（基于 WeSight 协议）— **2026-06-03 完成**
+### Phase 6: 多引擎适配层（基于 WeSight 协议）— **2026-06-05 验证更新**
 - 抽 `EngineAdapter` interface（5 方法：`detectInstalled` / `run` / `approve` / `cancel` / `cost`）✅
 - `packages/server/src/adapters/multica.ts` 改造为实现新接口 ✅
 - 新增 `claude-code.ts` 适配器（真实 CLI spawn + stream-json 解析）✅
+- 新增 `codex.ts` 适配器（真实 CLI spawn + JSONL 解析 + thread_id 原生会话）✅
+- 新增 `hermes.ts` 适配器（真实 CLI spawn + Hermes quiet chat 输出解析）✅
 - 新增 `reasonix.ts` 适配器（DeepSeek Reasonix CLI + transcript JSONL 指标提取）✅
 - `providers.ts` 抽象层（8 个 Provider：Anthropic / OpenAI / DeepSeek / Ollama / Gemini / Qwen / Moonshot / 自定义 OpenAI 兼容）✅
 - 公共 SSE 解析器 `parseSSEResponse()` 抽取，消除 provider 重复代码 ✅
 - ExecutionTrace 表补齐 5 指标字段（TTFT / output-phase TPS / estimated model TPS / tool latency / agent steps）✅
 - Blueprint Run → EngineAdapter → runtime_calls 全链路打通 ✅
 - Chat 对话界面（SSE 流式 + 引擎选择 + 工作目录）✅
+- Adapter 不再指定默认模型；仅在用户或任务显式传入 model 时透传给 CLI ✅
+- `POST /api/tasks/:id/execute` 支持 `session_id` / `native_session_id`，并向 SSE 输出原生会话信息 ✅
+- 执行型任务增加“无实现活动”保护：Agent 只输出文字、无工具活动或产物时标记 failed ✅
 - P1-6/P2-8/P2-9/P2-10 全部收口 ✅
-- 验收：UI 能选引擎；Claude Code + Reasonix 双引擎在线；60 测试全绿
+- 验收：UI 能选引擎；Claude Code + Hermes + Reasonix + Codex 引擎在线；原生 session resume 可复用；72 测试全绿
 
 ### 当前验证基线
 
 | 项目 | 结果 | 日期 | 说明 |
 |------|------|------|------|
-| `npm run typecheck` | ✅ 通过 | 2026-06-03 | server + ui TypeScript 均通过 |
+| `pnpm typecheck` | ✅ 通过 | 2026-06-05 | server + ui TypeScript 均通过 |
 | `npm run build` | ✅ 通过 | 2026-06-03 | Vite chunk 542kB warning，非阻断 |
-| `npm test` | ✅ 通过 | 2026-06-03 | 60/60 (7 test files) |
+| `pnpm --filter @agent-monitor/server test` | ✅ 通过 | 2026-06-05 | 72/72 (7 test files) |
 | 端到端最小链路 | ✅ 通过 | 2026-06-02 | Project → Task/Output/Memory → Blueprint → Trace/Inbox 4 层全部联通（mock 数据） |
 | UUID 校验（4 路由） | ✅ 修复 | 2026-06-02 | projects / blueprints / memory / traces 统一返回 400 |
 | UI 用例（TC-003/005/006/007/008/009/011/015/018/019/020） | ⚠️ 待浏览器 | 2026-06-03 | 代码层已实现，需 Playwright 走一遍 |
 | 引擎注册 | ✅ 通过 | 2026-06-03 | Claude Code + Reasonix 双引擎 installed:true |
 | Chat 对话 | ✅ 通过 | 2026-06-02 | SSE 流式 + 引擎选择 + 工作目录 |
+| Codex 原生会话续跑 | ✅ 通过 | 2026-06-05 | `codex exec --json resume <thread_id>` 返回同一个 thread_id |
+| Task execute 原生 session E2E | ✅ 通过 | 2026-06-05 | API 传 `native_session_id` 后复用同一 Codex thread，SSE 输出 `native_session` |
+| 执行型任务防空完成 | ✅ 通过 | 2026-06-05 | 只输出文字、无工具活动的 UI/代码类任务标记 failed |
+| Artifacts API | ⚠️ 待修复 | 2026-06-05 | 本地 dev 发现 `/api/artifacts` 500，原因是数据库缺少 `artifacts` relation |
 
 ### 下一步方向
 
-1. **前端深度打磨** — 应用 design-system skill（Linear/Vercel Dark 风格），统一视觉语言
-2. **子 Agent 分工策略** — 前端派 Hermes、后端派 Reasonix，Claude Code 当 PM 并行调度
-3. Playwright UI 用例复测
-4. 本地 mock 链路稳定后，再接真实 Multica
+1. **IntentRouterService + Router Agent** — 快捷任务缺少 project/agent 时，代码侧负责状态/安全/校验，Router Agent 结构化分析意图、项目、风险和执行 Agent。
+2. **DecisionRequest** — 执行中需要用户选择 A/B、授权或补充信息时，任务进入 `waiting_user`，用户响应后用原 native session resume。
+3. **ProjectSkill / PromptPack** — 给每个项目维护可复用 prompt、checklist、workflow、policy，并在任务执行时注入。
+4. **快捷任务 UI** — 显式 project + agent 直达执行；自然语言任务进入 Router；低置信度或执行中阻塞进入 Inbox/TaskDetail 决策面板。
+5. **Artifacts 数据库修复** — 补齐或确认 `artifacts` migration，避免 Review/Artifact 功能页面空转。
+6. Playwright UI 用例复测，覆盖快捷任务、TaskDetail SSE、Agent View、Artifact Review。
 
 ---
 
@@ -514,3 +669,4 @@ Agent Monitor
 | 2026-06-03 | 2.4.0 | Reasonix | **AGENT-SYSTEM-REDESIGN Phase 0~4 实施**（后端全部完成）：<br>**Phase 0**：新建 `006_runtime_agent_refactor.sql` migration — `agent_runtimes` 表（id/engine_id/provider/status/version/installed/last_seen_at/metadata）+ 扩展 `registered_agents`（runtime_id/model/engine_id/session_id/agent_source）+ `runtime_calls.agent_id` 索引。<br>**Phase 1**：新建 `runtime-service.ts` — `syncRuntimes()` 遍历 `getRegisteredEngines()` → `detectInstalled()` → upsert `agent_runtimes`；`getActiveRunCount(engineId)` / `getRuntimeStatus()` / `listRuntimes()` / 30s `startHealthCheck()`（轻量只更新 last_seen_at）。`EngineAdapter` 加可选 `activeRunCount?(): number`，`claude-code.ts` + `reasonix.ts` 各实现（统计 `_runningChildren` 已 spawn 数）。<br>**Phase 2**：`agent-registry.ts` 加 `syncAgentsFromRuntimes()`（runtime installed → 自动生成 `agent-${engine_id}`，runtime 离线 → 标记 offline 不删除）；`registerManualAgent()`（agent_source='manual'）；`deleteAgent()` 加保护（只删 manual）。<br>**Phase 3**：新建 `presence-service.ts` — `derivePresence(agent)` 推 availability（engine 离线/runtime 不在/last_seen > 1h → offline；activeRuns > 0 → busy；否则 online；manual last_seen > 24h → offline）+ workload（activeRuns/tasks>0 → working）；`listPresence()` 批量推导并同步 `registered_agents.status`；`getAgentsView()` 聚合 agents/presence/runtimes 视图。<br>**Phase 4**：`routes/agents.ts` 重构 — `GET /api/agents` 走 `getAgentsView()` 返回 `availability/workload/active_run_count/provider/runtime_status` 字段（去掉 mock 交集）；新增 `GET /api/agents/presence` / `POST /api/agents`（手动注册）/ `POST /api/agents/sync`（先 syncRuntimes 再 syncAgents）。<br>**CORE-03**：`routes/tasks.ts` 加 `POST /api/tasks/:id/assign-recommend` — 质量分（quality.successCount / total × 40）+ 能力匹配（capabilities ∩ tech_stack/labels × 15）+ 同项目历史（最多 5 × 4 + 成功率 >70% 额外 +10）+ availability 状态（online +10 / busy -20），返回 top 3。<br>**CORE-05**：新建 `routes/skill-api.ts` — X-API-Key 鉴权（`SKILL_API_KEY` env，未配置时 fail-closed 503），7 个端点：`POST/GET /api/skill/tasks`、`GET /api/skill/tasks/:id`、`POST /api/skill/tasks/:id/execute`（自动 in_progress）、`GET /api/skill/agents`、`GET /api/skill/projects`、`POST /api/skill/outputs`（带 task_id 时自动 completed）、`GET /api/skill/health`（无需鉴权）。<br>**CORE-06**：`claude-code.ts` 加 `--resume sessionId` 支持（opts.sessionId 透传 spawn args）；stream 事件解析 `session_id` 并通过 `it.sessionId: Promise<string\|undefined>` 暴露给调用方。<br>**启动集成**：`index.ts` 启动时 `syncRuntimes() + syncAgentsFromRuntimes()`（替换原 `syncAgentsFromAdapter`）、注册 `skillApiRoutes`、`startHealthCheck()` / `stopHealthCheck()` 接入 graceful shutdown。<br>**回归**：`pnpm typecheck` 通过（exit 0）、`pnpm test` 101/101 全绿。<br>**下一阶段**：Phase 5 前端重构（Hermes 负责），`lib/api.ts` 需加 `getAgentPresence` / `createAgent` 声明同步。 |
 | 2026-06-04 | 2.4.1 | Claude | **收尾 + 新特性**：(1) **Agent 页面缓存**（stores/index.ts）：Zustand 加 `persist` 中间件，`partialize` 只缓存 agents/projects/outputs/blueprints 数据到 localStorage，浏览器刷新后先渲染缓存数据再静默更新，解决切换 tab 空白闪烁问题。(2) **Codex CLI 引擎适配器**（Hermes 实施）：新增 `codex.ts` 适配器，接入 OpenAI Codex CLI（`codex exec --json`），JSONL 事件流解析（thread/turn/item 三级），支持 o3/o4-mini/gpt-5.4 等模型，注册到 registry.ts。(3) **前端样式改写**（子 Agent 实施）：使用 design-system + frontend-design skill 指导，保持现有布局结构不变，更新 CSS 变量/颜色方案/间距/阴影/动画等视觉元素。(4) **项目文档更新**：AGENT-SYSTEM-REDESIGN.md 状态标记为"已完成"，SPEC.md 版本升至 v2.3.8。 |
 | 2026-06-04 | 2.3.9 | Claude | **前端整改 Phase 1-8 完成**（Codex + 浮浮酱多 Agent 协同）：<br>**Phase 1** TraceList + TraceDetail 页面（新建，路由 /traces + /traces/:taskId）。<br>**Phase 2** Inbox 分栏重做（左列表 40% + 右详情 60%，6 种 type 映射类型化动作组）。<br>**Phase 3** Artifact Review 闭环（模型 + 7 个 API + 列表/详情页 + 状态机 draft→submitted→accepted/rejected）。<br>**Phase 4** AgentSession 监督层（模型 + 5 个 API + Agents 页 Sessions Tab）。<br>**Phase 5** ProjectDetail cockpit（健康条 5 metric-card + 摘要网格 + 元数据折叠区）。<br>**Phase 6** Dashboard 队列化（注意力队列 → 正在运行 → 风险与失败 → 最近完成 → 系统统计）。<br>**Phase 7** Blueprint 表单化（暂缓，用户明确指示忽略 Blueprint）。<br>**Phase 8** 路由级 Code Splitting：React.lazy + Suspense，18 个页面独立 chunk，主包 576kB → 263kB，BlueprintStudio(ReactFlow) 197kB 按需加载。<br>**CustomSelect 合并**：合并 Codex 分支 `agent/codex-custom-select`，全项目 0 个原生 `<select>` 残留，统一为 `CustomSelect` 组件（Portal 弹出 + badge 变体 + 键盘/点击外部关闭）。<br>**布局修复**：11 页面挂 scroll class 统一滚动条样式；workspace-content 强制 flex gap 移除；ProjectDetail gap 16→8px + 返回按钮移顶部；首屏信息密度提升。 |
+| 2026-06-05 | 2.4.2 | Codex | **产品定位校正：Agent Monitor 不是纯代码任务执行器，而是代码逻辑 + Agent 决策 + Prompt/Skill 工程的复合运行控制层。** 新增 Intent Router / ProjectSkill / PromptPack / DecisionRequest 核心对象；明确 Intent Router 是 IntentRouterService（代码边界、状态、安全、校验）+ Router Agent（自然语言语义判断）的组合；补充快捷任务意图路由 P0：显式 project+agent 直达执行，缺失信息时启动 Router Agent 分析意图、项目、风险和候选执行 Agent，低置信度进入 Inbox；补充执行中用户决策 P0：Agent 需要用户选 A/B 时创建 DecisionRequest，任务进入 `waiting_user`，用户响应后用原 native session resume；补充执行型任务“无实现活动不得 completed”的验收标准；更新当前验证基线：Codex 原生 session resume、Task execute native session E2E、防空完成 guard 已通过，Artifacts API 因缺 `artifacts` relation 待修复。 |
