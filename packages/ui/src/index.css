@@ -3974,6 +3974,45 @@ code, pre, .mono {
   gap: 6px;
 }
 
+/* 智谱 GLM：缩（让出空间给 Minimax） */
+.quota-mcard-glm {
+  padding: 14px 16px;
+  gap: 4px;
+}
+.quota-mcard-glm .quota-mcard-pct {
+  font-size: 26px;
+  margin: 6px 0 0;
+}
+.quota-mcard-glm .quota-mcard-pct small {
+  font-size: 14px;
+}
+.quota-mcard-glm .quota-mcard-bar {
+  height: 4px;
+}
+
+/* Minimax：放大（占更多视觉重量） */
+.quota-mcard-mmx {
+  padding: 20px 22px;
+  min-height: 240px;
+}
+.quota-mcard-mmx .quota-mmx-label-name {
+  font-size: 15px;
+  font-weight: 600;
+}
+.quota-mcard-mmx .quota-mmx-label-meta {
+  font-size: 11px;
+}
+.quota-mcard-mmx .quota-mmx-end-num {
+  font-size: 16px;
+  font-weight: 600;
+}
+.quota-mcard-mmx .quota-mcard-bar {
+  height: 8px;
+}
+.quota-mcard-mmx .quota-mcard-foot {
+  font-size: 12px;
+}
+
 .quota-mcard-title {
   display: flex;
   align-items: center;

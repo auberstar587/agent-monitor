@@ -119,11 +119,6 @@ export default function QuotaPage() {
         </div>
       )}
 
-      {/* === 顶部：Dashboard 风格速览卡 === */}
-      <div className="mb-5">
-        <QuotaSnapshot />
-      </div>
-
       {/* === Region 1: 智谱 GLM（智谱风：3 卡并排 + 蓝条） === */}
       <section className="quota-page-region" style={{ marginBottom: 28 }}>
         <div className="quota-page-region-head">
@@ -147,7 +142,7 @@ export default function QuotaPage() {
           {(data?.glm?.limits ?? []).map((l: GlmLimit, i: number) => {
             const cls = pctClass(l.percentage);
             return (
-              <div key={i} className="quota-mcard">
+              <div key={i} className="quota-mcard quota-mcard-glm">
                 <div className="quota-mcard-title">
                   {l.type === "TIME_LIMIT" ? "调用次数" : "Token 额度"}
                   <span className="info">ⓘ</span>
@@ -182,7 +177,7 @@ export default function QuotaPage() {
       </section>
 
       {/* === Region 2: Minimax（Minimax 风：横向左标 / 中条 / 右数字） === */}
-      <section className="quota-page-region">
+      <section className="quota-page-region" style={{ marginBottom: 28 }}>
         <div className="quota-page-region-head">
           <div className="quota-page-region-mark mmx">M</div>
           <div>
@@ -204,7 +199,7 @@ export default function QuotaPage() {
             const weeklyPct = 100 - (m.current_weekly_remaining_percent ?? 100);
             const weeklyUnlimited = m.current_weekly_total_count === 0 && m.current_weekly_usage_count === 0;
             return (
-              <div key={m.model_name} className="quota-mcard" style={{ gap: 14 }}>
+              <div key={m.model_name} className="quota-mcard quota-mcard-mmx" style={{ gap: 18 }}>
                 {/* 5h 行（Minimax 风横向） */}
                 <div>
                   <div className="quota-mmx-grid">
@@ -216,11 +211,11 @@ export default function QuotaPage() {
                       <div className="quota-mcard-bar-fill mmx-green" style={{ width: `${Math.min(100, intervalPct)}%` }} />
                     </div>
                     <div className="quota-mmx-end">
-                      <span className="quota-mmx-end-num mono">{intervalPct}<small style={{ color: "var(--muted)", fontSize: 11, marginLeft: 1 }}>%</small></span>
+                      <span className="quota-mmx-end-num mono">{intervalPct}<small style={{ color: "var(--muted)", fontSize: 12, marginLeft: 1 }}>%</small></span>
                       <span className="quota-mmx-end-meta">已用</span>
                     </div>
                   </div>
-                  <div className="quota-mcard-foot" style={{ marginTop: 8 }}>
+                  <div className="quota-mcard-foot" style={{ marginTop: 10 }}>
                     {relMin(m.remains_time * 1000)}后重置
                   </div>
                 </div>
@@ -239,16 +234,16 @@ export default function QuotaPage() {
                     </div>
                     <div className="quota-mmx-end">
                       {weeklyUnlimited ? (
-                        <span className="quota-mmx-unlimit"><InfinityIcon size={12} /> 无限</span>
+                        <span className="quota-mmx-unlimit"><InfinityIcon size={14} /> 无限</span>
                       ) : (
                         <>
-                          <span className="quota-mmx-end-num mono">{weeklyPct}<small style={{ color: "var(--muted)", fontSize: 11, marginLeft: 1 }}>%</small></span>
+                          <span className="quota-mmx-end-num mono">{weeklyPct}<small style={{ color: "var(--muted)", fontSize: 12, marginLeft: 1 }}>%</small></span>
                           <span className="quota-mmx-end-meta">已用</span>
                         </>
                       )}
                     </div>
                   </div>
-                  <div className="quota-mcard-foot" style={{ marginTop: 8 }}>
+                  <div className="quota-mcard-foot" style={{ marginTop: 10 }}>
                     {relMin(m.weekly_remains_time * 1000)}后重置
                   </div>
                 </div>
@@ -260,6 +255,11 @@ export default function QuotaPage() {
           )}
         </div>
       </section>
+
+      {/* === 底部：Dashboard 风格速览卡 === */}
+      <div style={{ marginTop: 12 }}>
+        <QuotaSnapshot />
+      </div>
     </div>
   );
 }
