@@ -12,11 +12,27 @@ const UNIT_LABEL: Record<number, string> = {
   6: "日",
 };
 
+function periodUnit(l: { unit: number; number: number }): string {
+  // GLM 返回 unit=6(number=1) 表示"每1日"，但实际重置周期是7天=每周
+  if (l.unit === 6 && l.number === 1) return "周";
+  return UNIT_LABEL[l.unit] ?? `unit=${l.unit}`;
+}
+
 function relMin(ms: number) {
   if (!Number.isFinite(ms) || ms <= 0) return "已重置";
   const m = Math.floor(ms / 60_000);
+  if (m >= 1440) {
+    const d = Math.floor(m / 1440);
+    const rm = m % 1440;
+    return `${d}天${Math.floor(rm / 60)}小时${rm % 60}分`;
+  }
   if (m >= 60) return `${Math.floor(m / 60)}小时${m % 60}分`;
   return `${m}分钟`;
+}
+
+function modelLabel(name: string): string {
+  if (name === "general") return "通用";
+  return name;
 }
 
 function formatReset(ts?: number) {
@@ -91,27 +107,6 @@ export default function QuotaPage() {
 
   return (
     <div className="p-0 max-w-6xl" style={{ ["--glm-blue" as any]: "#2F6BFF", ["--mmx-purple" as any]: "#8B5CF6", ["--mmx-green" as any]: "#4CB782" }}>
-      <div className="mb-5 flex items-end justify-between gap-4">
-        <div>
-          <p className="page-subtitle">智谱 GLM Coding Plan 与 Minimax 套餐实时余量</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {ageSec != null && (
-            <span className="quota-meta" title={nextAuto?.toLocaleString("zh-CN")}>
-              <Clock size={12} /> {ageSec}s 前 · 下次 {nextAuto?.toLocaleTimeString("zh-CN", { hour12: false })}
-            </span>
-          )}
-          <button
-            className="button"
-            disabled={loading}
-            onClick={() => fetchQuota(true)}
-            title="强制刷新（绕过 10 分钟缓存）"
-          >
-            <RefreshCw size={13} className={loading ? "quota-spin" : ""} />
-            {loading ? "刷新中" : "立即刷新"}
-          </button>
-        </div>
-      </div>
 
       {error && (
         <div className="quota-error">
@@ -120,7 +115,7 @@ export default function QuotaPage() {
       )}
 
       {/* === Region 1: 智谱 GLM（智谱风：3 卡并排 + 蓝条） === */}
-      <section className="quota-page-region" style={{ marginBottom: 28 }}>
+      <section className="quota-page-region" style={{ marginBottom: "var(--space-6)" }}>
         <div className="quota-page-region-head">
           <div className="quota-page-region-mark glm">智</div>
           <div>
@@ -136,6 +131,22 @@ export default function QuotaPage() {
               <span style={{ color: "var(--danger)" }}>· {data.glm.error}</span>
             )}
           </div>
+          <div className="quota-page-region-actions">
+            {ageSec != null && (
+              <span className="quota-meta" title={nextAuto?.toLocaleString("zh-CN")}>
+                <Clock size={12} /> {ageSec}s 前 · 下次 {nextAuto?.toLocaleTimeString("zh-CN", { hour12: false })}
+              </span>
+            )}
+            <button
+              className="button"
+              disabled={loading}
+              onClick={() => fetchQuota(true)}
+              title="强制刷新（绕过 10 分钟缓存）"
+            >
+              <RefreshCw size={13} className={loading ? "quota-spin" : ""} />
+              {loading ? "刷新中" : "立即刷新"}
+            </button>
+          </div>
         </div>
 
         <div className="quota-page-card-row cols-3">
@@ -144,7 +155,7 @@ export default function QuotaPage() {
             return (
               <div key={i} className="quota-mcard quota-mcard-glm">
                 <div className="quota-mcard-title">
-                  {l.type === "TIME_LIMIT" ? "调用次数" : "Token 额度"}
+                  {l.type === "TIME_LIMIT" ? "调用次数" : `Token 额度 · ${periodUnit(l)}`}
                   <span className="info">ⓘ</span>
                 </div>
                 <div className={`quota-mcard-pct ${cls} mono`}>
@@ -155,7 +166,7 @@ export default function QuotaPage() {
                   <div className="quota-mcard-bar-fill glm" style={{ width: `${Math.min(100, l.percentage)}%` }} />
                 </div>
                 <div className="quota-mcard-foot">
-                  <strong>每 {l.number} {UNIT_LABEL[l.unit] ?? `unit=${l.unit}`}</strong>
+                  <strong>每{periodUnit(l)}</strong>
                 </div>
                 <div className="quota-mcard-foot">
                   重置时间：<strong>{formatReset(l.nextResetTime)}</strong>
@@ -177,7 +188,7 @@ export default function QuotaPage() {
       </section>
 
       {/* === Region 2: Minimax（Minimax 风：横向左标 / 中条 / 右数字） === */}
-      <section className="quota-page-region" style={{ marginBottom: 28 }}>
+      <section className="quota-page-region" style={{ marginBottom: "var(--space-6)" }}>
         <div className="quota-page-region-head">
           <div className="quota-page-region-mark mmx">M</div>
           <div>
@@ -193,63 +204,51 @@ export default function QuotaPage() {
           </div>
         </div>
 
-        <div className="quota-page-card-row cols-2">
-          {(data?.minimax?.models ?? []).map((m: MinimaxModel) => {
+        <div className="quota-page-card-row" style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+          <div className="quota-mmx-scroll">
+          {(data?.minimax?.models ?? []).filter((m: MinimaxModel) => m.model_name === 'general').flatMap((m: MinimaxModel) => {
             const intervalPct = 100 - (m.current_interval_remaining_percent ?? 100);
             const weeklyPct = 100 - (m.current_weekly_remaining_percent ?? 100);
             const weeklyUnlimited = m.current_weekly_total_count === 0 && m.current_weekly_usage_count === 0;
-            return (
-              <div key={m.model_name} className="quota-mcard quota-mcard-mmx" style={{ gap: 18 }}>
-                {/* 5h 行（Minimax 风横向） */}
-                <div>
-                  <div className="quota-mmx-grid">
-                    <div className="quota-mmx-label">
-                      <span className="quota-mmx-label-name">5h 限额</span>
-                      <span className="quota-mmx-label-meta mono">区间 {m.current_interval_usage_count}/{m.current_interval_total_count}</span>
-                    </div>
-                    <div className="quota-mcard-bar">
-                      <div className="quota-mcard-bar-fill mmx-green" style={{ width: `${Math.min(100, intervalPct)}%` }} />
-                    </div>
-                    <div className="quota-mmx-end">
-                      <span className="quota-mmx-end-num mono">{intervalPct}<small style={{ color: "var(--muted)", fontSize: 12, marginLeft: 1 }}>%</small></span>
-                      <span className="quota-mmx-end-meta">已用</span>
-                    </div>
+            const rows = [
+              <div key={`${m.model_name}-intv`} className="quota-mmx-row">
+                <div className="quota-mmx-row-main">
+                  <div className="quota-mmx-row-label">
+                    <span className="quota-mmx-row-name">{modelLabel(m.model_name)} · 5h</span>
+                    {m.current_interval_total_count > 0 && (
+                      <span className="quota-mmx-row-count mono">{m.current_interval_usage_count}/{m.current_interval_total_count}</span>
+                    )}
                   </div>
-                  <div className="quota-mcard-foot" style={{ marginTop: 10 }}>
-                    {relMin(m.remains_time * 1000)}后重置
+                  <div className="quota-mcard-bar" style={{ flex: 1, minWidth: 80 }}>
+                    <div className={`quota-mcard-bar-fill ${intervalPct >= 90 ? "mmx-danger" : intervalPct >= 70 ? "mmx-warn" : "mmx-green"}`} style={{ width: `${Math.min(100, intervalPct)}%` }} />
                   </div>
+                  <span className={`quota-mmx-row-pct mono ${intervalPct >= 90 ? "danger" : intervalPct >= 70 ? "warn" : ""}`}>{intervalPct}%</span>
                 </div>
-
-                <div style={{ height: 1, background: "var(--line)" }} />
-
-                {/* 周行（紫色渐变） */}
-                <div>
-                  <div className="quota-mmx-grid">
-                    <div className="quota-mmx-label">
-                      <span className="quota-mmx-label-name">周限额</span>
-                      <span className="quota-mmx-label-meta mono">周限 {m.current_weekly_usage_count}/{m.current_weekly_total_count}</span>
-                    </div>
-                    <div className="quota-mcard-bar">
-                      <div className="quota-mcard-bar-fill mmx-purple" style={{ width: `${Math.min(100, weeklyPct)}%` }} />
-                    </div>
-                    <div className="quota-mmx-end">
-                      {weeklyUnlimited ? (
-                        <span className="quota-mmx-unlimit"><InfinityIcon size={14} /> 无限</span>
-                      ) : (
-                        <>
-                          <span className="quota-mmx-end-num mono">{weeklyPct}<small style={{ color: "var(--muted)", fontSize: 12, marginLeft: 1 }}>%</small></span>
-                          <span className="quota-mmx-end-meta">已用</span>
-                        </>
-                      )}
-                    </div>
+                <div className="quota-mmx-row-reset-line">{relMin(m.remains_time)}后重置</div>
+              </div>,
+              <div key={`${m.model_name}-wk`} className="quota-mmx-row">
+                <div className="quota-mmx-row-main">
+                  <div className="quota-mmx-row-label">
+                    <span className="quota-mmx-row-name">{modelLabel(m.model_name)} · 周</span>
+                    {m.current_weekly_total_count > 0 && (
+                      <span className="quota-mmx-row-count mono">{m.current_weekly_usage_count}/{m.current_weekly_total_count}</span>
+                    )}
                   </div>
-                  <div className="quota-mcard-foot" style={{ marginTop: 10 }}>
-                    {relMin(m.weekly_remains_time * 1000)}后重置
+                  <div className="quota-mcard-bar" style={{ flex: 1, minWidth: 80, background: 'rgba(139, 92, 246, 0.78)' }}>
+                    <div className="quota-mcard-bar-fill mmx-purple" style={{ width: `${Math.min(100, weeklyPct)}%` }} />
                   </div>
+                  {weeklyUnlimited ? (
+                    <span className="quota-mmx-unlimit"><InfinityIcon size={14} /> 无限</span>
+                  ) : (
+                    <span className="quota-mmx-row-pct mono">{weeklyPct}%</span>
+                  )}
                 </div>
-              </div>
-            );
+                <div className="quota-mmx-row-reset-line">{relMin(m.weekly_remains_time)}后重置</div>
+              </div>,
+            ];
+            return rows;
           })}
+          </div>
           {data?.minimax?.ok && data.minimax.models.length === 0 && (
             <div className="quota-empty">暂无模型余量数据</div>
           )}
@@ -257,7 +256,7 @@ export default function QuotaPage() {
       </section>
 
       {/* === 底部：Dashboard 风格速览卡 === */}
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: "var(--space-3)" }}>
         <QuotaSnapshot />
       </div>
     </div>

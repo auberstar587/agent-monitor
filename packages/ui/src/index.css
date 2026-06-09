@@ -3899,14 +3899,14 @@ code, pre, .mono {
 .quota-page-region {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-3);
 }
 
 .quota-page-region-head {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 4px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1);
 }
 
 .quota-page-region-mark {
@@ -3924,22 +3924,29 @@ code, pre, .mono {
 .quota-page-region-mark.mmx { background: var(--mmx-purple); }
 
 .quota-page-region-name {
-  font-size: 15px;
+  font-size: 17px;
   font-weight: 600;
   color: var(--text);
 }
 .quota-page-region-meta {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
   margin-left: 6px;
 }
 .quota-page-region-status {
-  margin-left: auto;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
+}
+
+.quota-page-region-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-left: auto;
+  flex-shrink: 0;
 }
 .quota-page-region-dot {
   width: 7px;
@@ -3955,7 +3962,7 @@ code, pre, .mono {
 
 .quota-page-card-row {
   display: grid;
-  gap: 14px;
+  gap: var(--space-4);
 }
 .quota-page-card-row.cols-3 { grid-template-columns: repeat(3, 1fr); }
 .quota-page-card-row.cols-2 { grid-template-columns: repeat(2, 1fr); }
@@ -3968,20 +3975,20 @@ code, pre, .mono {
   background: var(--bg-card);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 16px 18px;
+  padding: var(--space-4);
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 /* 智谱 GLM：缩（让出空间给 Minimax） */
 .quota-mcard-glm {
-  padding: 14px 16px;
-  gap: 4px;
+  padding: var(--space-4);
+  gap: var(--space-1);
 }
 .quota-mcard-glm .quota-mcard-pct {
-  font-size: 26px;
-  margin: 6px 0 0;
+  font-size: 32px;
+  margin: var(--space-2) 0 0;
 }
 .quota-mcard-glm .quota-mcard-pct small {
   font-size: 14px;
@@ -3990,34 +3997,85 @@ code, pre, .mono {
   height: 4px;
 }
 
-/* Minimax：放大（占更多视觉重量） */
-.quota-mcard-mmx {
-  padding: 20px 22px;
-  min-height: 240px;
+/* Minimax 扁平行列表 — 两行结构：上为主数据行，下为重置时间 */
+.quota-mmx-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-4) var(--space-2);
+  border-bottom: 1px solid var(--line);
 }
-.quota-mcard-mmx .quota-mmx-label-name {
-  font-size: 15px;
+.quota-mmx-row:last-child {
+  border-bottom: none;
+}
+.quota-mmx-row-main {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+}
+.quota-mmx-row-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 140px;
+  flex-shrink: 0;
+}
+.quota-mmx-row-name {
+  font-size: 14px;
   font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
 }
-.quota-mcard-mmx .quota-mmx-label-meta {
-  font-size: 11px;
-}
-.quota-mcard-mmx .quota-mmx-end-num {
-  font-size: 16px;
-  font-weight: 600;
-}
-.quota-mcard-mmx .quota-mcard-bar {
-  height: 8px;
-}
-.quota-mcard-mmx .quota-mcard-foot {
+.quota-mmx-row-count {
   font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
 }
+.quota-mmx-row .quota-mcard-bar {
+  height: 6px;
+}
+.quota-mmx-row-pct {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+}
+.quota-mmx-row-pct.warn   { color: var(--warning); }
+.quota-mmx-row-pct.danger { color: var(--danger); }
+.quota-mmx-row-reset-line {
+  font-size: 12px;
+  color: var(--muted);
+  text-align: left;
+  line-height: 1.4;
+}
+.quota-mmx-unlimit {
+  font-size: 13px;
+  color: var(--mmx-purple);
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Minimax 滚动容器 */
+.quota-mmx-scroll {
+  max-height: 300px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent;
+}
+.quota-mmx-scroll::-webkit-scrollbar { width: 6px; }
+.quota-mmx-scroll::-webkit-scrollbar-track { background: transparent; }
+.quota-mmx-scroll::-webkit-scrollbar-thumb { background: var(--line); border-radius: 3px; }
+.quota-mmx-scroll::-webkit-scrollbar-thumb:hover { background: var(--muted); }
 
 .quota-mcard-title {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 500;
   color: var(--text);
 }
@@ -4027,7 +4085,7 @@ code, pre, .mono {
   font-size: 32px;
   font-weight: 600;
   line-height: 1.1;
-  margin: 8px 0 2px;
+  margin: var(--space-2) 0 var(--space-1);
   color: var(--text);
 }
 .quota-mcard-pct.warn   { color: var(--warning); }
@@ -4040,9 +4098,9 @@ code, pre, .mono {
 }
 
 .quota-mcard-used {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--muted);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .quota-mcard-bar {
@@ -4060,11 +4118,13 @@ code, pre, .mono {
 .quota-mcard-bar-fill.glm      { background: var(--glm-blue); }
 .quota-mcard-bar-fill.mmx-green  { background: var(--mmx-green); }
 .quota-mcard-bar-fill.mmx-purple { background: linear-gradient(90deg, var(--mmx-purple), #6D5DD6); }
+.quota-mcard-bar-fill.mmx-warn { background: linear-gradient(90deg, var(--warning), #D4A017); }
+.quota-mcard-bar-fill.mmx-danger { background: linear-gradient(90deg, var(--danger), #C0392B); }
 
 .quota-mcard-foot {
-  font-size: 11px;
+  font-size: 13px;
   color: var(--muted);
-  margin-top: 4px;
+  margin-top: var(--space-1);
 }
 .quota-mcard-foot strong {
   color: var(--text-secondary);
@@ -4073,12 +4133,12 @@ code, pre, .mono {
 
 .quota-mcard-chips {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   flex-wrap: wrap;
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 .quota-mcard-chip {
-  font-size: 10px;
+  font-size: 12px;
   padding: 2px 7px;
   border-radius: 4px;
   background: var(--bg-card-hover);
@@ -4086,48 +4146,3 @@ code, pre, .mono {
   border: 1px solid var(--line);
 }
 
-/* Minimax 风：左标 / 中条 / 右数字 */
-.quota-mmx-grid {
-  display: grid;
-  grid-template-columns: 100px 1fr auto;
-  align-items: center;
-  gap: 12px;
-  margin-top: 6px;
-}
-.quota-mmx-label {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.quota-mmx-label-name {
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--text);
-}
-.quota-mmx-label-meta {
-  font-size: 10px;
-  color: var(--muted);
-}
-.quota-mmx-end {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 2px;
-}
-.quota-mmx-end-num {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--text);
-}
-.quota-mmx-end-meta {
-  font-size: 11px;
-  color: var(--muted);
-}
-.quota-mmx-unlimit {
-  font-size: 11px;
-  color: var(--mmx-purple);
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-  font-weight: 500;
-}
