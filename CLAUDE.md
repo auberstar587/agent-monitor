@@ -168,3 +168,4 @@ GEMINI_API_KEY=... GRAPHIFY_MODE=extract scripts/update-graphify.sh
 - **agent-browser 截图**：dev server 端口冲突时需用 `[::1]:5173` 访问，不要用 `localhost:5173`
 - **Adapter 命名**：EngineAdapter 实现文件用 kebab-case（`claude-code.ts`），避免与 Claude Code CLI 名字冲突
 - **CSS 渐变硬编码**：`packages/ui/src/index.css` 里的 `linear-gradient(...rgba(...))` 必须走 CSS 变量（`--bg-app` 等），否则浅色模式失效
+- **临时文件不入库（2026-06-09 Claude 补）**：测试产物、debug HTML、临时截图、屏幕录像一律不入 git 仓库。规则已落到 `.gitignore`（`*.png` / `*.jpg` / `*.gif` / `*.hmp4` / `*.mp4` / 根目录 `*.html`）。**任何 agent / 协作方看到这类文件出现，浮浮酱必须主动提醒并清理**——它们既占用仓库体积又会被 `git push` 一起上远端
