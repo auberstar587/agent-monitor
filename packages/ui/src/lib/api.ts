@@ -222,4 +222,7 @@ export const api = {
     }),
   deleteArtifact: (id: string) =>
     request<void>(`/artifacts/${id}`, { method: "DELETE" }),
+
+  // Quota
+  getQuota: (force = false) => request<any>(`/quota${force ? "?force=true" : ""}`),
 };

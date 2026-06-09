@@ -539,6 +539,21 @@ PromptPack 必须可追溯。一次任务为什么这样分配、为什么这样
 - 列表模式 + 像素会议室模式。
 - 会议决策可沉淀为事件或记忆条目。
 
+### 6.13 P2: 套餐余量监控（GLM Coding Plan + Minimax）
+
+目标：把外部 LLM 套餐余量纳入本地工作台，避免到限额才发现。
+
+需求：
+- 后端 `/api/quota` 合并两个数据源：智谱 GLM `quota/limit` HTTP 接口 + Minimax `mmx quota show --output=json` CLI 子进程。
+- 10 分钟内存 TTL 缓存（`?force=true` 跳过）。
+- 前端新增 `/quota` 页面（QuotaPage），自动 10 分钟轮询 + 手动刷新按钮 + 加载/错误/异常态分色。
+- 显示每个 limit 的已用百分比、剩余量、重置时间、模型分布（GLM `usageDetails`）。
+- 失败源单独显示 `error`，不全页面报红。
+
+环境：
+- GLM key 走 `ZAI_API_KEY` env（`packages/server/src/services/quota/glm.ts`）。
+- Minimax 走 PATH 中的 `mmx` CLI（`packages/server/src/services/quota/minimax.ts`）。
+
 ---
 
 ## 7. 非功能需求
@@ -670,3 +685,4 @@ PromptPack 必须可追溯。一次任务为什么这样分配、为什么这样
 | 2026-06-04 | 2.4.1 | Claude | **收尾 + 新特性**：(1) **Agent 页面缓存**（stores/index.ts）：Zustand 加 `persist` 中间件，`partialize` 只缓存 agents/projects/outputs/blueprints 数据到 localStorage，浏览器刷新后先渲染缓存数据再静默更新，解决切换 tab 空白闪烁问题。(2) **Codex CLI 引擎适配器**（Hermes 实施）：新增 `codex.ts` 适配器，接入 OpenAI Codex CLI（`codex exec --json`），JSONL 事件流解析（thread/turn/item 三级），支持 o3/o4-mini/gpt-5.4 等模型，注册到 registry.ts。(3) **前端样式改写**（子 Agent 实施）：使用 design-system + frontend-design skill 指导，保持现有布局结构不变，更新 CSS 变量/颜色方案/间距/阴影/动画等视觉元素。(4) **项目文档更新**：AGENT-SYSTEM-REDESIGN.md 状态标记为"已完成"，SPEC.md 版本升至 v2.3.8。 |
 | 2026-06-04 | 2.3.9 | Claude | **前端整改 Phase 1-8 完成**（Codex + 浮浮酱多 Agent 协同）：<br>**Phase 1** TraceList + TraceDetail 页面（新建，路由 /traces + /traces/:taskId）。<br>**Phase 2** Inbox 分栏重做（左列表 40% + 右详情 60%，6 种 type 映射类型化动作组）。<br>**Phase 3** Artifact Review 闭环（模型 + 7 个 API + 列表/详情页 + 状态机 draft→submitted→accepted/rejected）。<br>**Phase 4** AgentSession 监督层（模型 + 5 个 API + Agents 页 Sessions Tab）。<br>**Phase 5** ProjectDetail cockpit（健康条 5 metric-card + 摘要网格 + 元数据折叠区）。<br>**Phase 6** Dashboard 队列化（注意力队列 → 正在运行 → 风险与失败 → 最近完成 → 系统统计）。<br>**Phase 7** Blueprint 表单化（暂缓，用户明确指示忽略 Blueprint）。<br>**Phase 8** 路由级 Code Splitting：React.lazy + Suspense，18 个页面独立 chunk，主包 576kB → 263kB，BlueprintStudio(ReactFlow) 197kB 按需加载。<br>**CustomSelect 合并**：合并 Codex 分支 `agent/codex-custom-select`，全项目 0 个原生 `<select>` 残留，统一为 `CustomSelect` 组件（Portal 弹出 + badge 变体 + 键盘/点击外部关闭）。<br>**布局修复**：11 页面挂 scroll class 统一滚动条样式；workspace-content 强制 flex gap 移除；ProjectDetail gap 16→8px + 返回按钮移顶部；首屏信息密度提升。 |
 | 2026-06-05 | 2.4.2 | Codex | **产品定位校正：Agent Monitor 不是纯代码任务执行器，而是代码逻辑 + Agent 决策 + Prompt/Skill 工程的复合运行控制层。** 新增 Intent Router / ProjectSkill / PromptPack / DecisionRequest 核心对象；明确 Intent Router 是 IntentRouterService（代码边界、状态、安全、校验）+ Router Agent（自然语言语义判断）的组合；补充快捷任务意图路由 P0：显式 project+agent 直达执行，缺失信息时启动 Router Agent 分析意图、项目、风险和候选执行 Agent，低置信度进入 Inbox；补充执行中用户决策 P0：Agent 需要用户选 A/B 时创建 DecisionRequest，任务进入 `waiting_user`，用户响应后用原 native session resume；补充执行型任务“无实现活动不得 completed”的验收标准；更新当前验证基线：Codex 原生 session resume、Task execute native session E2E、防空完成 guard 已通过，Artifacts API 因缺 `artifacts` relation 待修复。 |
+| 2026-06-09 | 2.4.3 | Hermes | **新增 Quota 监控模块**（§6.13）：后端 `/api/quota` 合并 GLM Coding Plan HTTP 接口 + Minimax `mmx quota show` CLI 子进程，10 分钟 TTL 缓存；前端 `/quota` 页面（QuotaPage）10 分钟轮询 + 手动刷新 + 加载/错误/异常态分色；Layout 加"用量"导航项；CSS 新增独立 `.quota-*` 命名空间。GLM key 走 `ZAI_API_KEY` env。 |

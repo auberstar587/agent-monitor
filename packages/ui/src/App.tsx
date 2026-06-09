@@ -18,6 +18,7 @@ import Artifacts from "./pages/Artifacts";
 import ArtifactDetail from "./pages/ArtifactDetail";
 import Settings from "./pages/Settings";
 import Chat from "./pages/Chat";
+import QuotaPage from "./pages/QuotaPage";
 
 export default function App() {
   return (
@@ -41,6 +42,7 @@ export default function App() {
         <Route path="blueprints/:id" element={<BlueprintStudio />} />
         <Route path="chat" element={<Chat />} />
         <Route path="settings" element={<Settings />} />
+        <Route path="quota" element={<QuotaPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard, FolderKanban, Bot, FileText,
   Brain, Inbox, GitBranch, ListTodo, Activity, Menu, Monitor,
-  Moon, PanelLeftClose, PanelLeftOpen, Settings, Sun, MessageSquare,
+  Moon, PanelLeftClose, PanelLeftOpen, Settings, Sun, MessageSquare, Gauge,
 } from "lucide-react";
 import { useStore } from "../stores";
 
@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { path: "/chat", label: "对话", icon: MessageSquare },
   { path: "/tasks", label: "任务", icon: ListTodo },
   { path: "/settings", label: "设置", icon: Settings },
+  { path: "/quota", label: "用量", icon: Gauge },
 ];
 
 const PAGE_META = [
@@ -31,6 +32,7 @@ const PAGE_META = [
   { match: "/chat", title: "对话", eyebrow: "Cowork", desc: "与 Agent 直接对话，发送任务，查看流式响应" },
   { match: "/tasks", title: "任务", eyebrow: "Tasks", desc: "任务管理与状态流转" },
   { match: "/settings", title: "设置", eyebrow: "Preferences", desc: "主题、布局和本地工作台偏好" },
+  { match: "/quota", title: "用量", eyebrow: "Quotas", desc: "GLM Coding Plan 与 Minimax 套餐余量" },
 ];
 
 const THEME_LABELS: Record<string, string> = {

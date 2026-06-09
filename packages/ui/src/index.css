@@ -3574,3 +3574,208 @@ code, pre, .mono {
   letter-spacing: 0.06em;
   font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
 }
+
+/* === Quota page (GLM / Minimax 套餐余量面板) === */
+.quota-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-card);
+}
+
+.quota-spin {
+  animation: quota-spin 1s linear infinite;
+}
+
+@keyframes quota-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.quota-error {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, var(--line));
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--danger, #ef4444) 8%, var(--bg-card));
+  color: var(--danger, #ef4444);
+  font-size: 12px;
+}
+
+.quota-error-inner {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--danger, #ef4444) 6%, transparent);
+  color: var(--danger, #ef4444);
+  font-size: 11px;
+}
+
+.quota-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 12px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
+}
+
+.quota-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+  gap: var(--space-5);
+}
+
+.quota-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.quota-panel-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.quota-panel-head h2 {
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 680;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.quota-panel-head h2 small {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.quota-panel-head p {
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.quota-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.quota-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.quota-row {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--bg-card) 90%, transparent);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.quota-row-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+.quota-period {
+  font-weight: 500;
+  color: var(--text);
+}
+.quota-reset {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.quota-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.quota-bar-track {
+  width: 100%;
+  height: 6px;
+  background: color-mix(in srgb, var(--muted) 15%, transparent);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.quota-bar-track-mini {
+  height: 3px;
+  opacity: 0.7;
+}
+.quota-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.quota-row-foot {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  color: var(--muted);
+}
+.quota-row-foot strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.quota-details {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-top: 4px;
+  border-top: 1px dashed var(--line);
+}
+.quota-chip {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+  color: var(--muted);
+}

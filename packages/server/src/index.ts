@@ -23,6 +23,7 @@ import { routes as chatRoutes } from "./routes/chat.js";
 import { routes as skillApiRoutes } from "./routes/skill-api.js";
 import { agentSessionRoutes } from "./routes/agent-sessions.js";
 import { artifactRoutes } from "./routes/artifacts.js";
+import { quotaRoutes } from "./routes/quota.js";
 import { initScheduler, stopAllSchedulers } from "./services/scheduler.js";
 import { syncRuntimes, startHealthCheck, stopHealthCheck } from "./services/runtime-service.js";
 import { syncAgentsFromRuntimes } from "./services/agent-registry.js";
@@ -99,6 +100,7 @@ await fastify.register(taskRoutes);
 await fastify.register(fsRoutes);
 await fastify.register(agentSessionRoutes);
 await fastify.register(artifactRoutes);
+await fastify.register(quotaRoutes);
 
 // --- Adapter-backed routes (legacy) ---
 if (adapter) {
