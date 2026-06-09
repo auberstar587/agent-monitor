@@ -101,16 +101,6 @@ export default function QuotaSnapshot({ compact = false }: { compact?: boolean }
 
   return (
     <div className="content-card quota-snapshot" style={{ padding: compact ? "12px 16px" : "14px 18px" }}>
-      <div className="flex items-center justify-between" style={{ marginBottom: 12 }}>
-        <div className="flex items-center gap-2">
-          <Activity size={14} style={{ color: "var(--accent)" }} />
-          <span className="section-title" style={{ fontSize: 14 }}>套餐余量</span>
-        </div>
-        <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-          {ageS != null ? `${ageS}s 前 · 10min 自动` : "—"}
-        </span>
-      </div>
-
       <div className="quota-snap-grid">
         {/* GLM */}
         <div className="quota-snap-cell">
@@ -155,11 +145,16 @@ export default function QuotaSnapshot({ compact = false }: { compact?: boolean }
         </div>
       </div>
 
-      {/* 底部：源状态 + 详情链接 */}
+      {/* 底部：标签 + 源状态 + 详情链接 */}
       <div className="quota-snap-footer">
+        <Activity size={14} style={{ color: "var(--accent)" }} />
+        <span className="section-title" style={{ fontSize: 14 }}>套餐余量</span>
         <span className={`quota-snap-status-dot ${onlineCount === 2 ? "" : "stale"}`} />
         <span className="quota-snap-status-text mono">
           {onlineCount}/2 源在线
+        </span>
+        <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+          {ageS != null ? `· ${ageS}s 前 · 10min 自动` : ""}
         </span>
         <Link
           to="/quota"

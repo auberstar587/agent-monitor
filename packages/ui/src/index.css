@@ -3968,7 +3968,7 @@ code, pre, .mono {
   background: var(--bg-card);
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
-  padding: 18px 20px;
+  padding: 16px 18px;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -3985,16 +3985,16 @@ code, pre, .mono {
 .quota-mcard-title .info { color: var(--muted); }
 
 .quota-mcard-pct {
-  font-size: 40px;
+  font-size: 32px;
   font-weight: 600;
   line-height: 1.1;
-  margin: 12px 0 2px;
+  margin: 8px 0 2px;
   color: var(--text);
 }
 .quota-mcard-pct.warn   { color: var(--warning); }
 .quota-mcard-pct.danger { color: var(--danger); }
 .quota-mcard-pct small {
-  font-size: 18px;
+  font-size: 16px;
   color: var(--muted);
   font-weight: 500;
   margin-left: 1px;
