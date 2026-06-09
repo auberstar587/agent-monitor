@@ -16,6 +16,10 @@ export interface Config {
   corsOrigins: string[];
   adapter: string;
   adapters: Record<string, AdapterConfig>;
+  workflow: {
+    router_engine_id: string;
+    router_fallback_engine_ids: string[];
+  };
 }
 
 const CONFIG_PATH = path.join(os.homedir(), '.agent-manager', 'config.yaml');
@@ -34,6 +38,10 @@ export function loadConfig(): Config {
         ws_url: "ws://localhost:8080/ws",
         api_key: "",
       },
+    },
+    workflow: {
+      router_engine_id: "claude-code",
+      router_fallback_engine_ids: ["claude-code", "hermes", "reasonix", "codex"],
     },
   };
 
@@ -54,9 +62,23 @@ export function loadConfig(): Config {
       if (parsed['adapters.multica.api_url']) mc.api_url = parsed['adapters.multica.api_url'];
       if (parsed['adapters.multica.ws_url']) mc.ws_url = parsed['adapters.multica.ws_url'];
       if (parsed['adapters.multica.api_key']) mc.api_key = parsed['adapters.multica.api_key'];
+
+      if (parsed['workflow.router_engine_id']) {
+        defaults.workflow.router_engine_id = parsed['workflow.router_engine_id'];
+      }
+      if (parsed['workflow.router_fallback_engine_ids']) {
+        defaults.workflow.router_fallback_engine_ids = parseCsv(parsed['workflow.router_fallback_engine_ids']);
+      }
     }
   } catch {
     // Use defaults
+  }
+
+  if (process.env.AGENT_MONITOR_ROUTER_ENGINE) {
+    defaults.workflow.router_engine_id = process.env.AGENT_MONITOR_ROUTER_ENGINE;
+  }
+  if (process.env.AGENT_MONITOR_ROUTER_FALLBACK_ENGINES) {
+    defaults.workflow.router_fallback_engine_ids = parseCsv(process.env.AGENT_MONITOR_ROUTER_FALLBACK_ENGINES);
   }
 
   // Ensure config file exists
@@ -69,6 +91,13 @@ export function loadConfig(): Config {
   }
 
   return defaults;
+}
+
+function parseCsv(value: string): string[] {
+  return value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
 }
 
 function parseFlatYaml(content: string): Record<string, string> {
@@ -113,6 +142,14 @@ server:
 
 database:
   url: ${config.databaseUrl}
+
+workflow:
+  # Engine used by Intent Router decisions once Router Agent is implemented.
+  # Override with AGENT_MONITOR_ROUTER_ENGINE.
+  router_engine_id: ${config.workflow.router_engine_id}
+  # Comma-separated fallback execution engines for smart tasks.
+  # Override with AGENT_MONITOR_ROUTER_FALLBACK_ENGINES.
+  router_fallback_engine_ids: ${config.workflow.router_fallback_engine_ids.join(',')}
 
 adapters:
   multica:

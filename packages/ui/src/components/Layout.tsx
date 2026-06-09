@@ -90,6 +90,8 @@ export default function Layout() {
 
   useEffect(() => {
     setSidebarOpen(false);
+    // Reset the workspace scroll on route change so the new page starts at the top.
+    document.querySelector(".workspace-main")?.scrollTo({ top: 0, behavior: "auto" });
   }, [location.pathname]);
 
   const toggleTheme = () => {

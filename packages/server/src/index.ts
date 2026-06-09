@@ -5,7 +5,7 @@ import path from "path";
 import { closePool } from "./db/client.js";
 import { migrate } from "./db/migrate.js";
 import { loadConfig } from "./config.js";
-import { getAdapter } from "./adapters/registry.js";
+import { getAdapter, getRegisteredEngines } from "./adapters/registry.js";
 import { listProjects, registerProject } from "./services/project-registry.js";
 import { projectRoutes } from "./routes/projects.js";
 import { outputRoutes } from "./routes/outputs.js";
@@ -117,7 +117,7 @@ fastify.get("/api/health", async () => ({
   status: "ok",
   version: "2.3.0",
   adapter: config.adapter,
-  engines: ["multica", "claude-code"],
+  engines: getRegisteredEngines(),
   timestamp: Date.now(),
 }));
 
