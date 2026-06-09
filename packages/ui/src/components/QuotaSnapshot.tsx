@@ -105,26 +105,10 @@ export default function QuotaSnapshot({ compact = false }: { compact?: boolean }
         <div className="flex items-center gap-2">
           <Activity size={14} style={{ color: "var(--accent)" }} />
           <span className="section-title" style={{ fontSize: 14 }}>套餐余量</span>
-          <span className="tech-badge mono" style={{
-            fontSize: 12,
-            color: onlineCount === 2 ? "var(--success)" : "var(--warning)",
-            borderColor: onlineCount === 2 ? "var(--success)" : "var(--warning)",
-          }}>
-            {onlineCount}/2 源在线
-          </span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
-            {ageS != null ? `${ageS}s 前 · 10min 自动` : "—"}
-          </span>
-          <Link
-            to="/quota"
-            className="quota-snap-link"
-            style={{ fontSize: 11, color: "var(--accent)", display: "inline-flex", alignItems: "center", gap: 2 }}
-          >
-            详情 <ArrowUpRight size={11} />
-          </Link>
-        </div>
+        <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>
+          {ageS != null ? `${ageS}s 前 · 10min 自动` : "—"}
+        </span>
       </div>
 
       <div className="quota-snap-grid">
@@ -169,6 +153,21 @@ export default function QuotaSnapshot({ compact = false }: { compact?: boolean }
             {data?.minimax?.models?.[0] ? `剩 ${relMin(data.minimax.models[0].weekly_remains_time * 1000)} 后重置` : "暂无数据"}
           </div>
         </div>
+      </div>
+
+      {/* 底部：源状态 + 详情链接 */}
+      <div className="quota-snap-footer">
+        <span className={`quota-snap-status-dot ${onlineCount === 2 ? "" : "stale"}`} />
+        <span className="quota-snap-status-text mono">
+          {onlineCount}/2 源在线
+        </span>
+        <Link
+          to="/quota"
+          className="quota-snap-link"
+          style={{ marginLeft: "auto", fontSize: 11, color: "var(--accent)", display: "inline-flex", alignItems: "center", gap: 2 }}
+        >
+          详情 <ArrowUpRight size={11} />
+        </Link>
       </div>
     </div>
   );

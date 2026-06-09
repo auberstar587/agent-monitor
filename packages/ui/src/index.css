@@ -3869,6 +3869,32 @@ code, pre, .mono {
   letter-spacing: 0.02em;
 }
 
+.quota-snap-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--line);
+}
+
+.quota-snap-status-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--success) 20%, transparent);
+}
+.quota-snap-status-dot.stale {
+  background: var(--warning);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--warning) 20%, transparent);
+}
+
+.quota-snap-status-text {
+  font-size: 11px;
+  color: var(--muted);
+}
+
 /* === QuotaPage v3: 上下大区 + 智谱/智谱 + Minimax/Minimax === */
 .quota-page-region {
   display: flex;
