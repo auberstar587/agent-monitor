@@ -16,6 +16,16 @@ export interface EngineMessage {
   output?: string;
 }
 
+// =====================================================================
+//  Native Session / Thread Resume
+// =====================================================================
+
+/** 底层 CLI/平台的原生会话标识（Claude session_id、Codex thread_id 等） */
+export interface EngineNativeSession {
+  id: string;
+  kind: 'claude_session' | 'codex_thread' | 'reasonix_session' | 'multica_session' | string;
+}
+
 export interface EngineUsage {
   inputTokens: number;
   outputTokens: number;
@@ -37,11 +47,17 @@ export interface EngineAdapter {
   detectInstalled(): Promise<boolean>;
 
   // 2. 执行 Prompt，返回消息流（AsyncIterable）
-  //    opts 可包含：projectId / workingDir / model / temperature 等
+  //    opts 可包含：projectId / workingDir / model / temperature / sessionId / nativeSessionId 等
+  //    返回值附加 runId、nativeSession、sessionId 用于 resume 支持
+  //    backward-compatible: 旧 caller 仍只需 for-await-of
   run(
     prompt: string,
     opts?: Record<string, unknown>,
-  ): AsyncIterable<EngineMessage> & { runId: string };
+  ): AsyncIterable<EngineMessage> & {
+    runId: string;
+    nativeSession?: Promise<EngineNativeSession | undefined>;
+    sessionId?: Promise<string | undefined>;
+  };
 
   // 3. 审批（Approve）一个权限请求
   approve(requestId: string): Promise<boolean>;

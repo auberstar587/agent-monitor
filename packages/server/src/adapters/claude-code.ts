@@ -62,13 +62,15 @@ export async function createClaudeCodeAdapter(
 
     run(prompt: string, opts?: Record<string, unknown>) {
       const runId = `claude_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      // 默认 model 改为完整名以匹配 resolveProvider 前缀规则（持久化层不会写 provider=null）
-      const model = (opts?.model as string) || 'claude-sonnet-4-5';
+      const explicitModel = opts?.model as string | undefined;
       const systemPrompt = opts?.systemPrompt as string | undefined;
       const extraArgs = (opts?.extraArgs as string[] | undefined) ?? [];
-      // CORE-06: 支持 resume 已有 session
-      const resumeSessionId = opts?.sessionId as string | undefined;
-      const metrics = startMetrics(runId, { model, engineId: 'claude-code', persist: true });
+      // CORE-06: 支持 resume 已有 session (sessionId / nativeSessionId)
+      const resumeSessionId = (opts?.sessionId as string | undefined)
+        ?? (opts?.nativeSessionId as string | undefined);
+      // metrics model: 仅当 caller 显式传入时才记录（不伪造默认值）
+      const metricsModel = explicitModel || undefined;
+      const metrics = startMetrics(runId, { model: metricsModel, engineId: 'claude-code', persist: true });
 
       // 先把 runId 标"待启动"，让 cancel() 在 spawn 前也能识别
       // 用 null 占位，spawn 完成后替换为真实 child
@@ -76,8 +78,24 @@ export async function createClaudeCodeAdapter(
 
       // sessionId 通过 deferred promise 暴露给调用方（done 事件前可拿到）
       let sessionIdResolve: (v: string | undefined) => void;
+      let sessionIdSettled = false;
       const sessionIdPromise = new Promise<string | undefined>((resolve) => {
-        sessionIdResolve = resolve;
+        sessionIdResolve = (value) => {
+          if (sessionIdSettled) return;
+          sessionIdSettled = true;
+          resolve(value);
+        };
+      });
+
+      // nativeSession 通过 deferred promise 暴露（解析到 session_id + kind）
+      let nativeSessionResolve: (v: { id: string; kind: string } | undefined) => void;
+      let nativeSessionSettled = false;
+      const nativeSessionPromise = new Promise<{ id: string; kind: string } | undefined>((resolve) => {
+        nativeSessionResolve = (value) => {
+          if (nativeSessionSettled) return;
+          nativeSessionSettled = true;
+          resolve(value);
+        };
       });
 
       async function* gen(): AsyncGenerator<EngineMessage> {
@@ -90,6 +108,7 @@ export async function createClaudeCodeAdapter(
           '--output-format', 'stream-json',
           '--verbose',
           ...(resumeSessionId ? ['--resume', resumeSessionId] : []),
+          ...(explicitModel ? ['--model', explicitModel] : []),
           ...(systemPrompt ? ['--append-system-prompt', systemPrompt] : []),
           ...extraArgs,
           prompt,
@@ -126,7 +145,11 @@ export async function createClaudeCodeAdapter(
 
             // 提取 session_id（CLI 可能在 init/result 事件携带）
             const evtSessionId = (evt as any).session_id as string | undefined;
-            if (evtSessionId) sessionIdResolve(evtSessionId);
+            if (evtSessionId) {
+              sessionIdResolve(evtSessionId);
+              // 首次解析到 session_id 时，设置 nativeSession（只设一次）
+              nativeSessionResolve({ id: evtSessionId, kind: 'claude_session' });
+            }
 
             yield* handleStreamEvent(evt, metrics, () => {
               if (!firstTokenReceived) {
@@ -157,14 +180,21 @@ export async function createClaudeCodeAdapter(
         } catch (err: any) {
           yield { seq: ++seq, type: 'error', content: err?.message || 'spawn/parse error' };
         } finally {
+          sessionIdResolve(undefined);
+          nativeSessionResolve(undefined);
           metrics.finish();
           _runningChildren.delete(runId);
         }
       }
 
-      const it = gen() as AsyncGenerator<EngineMessage> & { runId: string; sessionId: Promise<string | undefined> };
+      const it = gen() as AsyncGenerator<EngineMessage> & {
+        runId: string;
+        sessionId: Promise<string | undefined>;
+        nativeSession: Promise<{ id: string; kind: string } | undefined>;
+      };
       (it as unknown as { runId: string }).runId = runId;
       (it as unknown as { sessionId: Promise<string | undefined> }).sessionId = sessionIdPromise;
+      (it as unknown as { nativeSession: Promise<{ id: string; kind: string } | undefined> }).nativeSession = nativeSessionPromise;
       return it;
     },
 

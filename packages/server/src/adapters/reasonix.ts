@@ -34,11 +34,13 @@ export async function createReasonixAdapter(
 
     run(prompt: string, opts?: Record<string, unknown>) {
       const runId = `reasonix_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const model = (opts?.model as string) || 'deepseek-v4-flash';
+      const explicitModel = opts?.model as string | undefined;
       const systemPrompt = opts?.systemPrompt as string | undefined;
       const effort = opts?.effort as string | undefined;
       const budget = opts?.budget as number | undefined;
-      const metrics = startMetrics(runId, { model, engineId: 'reasonix', persist: true });
+      // metrics model: 仅当 caller 显式传入时才记录（不伪造默认值）
+      const metricsModel = explicitModel || undefined;
+      const metrics = startMetrics(runId, { model: metricsModel, engineId: 'reasonix', persist: true });
 
       // pre-spawn 占位，支持 cancel
       _runningChildren.set(runId, null as unknown as ChildProcess);
@@ -62,7 +64,8 @@ export async function createReasonixAdapter(
           ...(systemPrompt ? ['--system', systemPrompt] : []),
           ...(effort ? ['--effort', effort] : []),
           ...(budget ? ['--budget', String(budget)] : []),
-          '--model', model,
+          // 仅当 caller 显式传入 model 时才附加 --model（不伪造默认值）
+          ...(explicitModel ? ['--model', explicitModel] : []),
           prompt,
         ];
 

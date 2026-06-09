@@ -114,7 +114,8 @@ describe('ClaudeCodeAdapter 真实 spawn 集成', () => {
     expect(usage!.agentSteps).toBe(1);
     expect(usage!.toolLatencyMs).toBe(9500);
     expect(usage!.costCents).toBe(18);
-    expect(usage!.model).toBe('claude-sonnet-4-5');
+    // 未显式传入 model，metrics 不记录默认值
+    expect(usage!.model).toBeUndefined();
   });
 
   it('子进程 exit code 非零时 yield error 消息', async () => {
@@ -210,5 +211,95 @@ describe('ClaudeCodeAdapter 真实 spawn 集成', () => {
     expect(textMsgs.length).toBe(1);
     // system: hook_started + hook_response + spawn-init = 3
     expect(systemMsgs.length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('无 model 时 spawn args 不含 --model', async () => {
+    const adapter = await createClaudeCodeAdapter();
+    const it = adapter.run('test');
+
+    setImmediate(() => feedAndClose(STREAM_EVENTS));
+    for await (const _ of it) { /* consume */ }
+
+    const { spawn } = await import('node:child_process');
+    const spawnArgs = (spawn as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(spawnArgs).not.toContain('--model');
+  });
+
+  it('显式 model 时 spawn args 包含 --model', async () => {
+    const adapter = await createClaudeCodeAdapter();
+    const it = adapter.run('test', { model: 'claude-opus-4-20250514' });
+
+    setImmediate(() => feedAndClose(STREAM_EVENTS));
+    for await (const _ of it) { /* consume */ }
+
+    const { spawn } = await import('node:child_process');
+    const spawnArgs = (spawn as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(spawnArgs).toContain('--model');
+    expect(spawnArgs).toContain('claude-opus-4-20250514');
+
+    const usage = await adapter.cost(it.runId);
+    expect(usage!.model).toBe('claude-opus-4-20250514');
+  });
+
+  it('resume session_id 时 spawn args 包含 --resume', async () => {
+    const adapter = await createClaudeCodeAdapter();
+    const it = adapter.run('test', { sessionId: 'sess-abc-123' });
+
+    setImmediate(() => feedAndClose(STREAM_EVENTS));
+    for await (const _ of it) { /* consume */ }
+
+    const { spawn } = await import('node:child_process');
+    const spawnArgs = (spawn as ReturnType<typeof vi.fn>).mock.calls[0][1];
+    expect(spawnArgs).toContain('--resume');
+    expect(spawnArgs).toContain('sess-abc-123');
+  });
+
+  it('nativeSession promise 从 session_id 事件解析', async () => {
+    const adapter = await createClaudeCodeAdapter();
+    const it = adapter.run('test');
+    const ns = it.nativeSession;
+
+    setImmediate(() => feedAndClose(STREAM_EVENTS));
+    for await (const _ of it) { /* consume */ }
+
+    const resolved = await ns;
+    expect(resolved).toEqual({ id: 'test-session', kind: 'claude_session' });
+  });
+
+  it('sessionId promise 从 session_id 事件解析', async () => {
+    const adapter = await createClaudeCodeAdapter();
+    const it = adapter.run('test');
+
+    setImmediate(() => feedAndClose(STREAM_EVENTS));
+    for await (const _ of it) { /* consume */ }
+
+    const sid = await it.sessionId;
+    expect(sid).toBe('test-session');
+  });
+
+  it('无 session_id 事件时 nativeSession 和 sessionId 都解析为 undefined', async () => {
+    // 用不含 session_id 的事件
+    const eventsNoSession = [
+      JSON.stringify({
+        type: 'assistant',
+        message: { role: 'assistant', content: [{ type: 'text', text: 'hello' }] },
+      }),
+      JSON.stringify({
+        type: 'result',
+        subtype: 'success',
+        is_error: false,
+        result: 'hello',
+        usage: { input_tokens: 5, output_tokens: 3 },
+      }),
+    ];
+
+    const adapter = await createClaudeCodeAdapter();
+    const it = adapter.run('test');
+
+    setImmediate(() => feedAndClose(eventsNoSession));
+    for await (const _ of it) { /* consume */ }
+
+    expect(await it.nativeSession).toBeUndefined();
+    expect(await it.sessionId).toBeUndefined();
   });
 });

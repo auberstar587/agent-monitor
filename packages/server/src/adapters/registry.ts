@@ -71,6 +71,9 @@ registerEngine('reasonix', async () => createReasonixAdapter());
 import { createCodexAdapter } from './codex.js';
 registerEngine('codex', async () => createCodexAdapter());
 
+import { createHermesAdapter } from './hermes.js';
+registerEngine('hermes', async () => createHermesAdapter());
+
 import { createMulticaEngineAdapter } from './multica/engine.js';
 registerEngine('multica', async () => {
   const { loadConfig } = await import('../config.js');

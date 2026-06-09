@@ -38,8 +38,9 @@ export async function createMulticaEngineAdapter(
 
     run(prompt: string, opts?: Record<string, unknown>) {
       const runId = `multica_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-      const model = (opts?.model as string) || 'multica-default';
-      const metrics = startMetrics(runId, { model, engineId: 'multica', persist: true });
+      // metrics model: 仅当 caller 显式传入时才记录（不伪造默认值）
+      const metricsModel = (opts?.model as string) || undefined;
+      const metrics = startMetrics(runId, { model: metricsModel, engineId: 'multica', persist: true });
 
       async function* gen(): AsyncGenerator<EngineMessage> {
         let seq = 0;
