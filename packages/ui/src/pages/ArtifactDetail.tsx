@@ -114,7 +114,7 @@ export default function ArtifactDetail() {
             <span className={`status-pill ${sc.pill}`}>
               {STATUS_LABELS[art.status] ?? art.status}
             </span>
-            <span className="tech-badge mono" style={{ fontSize: 10 }}>
+            <span className="tech-badge mono" style={{ fontSize: 12 }}>
               {TYPE_LABELS[art.artifact_type] ?? art.artifact_type}
             </span>
           </div>

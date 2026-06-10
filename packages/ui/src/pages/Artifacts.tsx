@@ -229,14 +229,14 @@ export default function Artifacts() {
                     {art.status === "draft" && (
                       <button type="button" className="button" disabled={busy}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAction(art.id, "submit"); }}
-                        style={{ fontSize: 10, padding: "0 8px", height: 22 }}>
+                        style={{ fontSize: 12, padding: "0 8px", height: 22 }}>
                         {busy ? "…" : <><Send size={10} /> 提交</>}
                       </button>
                     )}
                     {art.status === "submitted" && (
                       <button type="button" className="button" disabled={busy}
                         onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleAction(art.id, "accept"); }}
-                        style={{ fontSize: 10, padding: "0 8px", height: 22, borderColor: "var(--success)", color: "var(--success)" }}>
+                        style={{ fontSize: 12, padding: "0 8px", height: 22, borderColor: "var(--success)", color: "var(--success)" }}>
                         {busy ? "…" : <><CheckCircle size={10} /> 接受</>}
                       </button>
                     )}

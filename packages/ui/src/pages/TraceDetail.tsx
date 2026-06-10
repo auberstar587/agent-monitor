@@ -255,7 +255,7 @@ export default function TraceDetail() {
                 <SIcon size={10} /> {sc.label}
               </span>
               {trace.model && (
-                <span className="tech-badge mono" style={{ fontSize: 10 }}>{trace.model}</span>
+                <span className="tech-badge mono" style={{ fontSize: 12 }}>{trace.model}</span>
               )}
               {trace.source && (
                 <span className="mono" style={{ fontSize: 9, color: "var(--muted)" }}>

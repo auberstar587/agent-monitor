@@ -299,10 +299,10 @@ export default function Tasks() {
                 <div className="tasks-column-head" style={{ borderColor: style.color + "33" }}>
                   <div className="tasks-column-rail" style={{ background: style.color }} />
                   <Icon size={12} style={{ color: style.color }} />
-                  <span className="mono" style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.1em", color: style.color }}>
+                  <span className="mono" style={{ fontSize: 12, fontWeight: 700, letterSpacing: "0.1em", color: style.color }}>
                     {style.label}
                   </span>
-                  <span className="mono" style={{ fontSize: 10, color: "var(--muted)" }}>
+                  <span className="mono" style={{ fontSize: 12, color: "var(--muted)" }}>
                     · {String(groupTasks.length).padStart(2, "0")}
                   </span>
                 </div>

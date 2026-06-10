@@ -390,7 +390,6 @@ function QuickTaskSection({ projects, agents }: { projects: any[]; agents: any[]
   const [description, setDescription] = useState("");
   const [projectId, setProjectId] = useState("");
   const [assigneeId, setAssigneeId] = useState("");
-  const [expanded, setExpanded] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -421,7 +420,6 @@ function QuickTaskSection({ projects, agents }: { projects: any[]; agents: any[]
     setAssigneeId("");
     setResult(null);
     setError(null);
-    setExpanded(false);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -491,7 +489,7 @@ function QuickTaskSection({ projects, agents }: { projects: any[]; agents: any[]
   // 输入态
   return (
     <div className="content-card quick-task-card">
-      <div className="flex items-center gap-2 mb-3">
+      <div className="flex items-center gap-2" style={{ marginBottom: "var(--space-6)" }}>
         <Zap size={14} style={{ color: "var(--accent)" }} />
         <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text)" }}>快速任务</span>
         <span style={{ fontSize: 12, color: "var(--muted)", marginLeft: 4 }}>
@@ -507,37 +505,25 @@ function QuickTaskSection({ projects, agents }: { projects: any[]; agents: any[]
         disabled={submitting}
         rows={2}
       />
-      <div className="flex items-center gap-2 mt-2">
-        <button
-          type="button"
-          onClick={() => setExpanded(!expanded)}
-          className="button"
-          style={{ fontSize: 12, padding: "4px 10px" }}
-        >
-          {expanded ? "收起选项" : "选项"}
-        </button>
-        {expanded && (
-          <>
-            <CustomSelect
-              value={projectId}
-              onChange={setProjectId}
-              options={[
-                { value: "", label: "自动匹配项目" },
-                ...projects.map((p: any) => ({ value: p.id, label: p.name })),
-              ]}
-              style={{ width: 160, height: 28 }}
-            />
-            <CustomSelect
-              value={assigneeId}
-              onChange={setAssigneeId}
-              options={[
-                { value: "", label: "自动推荐 Agent" },
-                ...agents.map((a: any) => ({ value: a.id, label: `${a.name}${a.availability === 'online' ? '' : a.availability === 'busy' ? ' (忙碌)' : ' (离线)'}` })),
-              ]}
-              style={{ width: 160, height: 28 }}
-            />
-          </>
-        )}
+      <div className="flex items-center gap-2 mt-4">
+        <CustomSelect
+          value={projectId}
+          onChange={setProjectId}
+          options={[
+            { value: "", label: "自动匹配项目" },
+            ...projects.map((p: any) => ({ value: p.id, label: p.name })),
+          ]}
+          style={{ width: 160, height: 28 }}
+        />
+        <CustomSelect
+          value={assigneeId}
+          onChange={setAssigneeId}
+          options={[
+            { value: "", label: "自动推荐 Agent" },
+            ...agents.map((a: any) => ({ value: a.id, label: `${a.name}${a.availability === 'online' ? '' : a.availability === 'busy' ? ' (忙碌)' : ' (离线)'}` })),
+          ]}
+          style={{ width: 160, height: 28 }}
+        />
         <div style={{ flex: 1 }} />
         <button
           type="button"

@@ -373,7 +373,7 @@ export default function BlueprintStudio() {
                         {run.nodeRuns.map((nr: any) => (
                           <div key={nr.id} className="flex items-center gap-2 py-1.5 text-xs">
                             <span className={`status-pill ${nr.run ? `status-${nr.run.status === 'completed' ? 'succeeded' : nr.run.status}` : 'status-queued'}`}
-                              style={{ minHeight: 18, fontSize: 10 }}>
+                              style={{ minHeight: 18, fontSize: 12 }}>
                               {nr.run?.status === 'completed' ? '✓' : nr.run?.status === 'failed' ? '✗' : nr.run?.status === 'running' ? '…' : '○'}
                             </span>
                             <span style={{ color: "var(--text)" }}>{nr.name}</span>

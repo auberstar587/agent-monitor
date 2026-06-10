@@ -407,7 +407,7 @@ export default function Inbox() {
                           color: typeColor,
                           borderColor: typeColor,
                           background: "transparent",
-                          fontSize: 10,
+                          fontSize: 12,
                           padding: "1px 6px",
                         }}>
                           {TYPE_LABELS[item.type] || item.type}
@@ -433,7 +433,7 @@ export default function Inbox() {
                         {item.title}
                       </p>
                       {/* 第三行：来源 + 时间 */}
-                      <div className="flex items-center gap-3 mt-1" style={{ fontSize: 10, color: "var(--muted)" }}>
+                      <div className="flex items-center gap-3 mt-1" style={{ fontSize: 12, color: "var(--muted)" }}>
                         {proj && <span>📁 {proj.name}</span>}
                         {item.source && <span>{item.source}</span>}
                         <span style={{ marginLeft: "auto" }}>{relTime(item.created_at)}</span>
@@ -636,7 +636,7 @@ export default function Inbox() {
                             }}
                           >
                             {busy ? (
-                              <span className="mono" style={{ fontSize: 10 }}>...</span>
+                              <span className="mono" style={{ fontSize: 12 }}>...</span>
                             ) : (
                               <Icon size={13} />
                             )}
