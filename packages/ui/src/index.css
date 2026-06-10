@@ -1463,24 +1463,24 @@ code, pre, .mono {
 .agents-filters {
   display: flex;
   align-items: center;
-  gap: var(--space-1);;
-  padding: var(--space-1);;
+  gap: 2px;
+  padding: 4px 6px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   background: var(--bg-card);
 }
 .agents-filter-btn {
-  height: 26px;
-  padding: 0 var(--space-2);;
+  height: 30px;
+  padding: 0 12px;
   border: none;
   background: transparent;
   color: var(--muted);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.08em;
   font-family: 'JetBrains Mono', 'SF Mono', 'Menlo', monospace;
   cursor: pointer;
-  border-radius: 6px;
+  border-radius: 7px;
   transition: all var(--duration-fast) var(--ease);
 }
 .agents-filter-btn:hover { color: var(--text-secondary); }
@@ -2532,8 +2532,9 @@ code, pre, .mono {
   border: 1px solid var(--line);
   border-radius: var(--radius-lg);
   background: var(--bg-card);
-  overflow: hidden;
+  overflow: visible;
   box-shadow: var(--shadow-sm);
+  min-height: fit-content;
 }
 .projects-add-cell {
   display: flex;

@@ -15,7 +15,9 @@ const UNIT_LABEL: Record<number, string> = {
 function periodUnit(l: { unit: number; number: number }): string {
   // GLM 返回 unit=6(number=1) 表示"每1日"，但实际重置周期是7天=每周
   if (l.unit === 6 && l.number === 1) return "周";
-  return UNIT_LABEL[l.unit] ?? `unit=${l.unit}`;
+  const label = UNIT_LABEL[l.unit] ?? `unit=${l.unit}`;
+  // number > 1 时带上数字（如 "5小时"、"3天"）
+  return l.number > 1 ? `${l.number}${label}` : label;
 }
 
 function relMin(ms: number) {

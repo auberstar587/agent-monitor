@@ -6,7 +6,8 @@ import { createTask, listTasks, getTask, updateTask, transitionTask, deleteTask,
 import { queryOne, query } from "../db/client.js";
 import { getEngine } from "../adapters/registry.js";
 import { buildContext } from "../services/context-injector.js";
-import { listAgents } from "../services/agent-registry.js";
+import { buildProjectKnowledge } from "../services/project-knowledge.js";
+import { listAgents, getAgent } from "../services/agent-registry.js";
 import { listPresence } from "../services/presence-service.js";
 import { listProjects } from "../services/project-registry.js";
 import { loadConfig } from "../config.js";
@@ -587,6 +588,18 @@ export async function taskRoutes(fastify: FastifyInstance) {
       systemPrompt = executionGuidelines;
     }
 
+    // 7.7 注入项目领域知识（MEMORY.md / CLAUDE.md 等）
+    if (task.project_id) {
+      try {
+        const projectKnowledge = await buildProjectKnowledge(task.project_id);
+        if (projectKnowledge) {
+          systemPrompt = systemPrompt
+            ? `${systemPrompt}\n\n${projectKnowledge}`
+            : projectKnowledge;
+        }
+      } catch { /* 知识注入失败不阻塞执行 */ }
+    }
+
     // 8. 写入 execution_traces 起始记录（task_id 是 UNIQUE，使用 ON CONFLICT 幂等）
     let traceId: string | null = null;
     let executionSessionId: string | null = null;
@@ -904,6 +917,21 @@ export async function taskRoutes(fastify: FastifyInstance) {
 
     // 4. 推荐引擎
     let recommendedEngine: { id: string; label: string; installed: boolean; reason: string } | null = null;
+    // 4a. 用户手动选了 agent → 从 agent 的 engine_id 取引擎
+    if (body.assignee_id && !recommendedEngine) {
+      const agent = await getAgent(body.assignee_id);
+      if (agent?.engine_id) {
+        const eng = await getEngine(agent.engine_id);
+        if (eng?.installed) {
+          recommendedEngine = {
+            id: eng.id,
+            label: eng.label,
+            installed: true,
+            reason: `用户选择的 Agent 使用的引擎`,
+          };
+        }
+      }
+    }
     if (autoAssigned && recommendedAgents[0]?.engine_id) {
       const eng = await getEngine(recommendedAgents[0].engine_id);
       if (eng) {

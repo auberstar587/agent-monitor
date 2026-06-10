@@ -106,18 +106,19 @@ export async function createClaudeCodeAdapter(
         const args: string[] = [
           '--print',
           '--output-format', 'stream-json',
+          '--input-format', 'stream-json',
+          '--dangerously-skip-permissions',
           '--verbose',
           ...(resumeSessionId ? ['--resume', resumeSessionId] : []),
           ...(explicitModel ? ['--model', explicitModel] : []),
           ...(systemPrompt ? ['--append-system-prompt', systemPrompt] : []),
           ...extraArgs,
-          prompt,
         ];
 
         const child = spawn(claudePath, args, {
           cwd: workingDir,
           env: process.env,
-          stdio: ['ignore', 'pipe', 'pipe'],
+          stdio: ['pipe', 'pipe', 'pipe'],
         });
         // 检查是否已被 pre-spawn cancel
         if (!_runningChildren.has(runId)) {
@@ -126,6 +127,14 @@ export async function createClaudeCodeAdapter(
           return; // 不 yield 任何东西，generator 结束
         }
         _runningChildren.set(runId, child);
+
+        // Send initial prompt via stdin (stream-json protocol)
+        const stdinPayload = JSON.stringify({
+          type: "user",
+          message: { role: "user", content: prompt },
+        }) + '\n';
+        child.stdin!.write(stdinPayload);
+        // Don't end stdin - keep it open for potential future messages (auto-reply fallback)
 
         // 解析 stream-json：每行一个 JSON 事件
         const rl = createInterface({ input: child.stdout! });
@@ -234,6 +243,25 @@ export async function createClaudeCodeAdapter(
         console.error(`[ClaudeCodeAdapter] cancel error: ${err?.message}`);
       } finally {
         _runningChildren.delete(runId);
+      }
+    },
+
+    /**
+     * Send a user message to a running agent via stdin.
+     * Used for auto-reply fallback when agent asks questions.
+     */
+    async sendUserMessage(runId: string, text: string): Promise<boolean> {
+      const child = _runningChildren.get(runId);
+      if (!child || child === null) return false;
+      try {
+        const payload = JSON.stringify({
+          type: "user",
+          message: { role: "user", content: text },
+        }) + '\n';
+        child.stdin!.write(payload);
+        return true;
+      } catch {
+        return false;
       }
     },
 
